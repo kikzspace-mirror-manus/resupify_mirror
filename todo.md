@@ -196,3 +196,20 @@
 - [x] Update EvidenceTab UI: show 4-component breakdown with counts (matched/partial/missing)
 - [x] Backward compat: if no requirements, show "Extract requirements first" with link to JD Snapshot tab
 - [x] Tests: A-F (16 tests) — requirements-driven scan, strict template, pack-weighted scoring, COOP eligibility risk, NEW_GRAD mismatch, credits unchanged
+
+## Patch 6E: Application Kit (Scan → Fix → Apply)
+- [x] Add application_kits table to drizzle/schema.ts (id, jobCardId, resumeId, evidenceRunId, regionCode, trackCode, tone enum, topChangesJson, bulletRewritesJson, coverLetterText, createdAt)
+- [x] Push schema migration (0007)
+- [x] Add db helpers: getApplicationKit, upsertApplicationKit, getLatestApplicationKit
+- [x] Add applicationKits tRPC router: get, generate, createTasks
+- [x] generate: Option A credit policy (free if EvidenceRun exists for jobcard+resume)
+- [x] generate: fetch EvidenceItems, prioritize missing/partial for top_changes
+- [x] generate: single LLM call → top_changes_json, bullet_rewrites_json, cover_letter_text
+- [x] generate: guardrail — no invented facts, needs_confirmation on items without proof
+- [x] createTasks: add "Update resume bullets", "Generate/Review cover letter", "Submit application" tasks (no duplicates)
+- [x] Add Application Kit tab to JobCardDetail.tsx (header with resume+run info, tone selector, Generate/Regenerate button)
+- [x] Top changes section (3-5 items with status badge + fix text)
+- [x] Bullet rewrites section grouped by type with Copy buttons + needs_confirmation badge
+- [x] Cover letter section with Copy button
+- [x] Backward-compat: show CTA if no requirements or no EvidenceRun
+- [x] Tests: A-G (9 tests) — get null, no-requirements guard, no-run guard, full generation, needs_confirmation, createTasks dedup, follow-up only when applied, Option A credit policy, tone persistence

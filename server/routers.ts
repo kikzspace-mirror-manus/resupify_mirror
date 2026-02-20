@@ -1032,6 +1032,240 @@ export const appRouter = router({
       return { jobStats, weeklyApps, taskCompletion };
     }),
   }),
+
+  // ─── Application Kits ─────────────────────────────────────────────
+  applicationKits: router({
+    // Get the latest kit for a job card (any tone)
+    get: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+      resumeId: z.number(),
+      evidenceRunId: z.number(),
+    })).query(async ({ input }) => {
+      return db.getApplicationKit(input.jobCardId, input.resumeId, input.evidenceRunId);
+    }),
+
+    // Generate (or regenerate) an Application Kit
+    // Option A: free if a completed EvidenceRun already exists for this jobcard+resume
+    generate: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+      resumeId: z.number(),
+      evidenceRunId: z.number(),
+      tone: z.enum(["Human", "Confident", "Warm", "Direct"]).default("Human"),
+    })).mutation(async ({ ctx, input }) => {
+      // ── Option A: verify a completed EvidenceRun exists (no extra credit charge) ──
+      const evidenceRuns = await db.getEvidenceRuns(input.jobCardId);
+      const validRun = evidenceRuns.find(
+        (r) => r.id === input.evidenceRunId && r.status === "completed" && r.resumeId === input.resumeId
+      );
+      if (!validRun) {
+        throw new Error(
+          "NO_EVIDENCE_RUN: Run Evidence+ATS scan first. Application Kit is included with a completed scan."
+        );
+      }
+
+      // ── Fetch requirements ──────────────────────────────────────────
+      const requirements = await db.getRequirements(input.jobCardId);
+      if (requirements.length === 0) {
+        throw new Error(
+          "NO_REQUIREMENTS: Extract requirements first from the JD Snapshot tab."
+        );
+      }
+
+      // ── Fetch evidence items for this run ───────────────────────────
+      const allItems = await db.getEvidenceItems(input.evidenceRunId);
+      if (allItems.length === 0) {
+        throw new Error("No evidence items found for this run. Please re-run the Evidence Scan.");
+      }
+
+      // ── Fetch resume + job card + profile ───────────────────────────
+      const resume = await db.getResumeById(input.resumeId, ctx.user.id);
+      if (!resume) throw new Error("Resume not found.");
+
+      const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
+      if (!jobCard) throw new Error("Job card not found.");
+
+      const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
+      const profile = await db.getProfile(ctx.user.id);
+      const regionCode = profile?.regionCode ?? "CA";
+      const trackCode = profile?.trackCode ?? "NEW_GRAD";
+      const pack = getRegionPack(regionCode, trackCode);
+
+      // ── Prioritize missing/partial items for top changes ────────────
+      const typeWeight: Record<string, number> = {
+        eligibility: 4, tools: 3, responsibilities: 3, skills: 2, soft_skills: 1,
+      };
+      const prioritized = [...allItems]
+        .filter((i) => i.status === "missing" || i.status === "partial")
+        .sort((a, b) => {
+          const statusWeight = (s: string) => s === "missing" ? 2 : 1;
+          const wa = statusWeight(a.status) * (typeWeight[a.groupType] ?? 1);
+          const wb = statusWeight(b.status) * (typeWeight[b.groupType] ?? 1);
+          return wb - wa;
+        });
+
+      const topChangesItems = prioritized.slice(0, 5);
+      const bulletItems = prioritized.slice(0, 15); // up to 15 for rewrites
+
+      // ── Build LLM prompt ────────────────────────────────────────────
+      const toneInstructions: Record<string, string> = {
+        Human: "Write in a natural, conversational tone. Avoid corporate jargon.",
+        Confident: "Write assertively. Use strong action verbs and quantify achievements.",
+        Warm: "Write with warmth and enthusiasm. Show genuine interest in the company.",
+        Direct: "Write concisely. No fluff. Every sentence must add value.",
+      };
+
+      const itemsForPrompt = bulletItems.map((item, i) =>
+        `${i + 1}. [${item.groupType}] ${item.jdRequirement}\n   proof: ${item.resumeProof ?? "none"}\n   fix: ${item.fix}`
+      ).join("\n");
+
+      const topChangesForPrompt = topChangesItems.map((item, i) =>
+        `${i + 1}. [${item.status.toUpperCase()}] ${item.jdRequirement} — ${item.fix}`
+      ).join("\n");
+
+      const llmResult = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: [
+              `You are an expert career coach for ${pack.label} job applications.`,
+              `Tone instruction: ${toneInstructions[input.tone] ?? toneInstructions.Human}`,
+              `RULES:`,
+              `- NEVER invent facts not present in the resume proof snippets.`,
+              `- If a bullet rewrite introduces a claim not in the proof, set needs_confirmation=true.`,
+              `- Cover letter: ~200-300 words, no fake addresses, no overly formal fluff.`,
+              `- Cover letter must reference specific evidence from the resume proof snippets.`,
+              `- top_changes: exactly ${Math.min(topChangesItems.length, 5)} items from the provided list.`,
+              `- bullet_rewrites: one entry per item in the provided list.`,
+            ].join("\n"),
+          },
+          {
+            role: "user",
+            content: [
+              `JOB: ${jobCard.title ?? "Software Engineer"} at ${jobCard.company ?? "the company"}`,
+              jobCard.location ? `Location: ${jobCard.location}` : "",
+              jdSnapshot ? `JD EXCERPT: ${jdSnapshot.snapshotText.substring(0, 1500)}` : "",
+              ``,
+              `TOP CHANGES TO ADDRESS (${topChangesItems.length} items):`,
+              topChangesForPrompt,
+              ``,
+              `ITEMS FOR BULLET REWRITES (${bulletItems.length} items):`,
+              itemsForPrompt,
+              ``,
+              `RESUME EXCERPT (first 2000 chars):`,
+              resume.content.substring(0, 2000),
+            ].filter(Boolean).join("\n"),
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "application_kit",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                top_changes: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      requirement_text: { type: "string" },
+                      status: { type: "string", enum: ["missing", "partial"] },
+                      fix: { type: "string" },
+                    },
+                    required: ["requirement_text", "status", "fix"],
+                    additionalProperties: false,
+                  },
+                },
+                bullet_rewrites: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      requirement_text: { type: "string" },
+                      status: { type: "string", enum: ["missing", "partial"] },
+                      fix: { type: "string" },
+                      rewrite_a: { type: "string" },
+                      rewrite_b: { type: "string" },
+                      needs_confirmation: { type: "boolean" },
+                    },
+                    required: ["requirement_text", "status", "fix", "rewrite_a", "rewrite_b", "needs_confirmation"],
+                    additionalProperties: false,
+                  },
+                },
+                cover_letter_text: { type: "string" },
+              },
+              required: ["top_changes", "bullet_rewrites", "cover_letter_text"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      const content = llmResult.choices[0]?.message?.content;
+      if (!content) throw new Error("LLM returned no content.");
+      const parsed = JSON.parse(typeof content === "string" ? content : "{}");
+
+      // ── Persist kit ─────────────────────────────────────────────────
+      const kitId = await db.upsertApplicationKit({
+        jobCardId: input.jobCardId,
+        resumeId: input.resumeId,
+        evidenceRunId: input.evidenceRunId,
+        regionCode,
+        trackCode,
+        tone: input.tone,
+        topChangesJson: JSON.stringify(parsed.top_changes ?? []),
+        bulletRewritesJson: JSON.stringify(parsed.bullet_rewrites ?? []),
+        coverLetterText: parsed.cover_letter_text ?? "",
+      });
+
+      return {
+        kitId,
+        topChanges: parsed.top_changes ?? [],
+        bulletRewrites: parsed.bullet_rewrites ?? [],
+        coverLetterText: parsed.cover_letter_text ?? "",
+      };
+    }),
+
+    // Create checklist tasks from the kit (no duplicates)
+    createTasks: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
+      if (!jobCard) throw new Error("Job card not found.");
+
+      // Fetch existing tasks to avoid duplicates
+      const existingTasks = await db.getTasks(ctx.user.id, { jobCardId: input.jobCardId });
+      const existingTitles = new Set(existingTasks.map((t) => t.title));
+
+      const tasksToCreate: Array<{ title: string; taskType: string }> = [
+        { title: "Update resume bullets", taskType: "custom" },
+        { title: "Generate/Review cover letter", taskType: "custom" },
+        { title: "Submit application", taskType: "apply" },
+      ];
+
+      // Only add follow-up task if already applied
+      if (jobCard.stage === "applied") {
+        tasksToCreate.push({ title: "Follow up on application", taskType: "follow_up" });
+      }
+
+      let created = 0;
+      for (const task of tasksToCreate) {
+        if (!existingTitles.has(task.title)) {
+          await db.createTask({
+            userId: ctx.user.id,
+            jobCardId: input.jobCardId,
+            title: task.title,
+            taskType: task.taskType,
+            dueDate: new Date(),
+          } as any);
+          created++;
+        }
+      }
+
+      return { created, skipped: tasksToCreate.length - created };
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

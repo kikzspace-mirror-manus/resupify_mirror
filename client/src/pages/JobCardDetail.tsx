@@ -188,7 +188,7 @@ export default function JobCardDetail({ id }: { id: number }) {
 
         {/* Application Kit Tab */}
         <TabsContent value="kit" className="space-y-4 mt-4">
-          <ApplicationKitTab jobCardId={id} job={job} outreachPack={outreachPack} />
+          <ApplicationKitTab jobCardId={id} job={job} resumes={resumes ?? []} evidenceRuns={evidenceRuns ?? []} />
         </TabsContent>
 
         {/* Outreach Tab */}
@@ -732,77 +732,252 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
 }
 
 // ─── Application Kit Tab ─────────────────────────────────────────────
-function ApplicationKitTab({ jobCardId, job, outreachPack }: { jobCardId: number; job: any; outreachPack: any }) {
-  const { data: latestRun } = trpc.evidence.runs.useQuery({ jobCardId });
-  const latestCompleted = latestRun?.find((r) => r.status === "completed");
-  const { data: evidenceItems } = trpc.evidence.items.useQuery(
-    { evidenceRunId: latestCompleted?.id! },
-    { enabled: !!latestCompleted }
-  );
+const TONES = ["Human", "Confident", "Warm", "Direct"] as const;
+type Tone = typeof TONES[number];
+const TONE_DESCRIPTIONS: Record<Tone, string> = {
+  Human: "Natural",
+  Confident: "Assertive",
+  Warm: "Enthusiastic",
+  Direct: "Concise",
+};
 
-  const missingItems = evidenceItems?.filter((i: any) => i.status === "missing") ?? [];
-  const partialItems = evidenceItems?.filter((i: any) => i.status === "partial") ?? [];
+function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
+  jobCardId: number;
+  job: any;
+  resumes: any[];
+  evidenceRuns: any[];
+}) {
+  const utils = trpc.useUtils();
+  const completedRuns = evidenceRuns.filter((r) => r.status === "completed");
+  const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(completedRuns[0]?.id ?? null);
+  const [tone, setTone] = useState<Tone>("Human");
+  const selectedRun = completedRuns.find((r) => r.id === selectedRunId);
+  const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
+  const hasRequirements = (requirements?.length ?? 0) > 0;
+  const { data: existingKit, refetch: refetchKit } = trpc.applicationKits.get.useQuery(
+    { jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId! },
+    { enabled: !!selectedResumeId && !!selectedRunId }
+  );
+  const generateKit = trpc.applicationKits.generate.useMutation({
+    onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); },
+    onError: (error) => {
+      if (error.message.includes("NO_EVIDENCE_RUN")) toast.error("Run Evidence+ATS scan first.");
+      else if (error.message.includes("NO_REQUIREMENTS")) toast.error("Extract requirements from JD Snapshot tab first.");
+      else toast.error(error.message);
+    },
+  });
+  const createTasks = trpc.applicationKits.createTasks.useMutation({
+    onSuccess: (data) => {
+      utils.tasks.list.invalidate({ jobCardId });
+      utils.tasks.today.invalidate();
+      if (data.created > 0) toast.success(`${data.created} task${data.created > 1 ? "s" : ""} created!`);
+      else toast.info("All tasks already exist.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const topChanges: Array<{ requirement_text: string; status: string; fix: string }> = (() => {
+    if (!existingKit?.topChangesJson) return [];
+    try { return JSON.parse(existingKit.topChangesJson); } catch { return []; }
+  })();
+  const bulletRewrites: Array<{ requirement_text: string; status: string; fix: string; rewrite_a: string; rewrite_b: string; needs_confirmation: boolean }> = (() => {
+    if (!existingKit?.bulletRewritesJson) return [];
+    try { return JSON.parse(existingKit.bulletRewritesJson); } catch { return []; }
+  })();
+  const coverLetterText = existingKit?.coverLetterText ?? "";
+  const missingRewrites = bulletRewrites.filter((r) => r.status === "missing");
+  const partialRewrites = bulletRewrites.filter((r) => r.status === "partial");
+  const noRun = completedRuns.length === 0;
 
   return (
     <div className="space-y-4">
+      {/* Backward-compat warnings */}
+      {!hasRequirements && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Requirements not extracted yet</p>
+            <p className="text-xs text-amber-700 mt-1">Go to the <strong>JD Snapshot</strong> tab and click <strong>Extract Requirements</strong> first.</p>
+          </div>
+        </div>
+      )}
+      {hasRequirements && noRun && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
+          <Target className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-blue-800">No Evidence Scan yet</p>
+            <p className="text-xs text-blue-700 mt-1">Go to the <strong>Evidence Map</strong> tab and run a scan first. Application Kit is included free with a completed scan.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Header card */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Application Kit for {job.title}</CardTitle>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Package className="h-4 w-4" />Application Kit
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {latestCompleted ? (
-            <>
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-sm font-medium">ATS Score: {latestCompleted.overallScore}%</p>
-                <p className="text-xs text-muted-foreground mt-1">{latestCompleted.summary}</p>
-              </div>
-
-              {missingItems.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 text-red-600">Resume Gaps to Address ({missingItems.length})</h4>
-                  <div className="space-y-2">
-                    {missingItems.map((item: any) => (
-                      <div key={item.id} className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm">
-                        <p className="font-medium">{item.jdRequirement}</p>
-                        <p className="text-muted-foreground mt-1">Suggested: {item.rewriteA}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {partialItems.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 text-amber-600">Partial Matches to Strengthen ({partialItems.length})</h4>
-                  <div className="space-y-2">
-                    {partialItems.map((item: any) => (
-                      <div key={item.id} className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
-                        <p className="font-medium">{item.jdRequirement}</p>
-                        <p className="text-muted-foreground mt-1">Current: {item.resumeProof}</p>
-                        <p className="text-muted-foreground">Improve to: {item.rewriteA}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-6 text-muted-foreground">
-              <p className="text-sm">Run an Evidence+ATS scan first to generate your Application Kit.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Resume</Label>
+              <Select value={selectedResumeId?.toString() ?? ""} onValueChange={(v) => setSelectedResumeId(Number(v))}>
+                <SelectTrigger className="text-xs"><SelectValue placeholder="Choose resume..." /></SelectTrigger>
+                <SelectContent>
+                  {resumes.map((r) => (<SelectItem key={r.id} value={r.id.toString()}>{r.title}</SelectItem>))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-
-          {outreachPack && (
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Outreach Pack</h4>
-              <div className="grid gap-2">
-                <CopyBlock label="Recruiter Email" content={outreachPack.recruiterEmail} />
-                <CopyBlock label="LinkedIn DM" content={outreachPack.linkedinDm} />
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Evidence Run</Label>
+              <Select value={selectedRunId?.toString() ?? ""} onValueChange={(v) => setSelectedRunId(Number(v))}>
+                <SelectTrigger className="text-xs"><SelectValue placeholder="Choose run..." /></SelectTrigger>
+                <SelectContent>
+                  {completedRuns.map((r) => (
+                    <SelectItem key={r.id} value={r.id.toString()}>Run #{r.id} — {r.overallScore}% — {new Date(r.createdAt).toLocaleDateString()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tone</Label>
+            <div className="flex gap-2 flex-wrap">
+              {TONES.map((t) => (
+                <button key={t} onClick={() => setTone(t)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${tone === t ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}`}>
+                  {t} <span className="ml-1 text-[10px] opacity-70">— {TONE_DESCRIPTIONS[t]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              {selectedRun && <span>Run #{selectedRun.id} ({selectedRun.overallScore}%) • {new Date(selectedRun.createdAt).toLocaleDateString()}</span>}
+            </div>
+            <Button
+              onClick={() => {
+                if (!selectedResumeId) { toast.error("Select a resume first."); return; }
+                if (!selectedRunId) { toast.error("Select an evidence run first."); return; }
+                generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
+              }}
+              disabled={generateKit.isPending || !hasRequirements || noRun}
+            >
+              {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating...</> : existingKit ? <><Sparkles className="h-4 w-4 mr-1.5" />Regenerate Kit</> : <><Sparkles className="h-4 w-4 mr-1.5" />Generate Kit</>}
+            </Button>
+          </div>
+          {existingKit && (
+            <p className="text-xs text-muted-foreground">Generated {new Date(existingKit.createdAt).toLocaleString()} • Tone: {existingKit.tone} • Included free with Evidence Scan</p>
           )}
         </CardContent>
       </Card>
+
+      {/* Kit content */}
+      {existingKit && (
+        <>
+          {topChanges.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Top Changes ({topChanges.length})</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => createTasks.mutate({ jobCardId })} disabled={createTasks.isPending}>
+                    {createTasks.isPending ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Creating...</> : <><CheckSquare className="h-3.5 w-3.5 mr-1.5" />Create Tasks</>}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {topChanges.map((change, i) => (
+                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${change.status === "missing" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                    <Badge variant={change.status === "missing" ? "destructive" : "secondary"} className="text-xs mt-0.5 shrink-0">{change.status}</Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{change.requirement_text}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{change.fix}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {bulletRewrites.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Bullet Rewrites ({bulletRewrites.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {missingRewrites.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">Missing — Add to resume</p>
+                    <div className="space-y-3">
+                      {missingRewrites.map((item, i) => (
+                        <div key={i} className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-medium flex-1">{item.requirement_text}</p>
+                            {item.needs_confirmation && <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 shrink-0"><AlertTriangle className="h-3 w-3 mr-1" />Needs confirmation</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{item.fix}</p>
+                          {[item.rewrite_a, item.rewrite_b].map((rw, ri) => (
+                            <div key={ri} className="flex items-start gap-2">
+                              <p className="text-xs flex-1 bg-white rounded p-2 border">{rw}</p>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => { navigator.clipboard.writeText(rw); toast.success("Copied!"); }}><Copy className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {partialRewrites.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Partial — Strengthen existing bullets</p>
+                    <div className="space-y-3">
+                      {partialRewrites.map((item, i) => (
+                        <div key={i} className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-medium flex-1">{item.requirement_text}</p>
+                            {item.needs_confirmation && <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 shrink-0"><AlertTriangle className="h-3 w-3 mr-1" />Needs confirmation</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{item.fix}</p>
+                          {[item.rewrite_a, item.rewrite_b].map((rw, ri) => (
+                            <div key={ri} className="flex items-start gap-2">
+                              <p className="text-xs flex-1 bg-white rounded p-2 border">{rw}</p>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => { navigator.clipboard.writeText(rw); toast.success("Copied!"); }}><Copy className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {coverLetterText && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold">Cover Letter Draft</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(coverLetterText); toast.success("Cover letter copied!"); }}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm whitespace-pre-wrap rounded-lg bg-muted/30 p-4 border">{coverLetterText}</div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!existingKit && !generateKit.isPending && hasRequirements && !noRun && (
+        <div className="text-center py-8 text-muted-foreground">
+          <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+          <p className="text-sm">Select a resume and evidence run, then click Generate Kit.</p>
+          <p className="text-xs mt-1">Application Kit is included free with a completed Evidence Scan.</p>
+        </div>
+      )}
     </div>
   );
 }

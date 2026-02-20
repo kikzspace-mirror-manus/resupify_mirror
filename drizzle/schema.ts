@@ -268,3 +268,21 @@ export const adminActionLogs = mysqlTable("admin_action_logs", {
 
 export type AdminActionLog = typeof adminActionLogs.$inferSelect;
 export type InsertAdminActionLog = typeof adminActionLogs.$inferInsert;
+
+// ─── Application Kits ────────────────────────────────────────────────
+export const applicationKits = mysqlTable("application_kits", {
+  id: int("id").autoincrement().primaryKey(),
+  jobCardId: int("jobCardId").notNull(),
+  resumeId: int("resumeId").notNull(),
+  evidenceRunId: int("evidenceRunId").notNull(),
+  regionCode: varchar("regionCode", { length: 16 }).notNull(),
+  trackCode: varchar("trackCode", { length: 16 }).notNull(),
+  tone: mysqlEnum("tone", ["Human", "Confident", "Warm", "Direct"]).notNull().default("Human"),
+  topChangesJson: text("topChangesJson"),   // JSON: [{requirement_text, status, fix}]
+  bulletRewritesJson: text("bulletRewritesJson"), // JSON: [{requirement_text, status, fix, rewrite_a, rewrite_b, needs_confirmation}]
+  coverLetterText: text("coverLetterText"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ApplicationKit = typeof applicationKits.$inferSelect;
+export type InsertApplicationKit = typeof applicationKits.$inferInsert;

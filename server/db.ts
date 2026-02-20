@@ -14,6 +14,7 @@ import {
   outreachThreads, outreachMessages, outreachPacks,
   adminActionLogs, InsertAdminActionLog,
   jobCardRequirements, InsertJobCardRequirement,
+  applicationKits, InsertApplicationKit,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -661,4 +662,73 @@ export async function upsertRequirements(
     requirementType: item.requirementType,
   }));
   await db.insert(jobCardRequirements).values(rows);
+}
+
+// ─── Application Kits ────────────────────────────────────────────────
+export async function getApplicationKit(jobCardId: number, resumeId: number, evidenceRunId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(applicationKits)
+    .where(
+      and(
+        eq(applicationKits.jobCardId, jobCardId),
+        eq(applicationKits.resumeId, resumeId),
+        eq(applicationKits.evidenceRunId, evidenceRunId),
+      )
+    )
+    .orderBy(desc(applicationKits.createdAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function upsertApplicationKit(
+  data: InsertApplicationKit & { id?: number }
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  // Check for existing kit for same jobcard+resume+evidenceRun+tone
+  const existing = await db.select({ id: applicationKits.id })
+    .from(applicationKits)
+    .where(
+      and(
+        eq(applicationKits.jobCardId, data.jobCardId),
+        eq(applicationKits.resumeId, data.resumeId),
+        eq(applicationKits.evidenceRunId, data.evidenceRunId),
+        eq(applicationKits.tone, data.tone as "Human" | "Confident" | "Warm" | "Direct"),
+      )
+    )
+    .limit(1);
+  if (existing.length > 0) {
+    await db.update(applicationKits)
+      .set({
+        topChangesJson: data.topChangesJson,
+        bulletRewritesJson: data.bulletRewritesJson,
+        coverLetterText: data.coverLetterText,
+        createdAt: new Date(),
+      })
+      .where(eq(applicationKits.id, existing[0].id));
+    return existing[0].id;
+  }
+  const result = await db.insert(applicationKits).values({
+    jobCardId: data.jobCardId,
+    resumeId: data.resumeId,
+    evidenceRunId: data.evidenceRunId,
+    regionCode: data.regionCode,
+    trackCode: data.trackCode,
+    tone: data.tone,
+    topChangesJson: data.topChangesJson,
+    bulletRewritesJson: data.bulletRewritesJson,
+    coverLetterText: data.coverLetterText,
+  });
+  return (result as any)[0]?.insertId ?? 0;
+}
+
+export async function getLatestApplicationKit(jobCardId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(applicationKits)
+    .where(eq(applicationKits.jobCardId, jobCardId))
+    .orderBy(desc(applicationKits.createdAt))
+    .limit(1);
+  return rows[0] ?? null;
 }
