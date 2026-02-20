@@ -10,6 +10,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Send,
+  MailCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,6 +36,15 @@ export default function Today() {
       utils.tasks.today.invalidate();
       utils.tasks.list.invalidate();
     },
+  });
+  const markSent = trpc.tasks.markSent.useMutation({
+    onSuccess: () => {
+      utils.tasks.today.invalidate();
+      utils.tasks.list.invalidate();
+      utils.jobCards.list.invalidate();
+      toast.success("Follow-up marked as sent!");
+    },
+    onError: (err) => toast.error(err.message),
   });
   const createTask = trpc.tasks.create.useMutation({
     onSuccess: () => {
@@ -107,6 +118,7 @@ export default function Today() {
                   task={task}
                   onToggle={handleToggle}
                   onNavigate={setLocation}
+                  onMarkSent={markSent.isPending ? undefined : (id) => markSent.mutate({ id })}
                   isOverdue
                 />
               ))}
@@ -138,6 +150,7 @@ export default function Today() {
                   task={task}
                   onToggle={handleToggle}
                   onNavigate={setLocation}
+                  onMarkSent={markSent.isPending ? undefined : (id) => markSent.mutate({ id })}
                 />
               ))}
             </div>
@@ -158,11 +171,13 @@ function TaskItem({
   task,
   onToggle,
   onNavigate,
+  onMarkSent,
   isOverdue,
 }: {
   task: any;
   onToggle: (id: number, completed: boolean) => void;
   onNavigate: (path: string) => void;
+  onMarkSent?: (id: number) => void;
   isOverdue?: boolean;
 }) {
   return (
@@ -198,23 +213,37 @@ function TaskItem({
           )}
         </div>
       </div>
-      <Badge
-        className={`text-xs shrink-0 ${
-          taskTypeColors[task.taskType ?? "custom"] ?? taskTypeColors.custom
-        }`}
-      >
-        {(task.taskType ?? "custom").replace("_", " ")}
-      </Badge>
-      {task.jobCardId && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs shrink-0"
-          onClick={() => onNavigate(`/jobs/${task.jobCardId}`)}
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge
+          className={`text-xs ${
+            taskTypeColors[task.taskType ?? "custom"] ?? taskTypeColors.custom
+          }`}
         >
-          View Job
-        </Button>
-      )}
+          {(task.taskType ?? "custom").replace("_", " ")}
+        </Badge>
+        {/* Mark as sent: only for incomplete follow_up tasks */}
+        {task.taskType === "follow_up" && !task.completed && onMarkSent && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-7 px-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            onClick={() => onMarkSent(task.id)}
+          >
+            <Send className="h-3 w-3 mr-1" />
+            Mark as sent
+          </Button>
+        )}
+        {task.jobCardId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => onNavigate(`/jobs/${task.jobCardId}`)}
+          >
+            View Job
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -142,3 +142,12 @@
 - [x] Render color-coded badge in list view rows (green/amber/red)
 - [x] Render color-coded badge in kanban card tiles
 - [x] Tests: 3 tasks shows earliest; completed ignored; no tasks = no badge; overdue = red
+
+## Patch: Mark as Sent (Follow-up Tasks)
+- [x] Add sentAt (timestamp, nullable) to tasks schema
+- [x] Push schema migration
+- [x] Add tasks.markSent tRPC mutation (sets completed=true, sentAt=now)
+- [x] Show "Mark as sent" button on follow_up tasks with status=todo in Tasks tab
+- [x] Show "Mark as sent" button on follow_up tasks in Today page
+- [x] Show "Sent {date}" label on completed follow_up tasks with sentAt
+- [x] Tests: A) button shown for todo followup, B) click completes with sentAt, C) non-followup no button, D) already done no button

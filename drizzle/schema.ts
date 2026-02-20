@@ -173,6 +173,8 @@ export const tasks = mysqlTable("tasks", {
   completed: boolean("completed").default(false),
   dueDate: timestamp("dueDate"),
   completedAt: timestamp("completedAt"),
+  /** Set when user clicks "Mark as sent" on a follow_up task. Null for non-followup tasks. */
+  sentAt: timestamp("sentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

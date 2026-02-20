@@ -31,6 +31,8 @@ import {
   Copy,
   ExternalLink,
   Plus,
+  Send,
+  MailCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -700,6 +702,17 @@ function TasksTab({ jobCardId, jobStage, tasks, updateTask, createTask }: { jobC
   const [newTitle, setNewTitle] = useState("");
   const utils = trpc.useUtils();
 
+  const markSent = trpc.tasks.markSent.useMutation({
+    onSuccess: () => {
+      utils.tasks.list.invalidate({ jobCardId });
+      utils.tasks.today.invalidate();
+      // Invalidate job cards list so the follow-up badge shifts to the next slot
+      utils.jobCards.list.invalidate();
+      toast.success("Follow-up marked as sent!");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const ensureFollowUps = trpc.tasks.ensureFollowUps.useMutation({
     onSuccess: () => {
       utils.tasks.list.invalidate({ jobCardId });
@@ -747,10 +760,31 @@ function TasksTab({ jobCardId, jobStage, tasks, updateTask, createTask }: { jobC
                   <Clock className="h-3 w-3" />{new Date(task.dueDate).toLocaleDateString()}
                 </p>
               )}
+              {/* Show "Sent {date}" label for completed follow_up tasks that have sentAt */}
+              {task.taskType === "follow_up" && task.completed && task.sentAt && (
+                <p className="text-xs text-emerald-600 flex items-center gap-1 mt-0.5">
+                  <MailCheck className="h-3 w-3" />Sent {new Date(task.sentAt).toLocaleDateString()}
+                </p>
+              )}
             </div>
-            <Badge variant="secondary" className="text-xs shrink-0">
-              {(task.taskType ?? "custom").replace("_", " ")}
-            </Badge>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* "Mark as sent" button: only for incomplete follow_up tasks */}
+              {task.taskType === "follow_up" && !task.completed && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 px-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  onClick={() => markSent.mutate({ id: task.id })}
+                  disabled={markSent.isPending}
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  Mark as sent
+                </Button>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                {(task.taskType ?? "custom").replace("_", " ")}
+              </Badge>
+            </div>
           </div>
         ))}
         {tasks.length === 0 && (

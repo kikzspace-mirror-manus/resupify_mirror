@@ -591,6 +591,23 @@ Return a JSON object with:
       await ensureFollowUps(ctx.user.id, input.jobCardId, appliedAt);
       return { success: true };
     }),
+    /**
+     * Mark a follow_up task as sent.
+     * - Sets completed = true, completedAt = now, sentAt = now.
+     * - Only works for tasks owned by the current user.
+     * - Safe to call on any task type; sentAt is only meaningful for follow_up.
+     */
+    markSent: protectedProcedure.input(z.object({
+      id: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      const now = new Date();
+      await db.updateTask(input.id, ctx.user.id, {
+        completed: true,
+        completedAt: now,
+        sentAt: now,
+      } as any);
+      return { success: true, sentAt: now };
+    }),
   }),
 
   // ─── Contacts ─────────────────────────────────────────────────────
