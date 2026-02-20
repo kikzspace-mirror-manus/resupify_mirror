@@ -5,6 +5,11 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import HowItWorks from "./pages/HowItWorks";
+import Pricing from "./pages/Pricing";
+import Trust from "./pages/Trust";
+import FAQ from "./pages/FAQ";
+import Contact from "./pages/Contact";
 import DashboardLayout from "./components/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Today from "./pages/Today";
@@ -27,8 +32,18 @@ function DashboardRoute({ component: Component }: { component: React.ComponentTy
 function Router() {
   return (
     <Switch>
+      {/* Public marketing pages */}
       <Route path="/" component={Home} />
+      <Route path="/how-it-works" component={HowItWorks} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/trust" component={Trust} />
+      <Route path="/faq" component={FAQ} />
+      <Route path="/contact" component={Contact} />
+
+      {/* Onboarding */}
       <Route path="/onboarding" component={Onboarding} />
+
+      {/* Protected app pages */}
       <Route path="/dashboard">
         <DashboardRoute component={Dashboard} />
       </Route>
@@ -57,6 +72,7 @@ function Router() {
       <Route path="/billing">
         <DashboardRoute component={Billing} />
       </Route>
+
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

@@ -81,3 +81,14 @@
 
 ## Testing
 - [x] Vitest tests (47 tests passing)
+
+## Public Marketing Pages (V1 Copy)
+- [x] Public nav bar (How it works, Pricing, Trust, FAQ, Contact, Try free CTA)
+- [x] Home landing page (hero, outcome bullets, 3 feature cards, how-it-works steps, evidence example, trust section, final CTA)
+- [x] How It Works page (5 sections: Job Card, JD Snapshot, Evidence Map, Explainable Score, Follow-through)
+- [x] Pricing page (Free tier, Credits breakdown, CTAs)
+- [x] Trust page (4 principles)
+- [x] FAQ page (6 Q&A items with accordion)
+- [x] Contact page (email support CTA)
+- [x] Wire all CTAs to existing signup/onboarding and in-app billing
+- [x] No backend refactors or credit logic changes
