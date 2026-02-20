@@ -95,6 +95,7 @@ export const jobCards = mysqlTable("job_cards", {
   notes: text("notes"),
   nextTouchAt: timestamp("nextTouchAt"),
   appliedAt: timestamp("appliedAt"),
+  followupsScheduledAt: timestamp("followupsScheduledAt"),
   dueDate: timestamp("dueDate"),
   salary: varchar("salary", { length: 128 }),
   jobType: varchar("jobType", { length: 64 }), // full-time, part-time, contract, internship

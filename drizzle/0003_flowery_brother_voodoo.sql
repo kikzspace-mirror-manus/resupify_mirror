@@ -1,0 +1,1 @@
+ALTER TABLE `job_cards` ADD `followupsScheduledAt` timestamp;

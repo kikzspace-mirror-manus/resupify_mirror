@@ -200,17 +200,31 @@ export const appRouter = router({
         });
       }
 
-      // Stage change: Applied → auto-create follow-up task in 5 business days
+      // Stage change → Applied: auto-schedule 3 follow-up tasks (idempotent via followupsScheduledAt)
       if (input.stage === "applied" && currentCard && currentCard.stage !== "applied") {
-        const followUpDate = addBusinessDays(new Date(), 5);
         await db.updateJobCard(id, ctx.user.id, { appliedAt: new Date() });
-        await db.createTask({
-          userId: ctx.user.id,
-          jobCardId: id,
-          title: `Follow up after applying: ${currentCard.title}`,
-          taskType: "follow_up",
-          dueDate: followUpDate,
-        });
+      }
+      if (
+        input.stage === "applied" &&
+        currentCard &&
+        !currentCard.followupsScheduledAt
+      ) {
+        const now = new Date();
+        const followUpDefs = [
+          { title: "Follow up #1", days: 3 },
+          { title: "Follow up #2", days: 7 },
+          { title: "Follow up #3", days: 14 },
+        ];
+        for (const def of followUpDefs) {
+          await db.createTask({
+            userId: ctx.user.id,
+            jobCardId: id,
+            title: def.title,
+            taskType: "follow_up",
+            dueDate: addBusinessDays(now, def.days),
+          });
+        }
+        await db.updateJobCard(id, ctx.user.id, { followupsScheduledAt: now });
       }
 
       return { success: true };

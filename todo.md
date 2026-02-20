@@ -108,3 +108,11 @@
 - [x] Test Sandbox Panel (sample resume/JD, one-click create/run/generate)
 - [x] /admin route hard-blocks non-admins server-side
 - [x] Acceptance tests (admin access, credit bypass, grant credits, normal billing)
+
+## Patch: Follow-up Auto-Scheduling on Applied Stage
+- [x] Add followupsScheduledAt (timestamp, nullable) to jobCards table
+- [x] Push schema migration
+- [x] addBusinessDays(date, n) helper in server/routers.ts (already existed, corrected)
+- [x] Update jobCards.update router: when stage changes to Applied and followupsScheduledAt is null, create 3 follow-up tasks and set followupsScheduledAt
+- [x] Frontend: invalidate tasks query after stage change so Tasks tab auto-refreshes
+- [x] Vitest: stage change to Applied creates exactly 3 tasks once; re-save does not duplicate; moving away does not delete

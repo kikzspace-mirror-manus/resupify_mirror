@@ -72,9 +72,14 @@ export default function JobCardDetail({ id }: { id: number }) {
   const { data: contacts } = trpc.contacts.list.useQuery({ jobCardId: id });
 
   const updateJob = trpc.jobCards.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       utils.jobCards.get.invalidate({ id });
       utils.jobCards.list.invalidate();
+      // Invalidate tasks so the Tasks tab auto-reflects new follow-up tasks
+      if (variables.stage === "applied") {
+        utils.tasks.list.invalidate({ jobCardId: id });
+        utils.tasks.today.invalidate();
+      }
       toast.success("Job updated");
     },
   });
