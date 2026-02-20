@@ -160,3 +160,13 @@
 - [x] Handle insufficient credits error with inline message
 - [x] Handle general generation failure with inline error
 - [x] Acceptance tests: button visible, 4 messages render, credits charged, insufficient credits gating
+
+## Patch 6B: Kanban Drag-and-Drop
+- [x] Install @dnd-kit/core and @dnd-kit/utilities
+- [x] Wrap Kanban board in DndContext
+- [x] Make each card a Draggable item
+- [x] Make each column a Droppable zone with hover highlight
+- [x] Add DragOverlay ghost card
+- [x] On drop: call existing stage update mutation with optimistic update
+- [x] Revert on failure + show toast
+- [x] Vitest tests: drag logic, revert on failure, no regression to list view

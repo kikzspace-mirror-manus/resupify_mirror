@@ -36,6 +36,18 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS } from "../../../shared/regionPacks";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 const stageColors: Record<string, string> = {
   bookmarked: "bg-slate-100 text-slate-700 border-slate-200",
@@ -94,7 +106,53 @@ export default function JobCards() {
   const [filterSeason, setFilterSeason] = useState<string>("all");
   const [showCreate, setShowCreate] = useState(false);
 
+  // ── Drag-and-drop state ──────────────────────────────────────────────
+  const [activeJobId, setActiveJobId] = useState<number | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+
   const { data: jobs, isLoading } = trpc.jobCards.list.useQuery({});
+
+  // Stage update mutation used by drag-and-drop
+  const updateStage = trpc.jobCards.update.useMutation({
+    onMutate: async ({ id, stage }) => {
+      // Optimistic update: immediately move the card in the cache
+      await utils.jobCards.list.cancel();
+      const previous = utils.jobCards.list.getData({});
+      utils.jobCards.list.setData({}, (old) =>
+        old ? old.map((j) => (j.id === id ? { ...j, stage: stage! } : j)) : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      // Revert to previous state on failure
+      if (context?.previous) {
+        utils.jobCards.list.setData({}, context.previous);
+      }
+      toast.error("Couldn't move card. Try again.");
+    },
+    onSettled: () => {
+      utils.jobCards.list.invalidate();
+    },
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveJobId(event.active.id as number);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveJobId(null);
+    const { active, over } = event;
+    if (!over) return;
+    const jobId = active.id as number;
+    const newStage = over.id as string;
+    const job = jobs?.find((j) => j.id === jobId);
+    if (!job || job.stage === newStage) return;
+    updateStage.mutate({ id: jobId, stage: newStage as any });
+  };
+
+  const activeJob = activeJobId ? jobs?.find((j) => j.id === activeJobId) : null;
 
   const filteredJobs = useMemo(() => {
     if (!jobs) return [];
@@ -294,60 +352,127 @@ export default function JobCards() {
 
       {/* Kanban View */}
       {view === "kanban" && (
-        <ScrollArea className="w-full">
-          <div className="flex gap-4 pb-4" style={{ minWidth: `${STAGES.length * 280}px` }}>
-            {STAGES.map((stage) => (
-              <div key={stage} className="w-[260px] shrink-0">
-                <div
-                  className={`rounded-t-lg border-t-4 bg-card border border-t-0 p-3 ${kanbanHeaderColors[stage]}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">
-                      {STAGE_LABELS[stage]}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      {jobsByStage[stage]?.length ?? 0}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="space-y-2 mt-2 min-h-[100px]">
-                  {(jobsByStage[stage] ?? []).map((job) => (
-                    <div
-                      key={job.id}
-                      className="p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer"
-                      onClick={() => setLocation(`/jobs/${job.id}`)}
-                    >
-                      <p className="text-sm font-medium truncate">
-                        {job.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {job.company ?? "—"}
-                      </p>
-                      {job.priority === "high" && (
-                        <Badge
-                          variant="destructive"
-                          className="text-xs mt-2"
-                        >
-                          High Priority
-                        </Badge>
-                      )}
-                      {(() => {
-                        const fp = getFollowupBadgeProps((job as any).nextFollowupDueAt);
-                        return fp ? (
-                          <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-0.5 rounded-full border w-fit ${fp.className}`}>
-                            <Bell className="h-3 w-3" />
-                            <span>{fp.label}</span>
-                          </div>
-                        ) : null;
-                      })()}
-                    </div>
-                  ))}
-                </div>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <ScrollArea className="w-full">
+            <div className="flex gap-4 pb-4" style={{ minWidth: `${STAGES.length * 280}px` }}>
+              {STAGES.map((stage) => (
+                <KanbanColumn
+                  key={stage}
+                  stage={stage}
+                  jobs={jobsByStage[stage] ?? []}
+                  onCardClick={(id) => setLocation(`/jobs/${id}`)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+          {/* Ghost card shown while dragging */}
+          <DragOverlay dropAnimation={null}>
+            {activeJob ? (
+              <div className="p-3 rounded-lg border bg-card shadow-xl opacity-90 w-[260px] rotate-1">
+                <p className="text-sm font-medium truncate">{activeJob.title}</p>
+                <p className="text-xs text-muted-foreground mt-1 truncate">
+                  {activeJob.company ?? "—"}
+                </p>
               </div>
-            ))}
-          </div>
-        </ScrollArea>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
+    </div>
+  );
+}
+
+// ─── KanbanColumn ──────────────────────────────────────────────────────────
+function KanbanColumn({
+  stage,
+  jobs,
+  onCardClick,
+}: {
+  stage: string;
+  jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null }>;
+  onCardClick: (id: number) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+  return (
+    <div className="w-[260px] shrink-0">
+      <div
+        className={`rounded-t-lg border-t-4 bg-card border border-t-0 p-3 ${
+          kanbanHeaderColors[stage as keyof typeof kanbanHeaderColors] ?? ""
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">{STAGE_LABELS[stage as keyof typeof STAGE_LABELS] ?? stage}</span>
+          <Badge variant="secondary" className="text-xs">
+            {jobs.length}
+          </Badge>
+        </div>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`space-y-2 mt-2 min-h-[100px] rounded-b-lg transition-colors ${
+          isOver ? "bg-primary/5 ring-2 ring-primary/30 ring-inset" : ""
+        }`}
+      >
+        {jobs.map((job) => (
+          <KanbanCard key={job.id} job={job} onCardClick={onCardClick} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── KanbanCard ─────────────────────────────────────────────────────────────
+function KanbanCard({
+  job,
+  onCardClick,
+}: {
+  job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null };
+  onCardClick: (id: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: job.id,
+  });
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform) }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`p-3 rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing select-none ${
+        isDragging ? "opacity-40" : ""
+      }`}
+      onClick={() => onCardClick(job.id)}
+    >
+      <p className="text-sm font-medium truncate">{job.title}</p>
+      <p className="text-xs text-muted-foreground mt-1 truncate">
+        {job.company ?? "—"}
+      </p>
+      {job.priority === "high" && (
+        <Badge variant="destructive" className="text-xs mt-2">
+          High Priority
+        </Badge>
+      )}
+      {(() => {
+        const fp = getFollowupBadgeProps(job.nextFollowupDueAt);
+        return fp ? (
+          <div
+            className={`flex items-center gap-1 text-xs mt-2 px-2 py-0.5 rounded-full border w-fit ${
+              fp.className
+            }`}
+          >
+            <Bell className="h-3 w-3" />
+            <span>{fp.label}</span>
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 }
