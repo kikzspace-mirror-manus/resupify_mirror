@@ -21,6 +21,59 @@ function addBusinessDays(date: Date, days: number): Date {
   return result;
 }
 
+// Follow-up slot definitions
+const FOLLOWUP_SLOTS = [
+  { title: "Follow up #1", days: 3 },
+  { title: "Follow up #2", days: 7 },
+  { title: "Follow up #3", days: 14 },
+] as const;
+
+// Legacy title pattern produced by the old single-task code
+const LEGACY_FOLLOWUP_RE = /^Follow up after applying:/i;
+
+/**
+ * Ensures exactly 3 follow-up tasks exist for an Applied job card.
+ * - Checks existing follow_up tasks for the job card by title.
+ * - Treats legacy "Follow up after applying: ..." as Follow up #2 (D+7 slot).
+ *   If its due date differs from the D+7 target, it is renamed and its due date corrected.
+ * - Creates only the missing slots — never duplicates.
+ * - appliedAt is the reference date for business-day calculations.
+ */
+async function ensureFollowUps(userId: number, jobCardId: number, appliedAt: Date): Promise<void> {
+  const existing = await db.getTasks(userId, { jobCardId });
+  const followUps = existing.filter(t => t.taskType === "follow_up");
+
+  for (const slot of FOLLOWUP_SLOTS) {
+    const targetDue = addBusinessDays(appliedAt, slot.days);
+
+    // Check for exact title match
+    const exactMatch = followUps.find(t => t.title === slot.title);
+    if (exactMatch) continue; // slot already covered
+
+    // For the D+7 slot only: check for legacy title and reuse/rename it
+    if (slot.days === 7) {
+      const legacy = followUps.find(t => LEGACY_FOLLOWUP_RE.test(t.title));
+      if (legacy) {
+        // Rename to standard title and correct due date
+        await db.updateTask(legacy.id, userId, { title: slot.title, dueDate: targetDue });
+        continue;
+      }
+    }
+
+    // Create the missing slot
+    await db.createTask({
+      userId,
+      jobCardId,
+      title: slot.title,
+      taskType: "follow_up",
+      dueDate: targetDue,
+    } as any);
+  }
+
+  // Stamp the card so we know follow-ups have been scheduled at least once
+  await db.updateJobCard(jobCardId, userId, { followupsScheduledAt: appliedAt });
+}
+
 export const appRouter = router({
   system: systemRouter,
   admin: adminRouter,
@@ -200,31 +253,14 @@ export const appRouter = router({
         });
       }
 
-      // Stage change → Applied: auto-schedule 3 follow-up tasks (idempotent via followupsScheduledAt)
-      if (input.stage === "applied" && currentCard && currentCard.stage !== "applied") {
-        await db.updateJobCard(id, ctx.user.id, { appliedAt: new Date() });
-      }
-      if (
-        input.stage === "applied" &&
-        currentCard &&
-        !currentCard.followupsScheduledAt
-      ) {
-        const now = new Date();
-        const followUpDefs = [
-          { title: "Follow up #1", days: 3 },
-          { title: "Follow up #2", days: 7 },
-          { title: "Follow up #3", days: 14 },
-        ];
-        for (const def of followUpDefs) {
-          await db.createTask({
-            userId: ctx.user.id,
-            jobCardId: id,
-            title: def.title,
-            taskType: "follow_up",
-            dueDate: addBusinessDays(now, def.days),
-          });
+      // Stage change → Applied: ensure 3 follow-up tasks exist (idempotent per-slot check)
+      if (input.stage === "applied") {
+        // Set appliedAt only on first transition into Applied
+        const appliedAt = currentCard?.appliedAt ?? new Date();
+        if (!currentCard?.appliedAt) {
+          await db.updateJobCard(id, ctx.user.id, { appliedAt });
         }
-        await db.updateJobCard(id, ctx.user.id, { followupsScheduledAt: now });
+        await ensureFollowUps(ctx.user.id, id, appliedAt);
       }
 
       return { success: true };
@@ -543,6 +579,16 @@ Return a JSON object with:
     }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       await db.deleteTask(input.id, ctx.user.id);
+      return { success: true };
+    }),
+    // Called by the Tasks tab when the job card is in Applied stage to backfill missing follow-ups
+    ensureFollowUps: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      const card = await db.getJobCardById(input.jobCardId, ctx.user.id);
+      if (!card || card.stage !== "applied") return { created: 0 };
+      const appliedAt = card.appliedAt ?? new Date();
+      await ensureFollowUps(ctx.user.id, input.jobCardId, appliedAt);
       return { success: true };
     }),
   }),

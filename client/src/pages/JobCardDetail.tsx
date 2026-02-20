@@ -32,7 +32,7 @@ import {
   ExternalLink,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS, EVIDENCE_GROUP_LABELS } from "../../../shared/regionPacks";
@@ -196,6 +196,7 @@ export default function JobCardDetail({ id }: { id: number }) {
         <TabsContent value="tasks" className="space-y-4 mt-4">
           <TasksTab
             jobCardId={id}
+            jobStage={job?.stage ?? ""}
             tasks={tasks ?? []}
             updateTask={updateTask}
             createTask={createTask}
@@ -695,8 +696,24 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
 }
 
 // ─── Tasks Tab ───────────────────────────────────────────────────────
-function TasksTab({ jobCardId, tasks, updateTask, createTask }: { jobCardId: number; tasks: any[]; updateTask: any; createTask: any }) {
+function TasksTab({ jobCardId, jobStage, tasks, updateTask, createTask }: { jobCardId: number; jobStage: string; tasks: any[]; updateTask: any; createTask: any }) {
   const [newTitle, setNewTitle] = useState("");
+  const utils = trpc.useUtils();
+
+  const ensureFollowUps = trpc.tasks.ensureFollowUps.useMutation({
+    onSuccess: () => {
+      utils.tasks.list.invalidate({ jobCardId });
+      utils.tasks.today.invalidate();
+    },
+  });
+
+  // When the Tasks tab mounts for an Applied card, backfill any missing follow-up tasks
+  useEffect(() => {
+    if (jobStage === "applied") {
+      ensureFollowUps.mutate({ jobCardId });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobCardId, jobStage]);
 
   return (
     <div className="space-y-4">

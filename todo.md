@@ -116,3 +116,10 @@
 - [x] Update jobCards.update router: when stage changes to Applied and followupsScheduledAt is null, create 3 follow-up tasks and set followupsScheduledAt
 - [x] Frontend: invalidate tasks query after stage change so Tasks tab auto-refreshes
 - [x] Vitest: stage change to Applied creates exactly 3 tasks once; re-save does not duplicate; moving away does not delete
+
+## Patch: Complete Follow-up Scheduling (ensure 3 tasks, handle legacy)
+- [x] Add ensureFollowUps(jobCardId, userId, appliedAt) server helper: checks existing tasks per slot, creates missing ones, renames legacy title
+- [x] Wire ensureFollowUps into jobCards.update (stage → applied)
+- [x] Add tasks.ensureFollowUps tRPC procedure for frontend to call on Tasks tab load
+- [x] Frontend: call ensureFollowUps when Tasks tab opens for an Applied card
+- [x] Update vitest: A) new card → 3 tasks, B) refresh no duplicate, C) toggle no duplicate, D) legacy 1-task card → 3 tasks
