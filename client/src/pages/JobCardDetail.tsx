@@ -1,4 +1,6 @@
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { buildCoverLetterFilename } from "../../../shared/filename";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Download,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -858,6 +861,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   evidenceRuns: any[];
 }) {
   const utils = trpc.useUtils();
+  const { user } = useAuth();
   const completedRuns = evidenceRuns.filter((r) => r.status === "completed");
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(completedRuns[0]?.id ?? null);
@@ -1068,9 +1072,31 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold">Cover Letter Draft</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(coverLetterText); toast.success("Cover letter copied!"); }}>
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(coverLetterText); toast.success("Cover letter copied!"); }}>
+                      <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const filename = buildCoverLetterFilename(
+                          user?.name ?? "User",
+                          job?.company ?? "Company"
+                        );
+                        const blob = new Blob([coverLetterText + "\n"], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = filename;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success(`Downloaded ${filename}`);
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />Download .txt
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

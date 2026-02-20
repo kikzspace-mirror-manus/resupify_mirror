@@ -1,0 +1,49 @@
+/**
+ * Shared filename builder utilities.
+ * Used by cover letter export and any future downloadable artifacts.
+ *
+ * Convention: FirstName_LastName - Context - YYYY-MM-DD.ext
+ */
+
+/**
+ * Sanitize a filename segment: remove slashes, colons, quotes, and
+ * collapse consecutive whitespace to a single space.
+ */
+export function sanitizeSegment(segment: string): string {
+  return segment
+    .replace(/[/\\:*?"<>|]/g, "") // remove forbidden chars
+    .replace(/\s+/g, " ")          // collapse whitespace
+    .trim();
+}
+
+/**
+ * Build a cover letter filename.
+ *
+ * @param fullName  - User's full name (e.g. "Francis Alexes Noces")
+ * @param company   - Company name (e.g. "Acme Corp")
+ * @param date      - Optional Date object; defaults to today in local time
+ * @returns         - e.g. "Francis_Noces - Acme Corp - 2026-02-20.txt"
+ */
+export function buildCoverLetterFilename(
+  fullName: string,
+  company: string,
+  date?: Date
+): string {
+  const d = date ?? new Date();
+
+  // Split name into parts; use first + last only
+  const nameParts = sanitizeSegment(fullName || "User").split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] ?? "User";
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  const namePart = lastName ? `${firstName}_${lastName}` : firstName;
+
+  const companyPart = sanitizeSegment(company || "Company") || "Company";
+
+  // Local date as YYYY-MM-DD
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const datePart = `${year}-${month}-${day}`;
+
+  return `${namePart} - ${companyPart} - ${datePart}.txt`;
+}

@@ -223,3 +223,10 @@
 - [x] Hover tooltip showing date + score
 - [x] Green/red delta indicator (latest vs previous)
 - [x] Tests: A-F+F2 (7 tests) — empty state, single point, multi-run delta, chronological order, read-only, single query, resumeId filter
+
+## Patch 6G: Cover Letter Export (.txt Download)
+- [x] Add buildCoverLetterFilename(name, company, date?) utility in shared/filename.ts
+- [x] Add downloadTextFile(filename, content) inline in ApplicationKitTab (Blob + anchor click)
+- [x] Add "Download .txt" button to cover letter section in ApplicationKitTab
+- [x] Button only visible when cover letter exists (conditional render guards against empty state)
+- [x] Tests: 17 tests — sanitizeSegment (5), buildCoverLetterFilename (12) covering standard, single-word, missing company, forbidden chars, date formatting, empty/null name, three-part name
