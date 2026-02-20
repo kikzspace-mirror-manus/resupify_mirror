@@ -151,3 +151,12 @@
 - [x] Show "Mark as sent" button on follow_up tasks in Today page
 - [x] Show "Sent {date}" label on completed follow_up tasks with sentAt
 - [x] Tests: A) button shown for todo followup, B) click completes with sentAt, C) non-followup no button, D) already done no button
+
+## Patch 6A: Outreach Generate Pack Button
+- [x] Read existing outreach.generatePack router to confirm input/output shape
+- [x] Add Generate Pack button per thread in Job Card Outreach tab (was already wired; improved with helper text + regenerate)
+- [x] Show loading state per thread row while generating
+- [x] Render 4 generated messages (email, LinkedIn DM, follow-up #1, #2) with copy buttons and labels
+- [x] Handle insufficient credits error with inline message
+- [x] Handle general generation failure with inline error
+- [x] Acceptance tests: button visible, 4 messages render, credits charged, insufficient credits gating

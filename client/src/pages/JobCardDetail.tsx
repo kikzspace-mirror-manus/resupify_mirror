@@ -608,13 +608,20 @@ function CopyBlock({ label, content }: { label: string; content: string }) {
 // ─── Outreach Tab ────────────────────────────────────────────────────
 function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number; contacts: any[]; outreachPack: any }) {
   const utils = trpc.useUtils();
+  const [packError, setPackError] = useState<string | null>(null);
   const generatePack = trpc.outreach.generatePack.useMutation({
     onSuccess: () => {
+      setPackError(null);
       utils.outreach.pack.invalidate({ jobCardId });
       utils.credits.balance.invalidate();
       toast.success("Outreach Pack generated!");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => {
+      const msg = error.message.toLowerCase().includes("insufficient")
+        ? "Insufficient credits. Outreach Pack costs 1 credit. Top up in Billing."
+        : "Couldn't generate the outreach pack. Try again.";
+      setPackError(msg);
+    },
   });
 
   const [newContactName, setNewContactName] = useState("");
@@ -643,14 +650,32 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
             <div className="space-y-3">
               <CopyBlock label="Recruiter Email" content={outreachPack.recruiterEmail} />
               <CopyBlock label="LinkedIn DM" content={outreachPack.linkedinDm} />
-              <CopyBlock label="Follow-up 1" content={outreachPack.followUp1} />
-              <CopyBlock label="Follow-up 2" content={outreachPack.followUp2} />
+              <CopyBlock label="Follow-up #1" content={outreachPack.followUp1} />
+              <CopyBlock label="Follow-up #2" content={outreachPack.followUp2} />
+              <div className="pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId }); }}
+                  disabled={generatePack.isPending}
+                >
+                  {generatePack.isPending ? (
+                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Regenerating...</>
+                  ) : (
+                    "Regenerate Pack (1 credit)"
+                  )}
+                </Button>
+                {packError && (
+                  <p className="text-xs text-destructive mt-2">{packError}</p>
+                )}
+              </div>
             </div>
           ) : (
             <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-3">Generate recruiter email, LinkedIn DM, and follow-ups.</p>
+              <p className="text-sm text-muted-foreground mb-1">No outreach pack yet.</p>
+              <p className="text-xs text-muted-foreground mb-3">Creates: recruiter email + LinkedIn DM + 2 follow-ups</p>
               <Button
-                onClick={() => generatePack.mutate({ jobCardId })}
+                onClick={() => { setPackError(null); generatePack.mutate({ jobCardId }); }}
                 disabled={generatePack.isPending}
               >
                 {generatePack.isPending ? (
@@ -659,6 +684,9 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
                   "Generate Pack (1 credit)"
                 )}
               </Button>
+              {packError && (
+                <p className="text-xs text-destructive mt-2">{packError}</p>
+              )}
             </div>
           )}
         </CardContent>
