@@ -435,6 +435,12 @@ export const appRouter = router({
     items: protectedProcedure.input(z.object({ evidenceRunId: z.number() })).query(async ({ input }) => {
       return db.getEvidenceItems(input.evidenceRunId);
     }),
+    scoreHistory: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+      resumeId: z.number().optional(),
+    })).query(async ({ input }) => {
+      return db.getScoreHistory(input.jobCardId, input.resumeId, 20);
+    }),
     run: protectedProcedure.input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),

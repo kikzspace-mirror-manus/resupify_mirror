@@ -732,3 +732,30 @@ export async function getLatestApplicationKit(jobCardId: number) {
     .limit(1);
   return rows[0] ?? null;
 }
+
+// ─── Score History ────────────────────────────────────────────────────
+export async function getScoreHistory(
+  jobCardId: number,
+  resumeId?: number,
+  limit = 20
+) {
+  const db = await getDb();
+  if (!db) return [];
+  let query = db.select({
+    id: evidenceRuns.id,
+    resumeId: evidenceRuns.resumeId,
+    overallScore: evidenceRuns.overallScore,
+    createdAt: evidenceRuns.createdAt,
+  })
+    .from(evidenceRuns)
+    .where(
+      and(
+        eq(evidenceRuns.jobCardId, jobCardId),
+        eq(evidenceRuns.status, "completed"),
+        ...(resumeId ? [eq(evidenceRuns.resumeId, resumeId)] : [])
+      )
+    )
+    .orderBy(asc(evidenceRuns.createdAt))
+    .limit(limit);
+  return query;
+}

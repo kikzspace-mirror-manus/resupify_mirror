@@ -213,3 +213,13 @@
 - [x] Cover letter section with Copy button
 - [x] Backward-compat: show CTA if no requirements or no EvidenceRun
 - [x] Tests: A-G (9 tests) — get null, no-requirements guard, no-run guard, full generation, needs_confirmation, createTasks dedup, follow-up only when applied, Option A credit policy, tone persistence
+
+## Patch 6F: Score History Sparkline (Job Card Detail)
+- [x] Add getScoreHistory db helper (jobCardId, optional resumeId, limit 20, order asc by createdAt)
+- [x] Add evidence.scoreHistory tRPC query
+- [x] Build ScoreTrendCard component (sparkline + current score + delta badge)
+- [x] Handle 0/1/many run states gracefully
+- [x] Add ScoreTrendCard to Overview tab in JobCardDetail.tsx
+- [x] Hover tooltip showing date + score
+- [x] Green/red delta indicator (latest vs previous)
+- [x] Tests: A-F+F2 (7 tests) — empty state, single point, multi-run delta, chronological order, read-only, single query, resumeId filter

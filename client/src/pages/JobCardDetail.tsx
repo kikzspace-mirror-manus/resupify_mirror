@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,9 @@ import {
   MailCheck,
   Sparkles,
   ListChecks,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -173,7 +177,7 @@ export default function JobCardDetail({ id }: { id: number }) {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <OverviewTab job={job} updateJob={updateJob} />
+          <OverviewTab job={job} updateJob={updateJob} jobCardId={id} resumes={resumes ?? []} />
         </TabsContent>
 
         {/* JD Snapshot Tab */}
@@ -211,12 +215,117 @@ export default function JobCardDetail({ id }: { id: number }) {
   );
 }
 
-// ─── Overview Tab ────────────────────────────────────────────────────
-function OverviewTab({ job, updateJob }: { job: any; updateJob: any }) {
-  const [notes, setNotes] = useState(job.notes ?? "");
+// ─── Score Trend Card (Sparkline) ────────────────────────────────────────────────────
+function ScoreTrendCard({ jobCardId, resumeId }: { jobCardId: number; resumeId?: number }) {
+  const { data: history, isLoading } = trpc.evidence.scoreHistory.useQuery({ jobCardId, resumeId });
+
+  if (isLoading) return null;
+
+  const runs = history ?? [];
+  const latestScore = runs.length > 0 ? runs[runs.length - 1].overallScore ?? 0 : null;
+  const prevScore = runs.length > 1 ? runs[runs.length - 2].overallScore ?? 0 : null;
+  const delta = latestScore !== null && prevScore !== null ? latestScore - prevScore : null;
+
+  const chartData = runs.map((r) => ({
+    date: new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    score: r.overallScore ?? 0,
+  }));
 
   return (
-    <div className="grid md:grid-cols-2 gap-4">
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Score Trend
+          </CardTitle>
+          {latestScore !== null && (
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold">{latestScore}</span>
+              {delta !== null && (
+                <Badge
+                  variant="outline"
+                  className={`text-xs font-semibold ${
+                    delta > 0
+                      ? "text-emerald-600 border-emerald-300 bg-emerald-50"
+                      : delta < 0
+                      ? "text-red-600 border-red-300 bg-red-50"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {delta > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : delta < 0 ? <TrendingDown className="h-3 w-3 mr-0.5" /> : <Minus className="h-3 w-3 mr-0.5" />}
+                  {delta > 0 ? "+" : ""}{delta}
+                </Badge>
+              )}
+              {runs.length === 1 && (
+                <Badge variant="outline" className="text-xs text-muted-foreground">First run</Badge>
+              )}
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {runs.length === 0 ? (
+          <div className="flex items-center justify-center h-16 text-xs text-muted-foreground">
+            Run Evidence+ATS to see your score trend.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={80}>
+            <LineChart data={chartData} margin={{ top: 4, right: 8, left: -32, bottom: 0 }}>
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                domain={[0, 100]}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickLine={false}
+                axisLine={false}
+                ticks={[0, 50, 100]}
+              />
+              <Tooltip
+                contentStyle={{
+                  fontSize: 11,
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: "1px solid var(--border)",
+                  background: "var(--card)",
+                  color: "var(--card-foreground)",
+                }}
+                formatter={(value: number) => [`${value}%`, "Score"]}
+              />
+              {runs.length === 1 && (
+                <ReferenceLine y={chartData[0].score} stroke="var(--primary)" strokeDasharray="4 2" />
+              )}
+              <Line
+                type="monotone"
+                dataKey="score"
+                stroke="var(--primary)"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "var(--primary)", strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Overview Tab ────────────────────────────────────────────────────
+function OverviewTab({ job, updateJob, jobCardId, resumes }: { job: any; updateJob: any; jobCardId: number; resumes: any[] }) {
+  const [notes, setNotes] = useState(job.notes ?? "");
+  const primaryResumeId = resumes[0]?.id;
+
+  return (
+    <div className="space-y-4">
+      <ScoreTrendCard jobCardId={jobCardId} resumeId={primaryResumeId} />
+      <div className="grid md:grid-cols-2 gap-4">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Details</CardTitle>
@@ -277,6 +386,7 @@ function OverviewTab({ job, updateJob }: { job: any; updateJob: any }) {
           </Button>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
