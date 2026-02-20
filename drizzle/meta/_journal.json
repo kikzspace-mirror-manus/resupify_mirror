@@ -43,6 +43,13 @@
       "when": 1771626607826,
       "tag": "0005_tiny_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771627975797,
+      "tag": "0006_bright_ultragirl",
+      "breakpoints": true
     }
   ]
 }

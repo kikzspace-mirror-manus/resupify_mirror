@@ -141,6 +141,7 @@ export const evidenceRuns = mysqlTable("evidence_runs", {
   trackCode: varchar("trackCode", { length: 16 }).notNull(),
   overallScore: int("overallScore"), // 0-100
   summary: text("summary"),
+  scoreBreakdownJson: text("scoreBreakdownJson"), // JSON: { evidence_strength, keyword_coverage, formatting_ats, role_fit, flags }
   status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).default("pending"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   completedAt: timestamp("completedAt"),

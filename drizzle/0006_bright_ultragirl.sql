@@ -1,0 +1,1 @@
+ALTER TABLE `evidence_runs` ADD `scoreBreakdownJson` text;

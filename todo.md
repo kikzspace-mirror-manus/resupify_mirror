@@ -182,3 +182,17 @@
 - [x] Update JD Snapshot tab: Extract/Re-extract button, requirements list grouped by type with color-coded badges, inline error
 - [x] Snapshot text remains immutable (extraction only writes to requirements table)
 - [x] Tests: A-J) 10 tests covering extraction, persistence, field update, invalid type filtering, LLM null, disabled blocked, requirements query
+
+## Patch 6D: Evidence Scan Full Rubric (Region Pack Weighted + Requirements-Driven)
+- [x] Add scoreBreakdownJson column to evidence_runs table (text, nullable)
+- [x] Push schema migration (0006)
+- [x] Update evidence.run mutation: fetch job_card_requirements; if none, throw "Extract requirements first"
+- [x] Single LLM call: pass requirements list + resume text, get per-item evidence + proof/status/fix/rewrites
+- [x] Compute 4 component scores server-side (no LLM for scoring math): evidence_strength, keyword_coverage, formatting_ats, role_fit
+- [x] Apply pack.scoringWeights to compute overall_score
+- [x] COOP eligibility risk: if any eligibility requirement in requirements AND profile missing field → role_fit penalty + flag
+- [x] NEW_GRAD mismatch: if resume text signals high seniority → role_fit penalty + flag
+- [x] Persist scoreBreakdownJson to evidence_runs row
+- [x] Update EvidenceTab UI: show 4-component breakdown with counts (matched/partial/missing)
+- [x] Backward compat: if no requirements, show "Extract requirements first" with link to JD Snapshot tab
+- [x] Tests: A-F (16 tests) — requirements-driven scan, strict template, pack-weighted scoring, COOP eligibility risk, NEW_GRAD mismatch, credits unchanged

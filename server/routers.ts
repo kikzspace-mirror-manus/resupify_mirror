@@ -439,26 +439,33 @@ export const appRouter = router({
       jobCardId: z.number(),
       resumeId: z.number(),
     })).mutation(async ({ ctx, input }) => {
-      // Check credits
+      // ── 1. Credit gate (unchanged) ───────────────────────────────────
       const balance = await db.getCreditsBalance(ctx.user.id);
       if (balance < 1) {
         throw new Error("Insufficient credits. You need 1 credit for an Evidence+ATS run.");
       }
 
-      // Get JD snapshot and resume
-      const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
-      if (!jdSnapshot) throw new Error("No JD snapshot found. Please add a job description first.");
+      // ── 2. Fetch persisted requirements (6C output) ──────────────────
+      const requirements = await db.getRequirements(input.jobCardId);
+      if (requirements.length === 0) {
+        throw new Error(
+          "NO_REQUIREMENTS: Extract requirements first. Open the JD Snapshot tab and click \"Extract Requirements\"."
+        );
+      }
 
+      // ── 3. Fetch resume and profile ──────────────────────────────────
       const resume = await db.getResumeById(input.resumeId, ctx.user.id);
       if (!resume) throw new Error("Resume not found.");
 
-      // Get user profile for region/track
+      const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
+      if (!jdSnapshot) throw new Error("No JD snapshot found.");
+
       const profile = await db.getProfile(ctx.user.id);
       const regionCode = profile?.regionCode ?? "CA";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
 
-      // Create evidence run
+      // ── 4. Create evidence run row ───────────────────────────────────
       const runId = await db.createEvidenceRun({
         jobCardId: input.jobCardId,
         userId: ctx.user.id,
@@ -468,74 +475,82 @@ export const appRouter = router({
         trackCode,
         status: "running",
       });
-
       if (!runId) throw new Error("Failed to create evidence run.");
 
-      // Spend credit
+      // ── 5. Spend credit (unchanged) ──────────────────────────────────
       const spent = await db.spendCredits(ctx.user.id, 1, "Evidence+ATS run", "evidence_run", runId);
       if (!spent) throw new Error("Failed to spend credit.");
 
-      // Build eligibility context
+      // ── 6. Build eligibility context for the LLM prompt ─────────────
+      const missingEligibilityFields = pack.eligibilityChecks
+        .filter(check => check.required && !(profile as any)?.[check.field])
+        .map(check => check.label);
+
       const eligibilityContext = pack.eligibilityChecks.map(check => {
         const profileValue = profile ? (profile as any)[check.field] : null;
-        return `- ${check.label}: ${profileValue ? "Present" : "MISSING"} ${!profileValue && check.required ? `(RISK: ${check.riskMessage})` : ""}`;
+        return `- ${check.label}: ${profileValue ? "Present" : "MISSING"}${!profileValue && check.required ? ` (RISK: ${check.riskMessage})` : ""}`;
       }).join("\n");
 
-      // Call LLM
+      // ── 7. Build requirements list for the LLM prompt ────────────────
+      // Map from our requirementType to the EvidenceItem group_type
+      const typeMap: Record<string, string> = {
+        skill: "skills",
+        responsibility: "responsibilities",
+        tool: "tools",
+        softskill: "soft_skills",
+        eligibility: "eligibility",
+      };
+      const requirementsList = requirements.map((r, i) =>
+        `${i + 1}. [${typeMap[r.requirementType] ?? r.requirementType}] ${r.requirementText}`
+      ).join("\n");
+
+      // ── 8. Single LLM call for all EvidenceItems ─────────────────────
       try {
         const llmResult = await invokeLLM({
           messages: [
             {
               role: "system",
-              content: `You are an expert ATS resume analyzer for ${pack.label} track. Analyze the job description against the resume and produce evidence items.
-
-SCORING WEIGHTS: Eligibility=${pack.scoringWeights.eligibility}, Tools=${pack.scoringWeights.tools}, Responsibilities=${pack.scoringWeights.responsibilities}, Skills=${pack.scoringWeights.skills}, Soft Skills=${pack.scoringWeights.softSkills}
-
-RULES:
-- Generate 10-20 evidence items
-- Group by type: eligibility, tools, responsibilities, skills, soft_skills
-- For each item, provide: jd_requirement, resume_proof (or null if none found), status (matched/partial/missing), fix, rewrite_a, rewrite_b, why_it_matters
-- If a rewrite adds a claim not in the resume, set needs_confirmation=true
-- ${pack.copyRules.noInventedFacts ? "NEVER invent facts not in the resume." : ""}
-- ${pack.copyRules.noExperienceHelper ? "If no relevant experience, convert projects/clubs/volunteering into bullets." : ""}
-
-USER PROFILE ELIGIBILITY:
-${eligibilityContext}
-
-Return a JSON object with:
-{
-  "overall_score": number (0-100),
-  "summary": string,
-  "items": [
-    {
-      "group_type": "eligibility"|"tools"|"responsibilities"|"skills"|"soft_skills",
-      "jd_requirement": string,
-      "resume_proof": string|null,
-      "status": "matched"|"partial"|"missing",
-      "fix": string,
-      "rewrite_a": string,
-      "rewrite_b": string,
-      "why_it_matters": string,
-      "needs_confirmation": boolean
-    }
-  ]
-}`
+              content: [
+                `You are an expert ATS resume analyzer for the ${pack.label} track.`,
+                `You will receive a numbered list of job requirements and a resume.`,
+                `For EACH requirement, produce one evidence item that maps the requirement to the resume.`,
+                ``,
+                `RULES:`,
+                `- resume_proof MUST be a direct quote or snippet from the resume text, or null if nothing relevant is found.`,
+                `- status: "matched" = clear proof found, "partial" = indirect/weak evidence, "missing" = no evidence.`,
+                `- fix: one sentence on what the candidate should add or change.`,
+                `- rewrite_a and rewrite_b: two alternative resume bullet rewrites (one sentence each).`,
+                `- why_it_matters: one sentence on why this requirement matters for the role.`,
+                `- needs_confirmation: true if a rewrite introduces a claim NOT supported by the resume proof.`,
+                `- ${pack.copyRules.noInventedFacts ? "NEVER invent facts not in the resume." : ""}`,
+                `- ${pack.copyRules.convertProjectsToExperience ? "If no direct experience, convert projects/clubs/volunteering into relevant bullets." : ""}`,
+                ``,
+                `USER PROFILE ELIGIBILITY:`,
+                eligibilityContext,
+                ``,
+                `Produce exactly one item per requirement in the same order as the input list.`,
+              ].join("\n"),
             },
             {
               role: "user",
-              content: `JOB DESCRIPTION:\n${jdSnapshot.snapshotText}\n\nRESUME:\n${resume.content}`
-            }
+              content: [
+                `REQUIREMENTS (${requirements.length} items):`,
+                requirementsList,
+                ``,
+                `RESUME:`,
+                resume.content,
+              ].join("\n"),
+            },
           ],
           response_format: {
             type: "json_schema",
             json_schema: {
-              name: "evidence_scan",
+              name: "evidence_scan_v2",
               strict: true,
               schema: {
                 type: "object",
                 properties: {
-                  overall_score: { type: "integer", description: "Overall ATS match score 0-100" },
-                  summary: { type: "string", description: "Brief summary of the analysis" },
+                  summary: { type: "string", description: "2-3 sentence summary of the overall match" },
                   items: {
                     type: "array",
                     items: {
@@ -553,20 +568,21 @@ Return a JSON object with:
                       },
                       required: ["group_type", "jd_requirement", "resume_proof", "status", "fix", "rewrite_a", "rewrite_b", "why_it_matters", "needs_confirmation"],
                       additionalProperties: false,
-                    }
-                  }
+                    },
+                  },
                 },
-                required: ["overall_score", "summary", "items"],
+                required: ["summary", "items"],
                 additionalProperties: false,
-              }
-            }
-          }
+              },
+            },
+          },
         });
 
         const content = llmResult.choices[0]?.message?.content;
+        if (!content) throw new Error("LLM returned no content.");
         const parsed = JSON.parse(typeof content === "string" ? content : "{}");
 
-        // Save evidence items
+        // ── 9. Save evidence items ───────────────────────────────────────
         const evidenceItemsData = (parsed.items || []).map((item: any, idx: number) => ({
           evidenceRunId: runId,
           groupType: item.group_type,
@@ -580,16 +596,137 @@ Return a JSON object with:
           needsConfirmation: item.needs_confirmation ?? false,
           sortOrder: idx,
         }));
-
         await db.createEvidenceItems(evidenceItemsData);
+
+        // ── 10. Compute 4-component scores server-side ───────────────────
+        const items = parsed.items as Array<{ group_type: string; status: string; resume_proof: string | null }>;
+        const total = items.length || 1;
+        const matchedCount = items.filter(i => i.status === "matched").length;
+        const partialCount = items.filter(i => i.status === "partial").length;
+        const missingCount = items.filter(i => i.status === "missing").length;
+
+        // A) evidence_strength_score: matched=full weight, partial=half weight
+        const evidenceStrengthScore = Math.round(
+          ((matchedCount + partialCount * 0.5) / total) * 100
+        );
+
+        // B) keyword_coverage_score: simple token overlap between requirement texts and resume
+        const resumeWords = new Set(
+          resume.content.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 3)
+        );
+        const reqWords = requirements.flatMap(r =>
+          r.requirementText.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 3)
+        );
+        const uniqueReqWords = Array.from(new Set(reqWords));
+        const coveredWords = uniqueReqWords.filter(w => resumeWords.has(w)).length;
+        const keywordCoverageScore = uniqueReqWords.length > 0
+          ? Math.round((coveredWords / uniqueReqWords.length) * 100)
+          : 50;
+
+        // C) formatting_ats_score: simple heuristics on resume text
+        const resumeText = resume.content;
+        let formattingScore = 70; // baseline
+        if (resumeText.includes("•") || resumeText.includes("-")) formattingScore += 5;
+        if (/\d{4}/.test(resumeText)) formattingScore += 5; // has years
+        if (resumeText.length > 500) formattingScore += 5;
+        if (resumeText.length > 1500) formattingScore += 5;
+        if (/[A-Z]{2,}/.test(resumeText)) formattingScore += 5; // section headers
+        const formattingAtsScore = Math.min(100, formattingScore);
+
+        // D) role_fit_score: start at 100, apply penalties
+        let roleFitScore = 100;
+        const flags: string[] = [];
+
+        // COOP eligibility risk
+        const hasEligibilityReqs = requirements.some(r => r.requirementType === "eligibility");
+        if (trackCode === "COOP" && hasEligibilityReqs && missingEligibilityFields.length > 0) {
+          roleFitScore -= 25;
+          flags.push(`eligibility_risk: Missing profile fields: ${missingEligibilityFields.join(", ")}. This co-op posting likely requires enrollment verification.`);
+        }
+
+        // NEW_GRAD seniority mismatch
+        const senioritySignals = [
+          "director", "head of", "vp ", "vice president", "10+ years", "10 years", "15 years",
+          "senior manager", "principal", "staff engineer",
+        ];
+        const resumeLower = resume.content.toLowerCase();
+        const seniorityMatches = senioritySignals.filter(s => resumeLower.includes(s));
+        if (trackCode === "NEW_GRAD" && seniorityMatches.length > 0) {
+          roleFitScore -= 20;
+          flags.push(`overqualified_risk: Resume signals high seniority (${seniorityMatches.slice(0, 2).join(", ")}). New grad roles may flag this as overqualified.`);
+        }
+
+        roleFitScore = Math.max(0, roleFitScore);
+
+        // ── 11. Compute overall_score using pack.scoringWeights ───────────
+        // Map our 4 components to pack weight keys
+        // Pack weights: eligibility, tools, responsibilities, skills, softSkills
+        // We map: role_fit → eligibility weight, keyword_coverage → tools+responsibilities, evidence_strength → skills+softSkills, formatting → remaining
+        // Simplified: use a weighted blend of 4 components with pack-derived weights
+        const wEligibility = pack.scoringWeights.eligibility;
+        const wTools = pack.scoringWeights.tools;
+        const wResp = pack.scoringWeights.responsibilities;
+        const wSkills = pack.scoringWeights.skills;
+        const wSoft = pack.scoringWeights.softSkills;
+
+        // evidence_strength covers skills + soft_skills + responsibilities
+        const evidenceWeight = wSkills + wSoft + wResp;
+        // keyword_coverage covers tools
+        const keywordWeight = wTools;
+        // role_fit covers eligibility
+        const roleFitWeight = wEligibility;
+        // formatting is the remainder (should sum to 1.0 with the above)
+        const formattingWeight = Math.max(0, 1.0 - evidenceWeight - keywordWeight - roleFitWeight);
+
+        const overallScore = Math.round(
+          evidenceStrengthScore * evidenceWeight +
+          keywordCoverageScore * keywordWeight +
+          roleFitScore * roleFitWeight +
+          formattingAtsScore * formattingWeight
+        );
+
+        // ── 12. Build breakdown JSON ─────────────────────────────────────
+        const scoreBreakdown = {
+          evidence_strength: {
+            score: evidenceStrengthScore,
+            weight: evidenceWeight,
+            matched_count: matchedCount,
+            partial_count: partialCount,
+            missing_count: missingCount,
+            explanation: `${matchedCount} matched, ${partialCount} partial, ${missingCount} missing out of ${total} requirements.`,
+          },
+          keyword_coverage: {
+            score: keywordCoverageScore,
+            weight: keywordWeight,
+            explanation: `${coveredWords} of ${uniqueReqWords.length} key terms from requirements found in resume.`,
+          },
+          formatting_ats: {
+            score: formattingAtsScore,
+            weight: formattingWeight,
+            explanation: "Resume structure and ATS-readability heuristics (bullet points, dates, section headers, length).",
+          },
+          role_fit: {
+            score: roleFitScore,
+            weight: roleFitWeight,
+            explanation: flags.length > 0
+              ? `Flags detected: ${flags.join(" | ")}`
+              : "No eligibility or seniority issues detected.",
+          },
+          flags,
+          pack_label: pack.label,
+          computed_at: new Date().toISOString(),
+        };
+
+        // ── 13. Persist run with scores ──────────────────────────────────
         await db.updateEvidenceRun(runId, {
-          overallScore: parsed.overall_score ?? 0,
+          overallScore,
           summary: parsed.summary ?? "",
+          scoreBreakdownJson: JSON.stringify(scoreBreakdown),
           status: "completed",
           completedAt: new Date(),
         });
 
-        // Auto-create tasks after evidence run
+        // ── 14. Auto-create review task (unchanged) ──────────────────────
         const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
         if (jobCard) {
           await db.createTask({
@@ -600,7 +737,12 @@ Return a JSON object with:
           });
         }
 
-        return { runId, score: parsed.overall_score, itemCount: evidenceItemsData.length };
+        return {
+          runId,
+          score: overallScore,
+          itemCount: evidenceItemsData.length,
+          breakdown: scoreBreakdown,
+        };
       } catch (error: any) {
         await db.updateEvidenceRun(runId, { status: "failed" });
         throw new Error(`Evidence scan failed: ${error.message}`);

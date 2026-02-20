@@ -456,7 +456,12 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
 function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: any[]; resumes: any[] }) {
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(runs[0]?.id ?? null);
+  const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
+
+  // Check if requirements have been extracted for this job card
+  const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
+  const hasRequirements = (requirements?.length ?? 0) > 0;
 
   const runEvidence = trpc.evidence.run.useMutation({
     onSuccess: (data) => {
@@ -465,7 +470,13 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
       utils.tasks.list.invalidate();
       toast.success(`Evidence scan complete! Score: ${data.score}/100 (${data.itemCount} items)`);
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => {
+      if (error.message.includes("NO_REQUIREMENTS")) {
+        toast.error("Extract requirements first from the JD Snapshot tab.");
+      } else {
+        toast.error(error.message);
+      }
+    },
   });
 
   const { data: evidenceItems } = trpc.evidence.items.useQuery(
@@ -475,8 +486,43 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
 
   const activeRun = runs.find((r) => r.id === selectedRunId);
 
+  // Parse score breakdown JSON from the active run
+  const scoreBreakdown = (() => {
+    if (!activeRun?.scoreBreakdownJson) return null;
+    try { return JSON.parse(activeRun.scoreBreakdownJson); } catch { return null; }
+  })();
+
   return (
     <div className="space-y-4">
+      {/* Backward-compat: show message if no requirements extracted yet */}
+      {!hasRequirements && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800">Requirements not extracted yet</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Evidence Scan now uses your extracted requirements as the source of truth.
+              Go to the <strong>JD Snapshot</strong> tab and click <strong>Extract Requirements</strong> first.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 text-amber-700 border-amber-300 hover:bg-amber-100"
+              onClick={() => {
+                // Switch to JD Snapshot tab by navigating to the URL with tab param
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", "jd-snapshot");
+                window.history.pushState({}, "", url.toString());
+                window.dispatchEvent(new Event("popstate"));
+              }}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Go to JD Snapshot tab
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Run Evidence+ATS Scan</CardTitle>
@@ -502,6 +548,7 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
             <Button
               onClick={() => {
                 if (!selectedResumeId) { toast.error("Select a resume first"); return; }
+                if (!hasRequirements) { toast.error("Extract requirements first from the JD Snapshot tab."); return; }
                 runEvidence.mutate({ jobCardId, resumeId: selectedResumeId });
               }}
               disabled={runEvidence.isPending || !selectedResumeId}
@@ -513,9 +560,16 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Costs 1 credit. Generates 10-20 evidence items with explainable scoring.
-          </p>
+          {hasRequirements && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Costs 1 credit. Analyzes {requirements?.length} extracted requirements against your resume.
+            </p>
+          )}
+          {!hasRequirements && (
+            <p className="text-xs text-amber-600 mt-2">
+              Extract requirements from JD Snapshot tab first to enable scanning.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -538,7 +592,7 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
         </div>
       )}
 
-      {/* Evidence Items */}
+      {/* Score + Breakdown */}
       {activeRun && activeRun.status === "completed" && (
         <div className="space-y-4">
           <Card>
@@ -553,6 +607,66 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
                   </p>
                 </div>
               </div>
+
+              {/* Score breakdown */}
+              {scoreBreakdown && (
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">How this score was calculated</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Evidence Strength */}
+                    <div className="rounded-md border p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Evidence Strength</span>
+                        <span className="text-sm font-bold">{scoreBreakdown.evidence_strength?.score ?? "—"}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{scoreBreakdown.evidence_strength?.explanation}</p>
+                      <div className="flex gap-2 text-xs mt-1">
+                        <span className="text-emerald-600 font-medium">{scoreBreakdown.evidence_strength?.matched_count ?? 0} matched</span>
+                        <span className="text-amber-600 font-medium">{scoreBreakdown.evidence_strength?.partial_count ?? 0} partial</span>
+                        <span className="text-red-600 font-medium">{scoreBreakdown.evidence_strength?.missing_count ?? 0} missing</span>
+                      </div>
+                    </div>
+                    {/* Keyword Coverage */}
+                    <div className="rounded-md border p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Keyword Coverage</span>
+                        <span className="text-sm font-bold">{scoreBreakdown.keyword_coverage?.score ?? "—"}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{scoreBreakdown.keyword_coverage?.explanation}</p>
+                    </div>
+                    {/* Formatting & ATS */}
+                    <div className="rounded-md border p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Formatting & ATS</span>
+                        <span className="text-sm font-bold">{scoreBreakdown.formatting_ats?.score ?? "—"}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{scoreBreakdown.formatting_ats?.explanation}</p>
+                    </div>
+                    {/* Role Fit */}
+                    <div className={`rounded-md border p-3 space-y-1 ${
+                      (scoreBreakdown.flags?.length ?? 0) > 0 ? "border-amber-300 bg-amber-50" : ""
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Role Fit</span>
+                        <span className="text-sm font-bold">{scoreBreakdown.role_fit?.score ?? "—"}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{scoreBreakdown.role_fit?.explanation}</p>
+                    </div>
+                  </div>
+                  {/* Flags */}
+                  {scoreBreakdown.flags?.length > 0 && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-1">
+                      <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Eligibility / Fit Flags
+                      </p>
+                      {scoreBreakdown.flags.map((flag: string, i: number) => (
+                        <p key={i} className="text-xs text-amber-700">{flag}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
