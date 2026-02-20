@@ -123,3 +123,10 @@
 - [x] Add tasks.ensureFollowUps tRPC procedure for frontend to call on Tasks tab load
 - [x] Frontend: call ensureFollowUps when Tasks tab opens for an Applied card
 - [x] Update vitest: A) new card → 3 tasks, B) refresh no duplicate, C) toggle no duplicate, D) legacy 1-task card → 3 tasks
+
+## Patch: Enforce Disabled User Blocking (Server-Side)
+- [x] Add ACCOUNT_DISABLED check to protectedProcedure middleware (Option A: blocks all, including admin)
+- [x] Add ACCOUNT_DISABLED to shared error codes
+- [x] Frontend: intercept ACCOUNT_DISABLED in tRPC client and show blocking screen
+- [x] Build AccountDisabled full-page component (message + Contact link)
+- [x] Tests: disabled user blocked on all 6 endpoints; non-disabled unaffected; re-enable restores access
