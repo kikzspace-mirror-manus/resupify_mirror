@@ -170,3 +170,15 @@
 - [x] On drop: call existing stage update mutation with optimistic update
 - [x] Revert on failure + show toast
 - [x] Vitest tests: drag logic, revert on failure, no regression to list view
+
+## Patch 6C: JD Snapshot — Real LLM Extraction
+- [x] Add JobCardRequirements table (id, jobCardId, requirementText, requirementType, createdAt)
+- [x] Push schema migration
+- [x] Add db helpers: upsertRequirements, getRequirements
+- [x] Replace stub extraction with real LLM call (structured JSON schema response)
+- [x] LLM extracts: company_name, job_title, location, job_type + 10-25 requirement statements
+- [x] Guard: JD text < 200 chars → throws "JD too short" without calling LLM
+- [x] Guard: JD text > 12000 chars → truncate to 12000 for extraction, store full snapshot
+- [x] Update JD Snapshot tab: Extract/Re-extract button, requirements list grouped by type with color-coded badges, inline error
+- [x] Snapshot text remains immutable (extraction only writes to requirements table)
+- [x] Tests: A-J) 10 tests covering extraction, persistence, field update, invalid type filtering, LLM null, disabled blocked, requirements query

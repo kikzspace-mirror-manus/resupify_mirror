@@ -118,6 +118,17 @@ export const jdSnapshots = mysqlTable("jd_snapshots", {
 
 export type JdSnapshot = typeof jdSnapshots.$inferSelect;
 export type InsertJdSnapshot = typeof jdSnapshots.$inferInsert;
+// ─── JD Requirements (extracted from JD Snapshot via LLM) ───────────
+export const jobCardRequirements = mysqlTable("job_card_requirements", {
+  id: int("id").autoincrement().primaryKey(),
+  jobCardId: int("jobCardId").notNull(),
+  jdSnapshotId: int("jdSnapshotId").notNull(),
+  requirementText: text("requirementText").notNull(),
+  requirementType: mysqlEnum("requirementType", ["skill", "responsibility", "tool", "softskill", "eligibility"]).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type JobCardRequirement = typeof jobCardRequirements.$inferSelect;
+export type InsertJobCardRequirement = typeof jobCardRequirements.$inferInsert;
 
 // ─── Evidence Runs ───────────────────────────────────────────────────
 export const evidenceRuns = mysqlTable("evidence_runs", {

@@ -291,6 +291,140 @@ export const appRouter = router({
       });
       return { id };
     }),
+    // ─── Real LLM extraction (replaces stub) ──────────────────────────
+    extract: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      const MIN_JD_LENGTH = 200;
+      const MAX_JD_LENGTH = 12000;
+
+      const snapshot = await db.getLatestJdSnapshot(input.jobCardId);
+      if (!snapshot) throw new Error("No JD snapshot found. Please paste a job description first.");
+
+      const rawText = snapshot.snapshotText;
+      if (rawText.length < MIN_JD_LENGTH) {
+        throw new Error("JD too short. Paste the full job description (at least 200 characters).");
+      }
+
+      // Truncate for extraction only — stored snapshot is never modified
+      const extractionText = rawText.length > MAX_JD_LENGTH
+        ? rawText.substring(0, MAX_JD_LENGTH)
+        : rawText;
+
+      const llmResponse = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You are a job description parser. Extract structured information from the job description.",
+              "Return ONLY valid JSON matching the schema. Do not invent information not present in the text.",
+              "For requirements, extract 10-25 distinct items. Each must be a single, specific requirement.",
+              "requirement_type must be one of: skill, responsibility, tool, softskill, eligibility",
+            ].join(" "),
+          },
+          {
+            role: "user",
+            content: `Extract structured fields and requirements from this job description:\n\n${extractionText}`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "jd_extraction",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                company_name: { type: "string", description: "Company name if present, empty string if not" },
+                job_title: { type: "string", description: "Job title if present, empty string if not" },
+                location: { type: "string", description: "Location if present, empty string if not" },
+                job_type: { type: "string", description: "Job type (full-time, part-time, contract, internship, co-op) if present, empty string if not" },
+                requirements: {
+                  type: "array",
+                  description: "10-25 distinct requirement statements extracted from the JD",
+                  items: {
+                    type: "object",
+                    properties: {
+                      requirement_text: { type: "string", description: "Single specific requirement or responsibility" },
+                      requirement_type: {
+                        type: "string",
+                        enum: ["skill", "responsibility", "tool", "softskill", "eligibility"],
+                        description: "Type of requirement",
+                      },
+                    },
+                    required: ["requirement_text", "requirement_type"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["company_name", "job_title", "location", "job_type", "requirements"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      const content = llmResponse?.choices?.[0]?.message?.content;
+      if (!content) throw new Error("LLM returned no content. Please try again.");
+
+      let parsed: {
+        company_name: string;
+        job_title: string;
+        location: string;
+        job_type: string;
+        requirements: Array<{ requirement_text: string; requirement_type: string }>;
+      };
+      try {
+        parsed = typeof content === "string" ? JSON.parse(content) : content;
+      } catch {
+        throw new Error("Failed to parse LLM response. Please try again.");
+      }
+
+      // Update job card structured fields if they are empty
+      const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
+      if (jobCard) {
+        const updates: Record<string, string> = {};
+        if (!jobCard.company && parsed.company_name) updates.company = parsed.company_name;
+        if (!jobCard.title || jobCard.title === "Untitled Job") {
+          if (parsed.job_title) updates.title = parsed.job_title;
+        }
+        if (!jobCard.location && parsed.location) updates.location = parsed.location;
+        if (!jobCard.jobType && parsed.job_type) updates.jobType = parsed.job_type;
+        if (Object.keys(updates).length > 0) {
+          await db.updateJobCard(input.jobCardId, ctx.user.id, updates);
+        }
+      }
+
+      // Persist requirements (upsert — overwrites previous extraction)
+      const validTypes = ["skill", "responsibility", "tool", "softskill", "eligibility"] as const;
+      type ReqType = typeof validTypes[number];
+      const requirements = parsed.requirements
+        .filter(r => r.requirement_text?.trim() && validTypes.includes(r.requirement_type as ReqType))
+        .map(r => ({
+          requirementText: r.requirement_text.trim(),
+          requirementType: r.requirement_type as ReqType,
+        }));
+
+      await db.upsertRequirements(input.jobCardId, snapshot.id, requirements);
+
+      return {
+        snapshotId: snapshot.id,
+        structuredFields: {
+          company_name: parsed.company_name,
+          job_title: parsed.job_title,
+          location: parsed.location,
+          job_type: parsed.job_type,
+        },
+        requirements,
+        count: requirements.length,
+      };
+    }),
+    // ─── Get persisted requirements ───────────────────────────────────
+    requirements: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+    })).query(async ({ input }) => {
+      return db.getRequirements(input.jobCardId);
+    }),
   }),
 
   // ─── Evidence Scan ─────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import {
   contacts, InsertContact,
   outreachThreads, outreachMessages, outreachPacks,
   adminActionLogs, InsertAdminActionLog,
+  jobCardRequirements, InsertJobCardRequirement,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -632,4 +633,32 @@ export async function adminGetUserById(userId: number) {
   if (!db) return null;
   const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   return rows[0] ?? null;
+}
+
+// ─── JD Requirements ────────────────────────────────────────────────
+export async function getRequirements(jobCardId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(jobCardRequirements)
+    .where(eq(jobCardRequirements.jobCardId, jobCardId))
+    .orderBy(asc(jobCardRequirements.requirementType), asc(jobCardRequirements.id));
+}
+
+export async function upsertRequirements(
+  jobCardId: number,
+  jdSnapshotId: number,
+  items: Array<{ requirementText: string; requirementType: InsertJobCardRequirement["requirementType"] }>
+) {
+  const db = await getDb();
+  if (!db) return;
+  // Delete existing requirements for this job card, then insert fresh ones
+  await db.delete(jobCardRequirements).where(eq(jobCardRequirements.jobCardId, jobCardId));
+  if (items.length === 0) return;
+  const rows: InsertJobCardRequirement[] = items.map(item => ({
+    jobCardId,
+    jdSnapshotId,
+    requirementText: item.requirementText,
+    requirementType: item.requirementType,
+  }));
+  await db.insert(jobCardRequirements).values(rows);
 }

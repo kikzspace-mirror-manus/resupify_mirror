@@ -33,6 +33,8 @@ import {
   Plus,
   Send,
   MailCheck,
+  Sparkles,
+  ListChecks,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -280,9 +282,29 @@ function OverviewTab({ job, updateJob }: { job: any; updateJob: any }) {
 }
 
 // ─── JD Snapshot Tab ─────────────────────────────────────────────────
+const REQUIREMENT_TYPE_LABELS: Record<string, string> = {
+  skill: "Skills",
+  responsibility: "Responsibilities",
+  tool: "Tools & Technologies",
+  softskill: "Soft Skills",
+  eligibility: "Eligibility",
+};
+
+const REQUIREMENT_TYPE_COLORS: Record<string, string> = {
+  skill: "bg-blue-50 text-blue-700 border-blue-200",
+  responsibility: "bg-purple-50 text-purple-700 border-purple-200",
+  tool: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  softskill: "bg-amber-50 text-amber-700 border-amber-200",
+  eligibility: "bg-red-50 text-red-700 border-red-200",
+};
+
 function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots: any[] }) {
   const [newJdText, setNewJdText] = useState("");
+  const [extractError, setExtractError] = useState<string | null>(null);
   const utils = trpc.useUtils();
+
+  const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
+
   const createSnapshot = trpc.jdSnapshots.create.useMutation({
     onSuccess: () => {
       utils.jdSnapshots.list.invalidate({ jobCardId });
@@ -291,8 +313,33 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
     },
   });
 
+  const extractRequirements = trpc.jdSnapshots.extract.useMutation({
+    onSuccess: (data) => {
+      utils.jdSnapshots.requirements.invalidate({ jobCardId });
+      utils.jobCards.get.invalidate({ id: jobCardId });
+      utils.jobCards.list.invalidate();
+      setExtractError(null);
+      toast.success(`Extracted ${data.count} requirements`);
+    },
+    onError: (err) => {
+      setExtractError(err.message);
+    },
+  });
+
+  const hasSnapshot = snapshots.length > 0;
+
+  // Group requirements by type
+  const grouped = (requirements ?? []).reduce<Record<string, typeof requirements>>((acc, req) => {
+    const t = req!.requirementType;
+    if (!acc[t]) acc[t] = [];
+    acc[t]!.push(req);
+    return acc;
+  }, {});
+  const groupOrder = ["eligibility", "skill", "tool", "responsibility", "softskill"];
+
   return (
     <div className="space-y-4">
+      {/* Paste + Save */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Add New JD Snapshot</CardTitle>
@@ -304,26 +351,86 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
             placeholder="Paste the job description text here..."
             className="min-h-[120px] text-sm font-mono"
           />
-          <Button
-            size="sm"
-            className="mt-3"
-            onClick={() => createSnapshot.mutate({ jobCardId, snapshotText: newJdText })}
-            disabled={createSnapshot.isPending || !newJdText.trim()}
-          >
-            {createSnapshot.isPending ? "Saving..." : "Save Snapshot"}
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => createSnapshot.mutate({ jobCardId, snapshotText: newJdText })}
+              disabled={createSnapshot.isPending || !newJdText.trim()}
+            >
+              {createSnapshot.isPending ? "Saving..." : "Save Snapshot"}
+            </Button>
+            {hasSnapshot && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setExtractError(null);
+                  extractRequirements.mutate({ jobCardId });
+                }}
+                disabled={extractRequirements.isPending}
+              >
+                {extractRequirements.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Extracting...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4 mr-1.5" />{(requirements ?? []).length > 0 ? "Re-extract Requirements" : "Extract Requirements"}</>
+                )}
+              </Button>
+            )}
+          </div>
+          {extractError && (
+            <p className="text-xs text-destructive mt-2 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />{extractError}
+            </p>
+          )}
+          {hasSnapshot && (requirements ?? []).length === 0 && !extractRequirements.isPending && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Click "Extract Requirements" to parse skills, responsibilities, and eligibility from the saved JD.
+            </p>
+          )}
         </CardContent>
       </Card>
 
+      {/* Extracted Requirements */}
+      {(requirements ?? []).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <ListChecks className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm font-semibold">
+                Extracted Requirements ({requirements!.length})
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {groupOrder.filter(t => grouped[t]?.length).map(type => (
+              <div key={type}>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  {REQUIREMENT_TYPE_LABELS[type] ?? type}
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {grouped[type]!.map(req => (
+                    <span
+                      key={req!.id}
+                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border font-medium ${REQUIREMENT_TYPE_COLORS[type] ?? "bg-gray-100 text-gray-700"}`}
+                    >
+                      {req!.requirementText}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Raw Snapshots */}
       {snapshots.map((snap) => (
         <Card key={snap.id}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold">
-                Version {snap.version}
-              </CardTitle>
+              <CardTitle className="text-sm font-semibold">Version {snap.version}</CardTitle>
               <span className="text-xs text-muted-foreground">
-                JD Snapshot saved on {new Date(snap.capturedAt).toLocaleString()}
+                Saved {new Date(snap.capturedAt).toLocaleString()}
               </span>
             </div>
           </CardHeader>

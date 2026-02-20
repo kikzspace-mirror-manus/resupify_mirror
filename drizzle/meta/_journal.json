@@ -36,6 +36,13 @@
       "when": 1771624603864,
       "tag": "0004_famous_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1771626607826,
+      "tag": "0005_tiny_scalphunter",
+      "breakpoints": true
     }
   ]
 }
