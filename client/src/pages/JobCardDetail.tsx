@@ -180,7 +180,7 @@ export default function JobCardDetail({ id }: { id: number }) {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <OverviewTab job={job} updateJob={updateJob} jobCardId={id} resumes={resumes ?? []} />
+          <OverviewTab job={job} updateJob={updateJob} jobCardId={id} resumes={resumes ?? []} evidenceRuns={evidenceRuns ?? []} />
         </TabsContent>
 
         {/* JD Snapshot Tab */}
@@ -219,8 +219,33 @@ export default function JobCardDetail({ id }: { id: number }) {
 }
 
 // ─── Score Trend Card (Sparkline) ────────────────────────────────────────────────────
-function ScoreTrendCard({ jobCardId, resumeId }: { jobCardId: number; resumeId?: number }) {
-  const { data: history, isLoading } = trpc.evidence.scoreHistory.useQuery({ jobCardId, resumeId });
+function ScoreTrendCard({
+  jobCardId,
+  resumes,
+  evidenceRuns,
+}: {
+  jobCardId: number;
+  resumes: Array<{ id: number; title: string }>;
+  evidenceRuns: Array<{ resumeId: number; status: string }>;
+}) {
+  // Build selectable resume list from resumes prop + any resume IDs found in runs
+  const runResumeIds = Array.from(
+    new Set(evidenceRuns.map((r) => r.resumeId))
+  );
+  const resumeMap = new Map(resumes.map((r) => [r.id, r.title]));
+  const allIds = Array.from(new Set([...resumes.map((r) => r.id), ...runResumeIds]));
+  const selectableResumes = allIds.map((id) => ({
+    id,
+    title: resumeMap.get(id) ?? `Resume ${id}`,
+  }));
+
+  const defaultId = selectableResumes[0]?.id;
+  const [selectedResumeId, setSelectedResumeId] = useState<number | undefined>(defaultId);
+
+  const { data: history, isLoading } = trpc.evidence.scoreHistory.useQuery(
+    { jobCardId, resumeId: selectedResumeId },
+    { enabled: true }
+  );
 
   if (isLoading) return null;
 
@@ -234,43 +259,67 @@ function ScoreTrendCard({ jobCardId, resumeId }: { jobCardId: number; resumeId?:
     score: r.overallScore ?? 0,
   }));
 
+  const showDropdown = selectableResumes.length > 1;
+  const selectedResumeName = selectableResumes.find((r) => r.id === selectedResumeId)?.title ?? "Resume";
+
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 shrink-0">
             <TrendingUp className="h-4 w-4 text-primary" />
             Score Trend
           </CardTitle>
-          {latestScore !== null && (
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">{latestScore}</span>
-              {delta !== null && (
-                <Badge
-                  variant="outline"
-                  className={`text-xs font-semibold ${
-                    delta > 0
-                      ? "text-emerald-600 border-emerald-300 bg-emerald-50"
-                      : delta < 0
-                      ? "text-red-600 border-red-300 bg-red-50"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {delta > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : delta < 0 ? <TrendingDown className="h-3 w-3 mr-0.5" /> : <Minus className="h-3 w-3 mr-0.5" />}
-                  {delta > 0 ? "+" : ""}{delta}
-                </Badge>
-              )}
-              {runs.length === 1 && (
-                <Badge variant="outline" className="text-xs text-muted-foreground">First run</Badge>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-2 ml-auto">
+            {latestScore !== null && (
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{latestScore}</span>
+                {delta !== null && (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-semibold ${
+                      delta > 0
+                        ? "text-emerald-600 border-emerald-300 bg-emerald-50"
+                        : delta < 0
+                        ? "text-red-600 border-red-300 bg-red-50"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {delta > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : delta < 0 ? <TrendingDown className="h-3 w-3 mr-0.5" /> : <Minus className="h-3 w-3 mr-0.5" />}
+                    {delta > 0 ? "+" : ""}{delta}
+                  </Badge>
+                )}
+                {runs.length === 1 && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">First run</Badge>
+                )}
+              </div>
+            )}
+            {showDropdown && (
+              <Select
+                value={selectedResumeId?.toString() ?? ""}
+                onValueChange={(v) => setSelectedResumeId(Number(v))}
+              >
+                <SelectTrigger className="h-7 text-xs w-36">
+                  <SelectValue placeholder="Resume">{selectedResumeName}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {selectableResumes.map((r) => (
+                    <SelectItem key={r.id} value={r.id.toString()}>
+                      {r.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {runs.length === 0 ? (
           <div className="flex items-center justify-center h-16 text-xs text-muted-foreground">
-            Run Evidence+ATS to see your score trend.
+            {showDropdown
+              ? "No runs yet for this resume. Run Evidence+ATS to start a trend."
+              : "Run Evidence+ATS to see your score trend."}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={80}>
@@ -321,13 +370,12 @@ function ScoreTrendCard({ jobCardId, resumeId }: { jobCardId: number; resumeId?:
 }
 
 // ─── Overview Tab ────────────────────────────────────────────────────
-function OverviewTab({ job, updateJob, jobCardId, resumes }: { job: any; updateJob: any; jobCardId: number; resumes: any[] }) {
+function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job: any; updateJob: any; jobCardId: number; resumes: any[]; evidenceRuns: any[] }) {
   const [notes, setNotes] = useState(job.notes ?? "");
-  const primaryResumeId = resumes[0]?.id;
 
   return (
     <div className="space-y-4">
-      <ScoreTrendCard jobCardId={jobCardId} resumeId={primaryResumeId} />
+      <ScoreTrendCard jobCardId={jobCardId} resumes={resumes} evidenceRuns={evidenceRuns} />
       <div className="grid md:grid-cols-2 gap-4">
       <Card>
         <CardHeader className="pb-3">

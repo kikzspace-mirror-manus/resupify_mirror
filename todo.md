@@ -230,3 +230,12 @@
 - [x] Add "Download .txt" button to cover letter section in ApplicationKitTab
 - [x] Button only visible when cover letter exists (conditional render guards against empty state)
 - [x] Tests: 17 tests — sanitizeSegment (5), buildCoverLetterFilename (12) covering standard, single-word, missing company, forbidden chars, date formatting, empty/null name, three-part name
+
+## Patch 8A: Score Trend — Resume Selector Dropdown
+- [x] Derive resume list from evidenceRuns (unique resumeIds) + resumes prop
+- [x] Add selectedResumeId state to ScoreTrendCard (default: first in selectable list)
+- [x] Hide dropdown when only 1 selectable resume (selectableResumes.length <= 1)
+- [x] Add resume selector dropdown in Score Trend card header (right side)
+- [x] Filter scoreHistory query by selectedResumeId
+- [x] Empty state when selected resume has 0 runs (different message when dropdown visible)
+- [x] Tests: A-G+A2+B2+C2+D2 (11 tests) — one resume hidden, multiple shown, orphaned run IDs, dedup, empty state messages, default selection, title mapping
