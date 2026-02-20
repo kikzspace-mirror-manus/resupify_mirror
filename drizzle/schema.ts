@@ -8,6 +8,9 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  isAdmin: boolean("isAdmin").default(false).notNull(),
+  adminNotes: text("adminNotes"),
+  disabled: boolean("disabled").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -237,3 +240,16 @@ export const outreachPacks = mysqlTable("outreach_packs", {
 });
 
 export type OutreachPack = typeof outreachPacks.$inferSelect;
+
+// ─── Admin Action Logs ──────────────────────────────────────────────
+export const adminActionLogs = mysqlTable("admin_action_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  adminUserId: int("adminUserId").notNull(),
+  action: varchar("action", { length: 256 }).notNull(),
+  targetUserId: int("targetUserId"),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminActionLog = typeof adminActionLogs.$inferSelect;
+export type InsertAdminActionLog = typeof adminActionLogs.$inferInsert;

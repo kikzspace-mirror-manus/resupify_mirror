@@ -20,6 +20,14 @@ import Outreach from "./pages/Outreach";
 import Analytics from "./pages/Analytics";
 import Billing from "./pages/Billing";
 import Onboarding from "./pages/Onboarding";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminRuns from "./pages/admin/AdminRuns";
+import AdminLedger from "./pages/admin/AdminLedger";
+import AdminPacks from "./pages/admin/AdminPacks";
+import AdminHealth from "./pages/admin/AdminHealth";
+import AdminSandbox from "./pages/admin/AdminSandbox";
+import AdminAudit from "./pages/admin/AdminAudit";
 
 function DashboardRoute({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -72,6 +80,16 @@ function Router() {
       <Route path="/billing">
         <DashboardRoute component={Billing} />
       </Route>
+
+      {/* Admin pages */}
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/runs" component={AdminRuns} />
+      <Route path="/admin/ledger" component={AdminLedger} />
+      <Route path="/admin/packs" component={AdminPacks} />
+      <Route path="/admin/health" component={AdminHealth} />
+      <Route path="/admin/sandbox" component={AdminSandbox} />
+      <Route path="/admin/audit" component={AdminAudit} />
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

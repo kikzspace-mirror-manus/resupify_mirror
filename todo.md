@@ -92,3 +92,19 @@
 - [x] Contact page (email support CTA)
 - [x] Wire all CTAs to existing signup/onboarding and in-app billing
 - [x] No backend refactors or credit logic changes
+
+## Admin Access & Panels
+- [x] Add is_admin boolean + admin_notes to users table
+- [x] Admin assignment rule: francisnoces@gmail.com gets is_admin=true
+- [x] Server-side admin enforcement (adminProcedure middleware)
+- [x] Admin action audit logging (admin_action_logs table)
+- [x] Admin credit bypass (admin_test_mode toggle, delta=0 ledger entries)
+- [x] Admin Dashboard (KPIs: total users, active 7d, job cards, evidence runs, credits spent, error rate)
+- [x] User Management Panel (search, view profile, grant credits, set admin, activity summary)
+- [x] Runs & Output QA Panel (browse runs, filter, view details, re-run in test mode)
+- [x] Credit & Ledger Panel (view ledger, filter by reason type)
+- [x] Content/Pack Management Panel (read-only view of Region Pack JSON)
+- [x] System Health Panel (recent errors, failed extractions, AI failures)
+- [x] Test Sandbox Panel (sample resume/JD, one-click create/run/generate)
+- [x] /admin route hard-blocks non-admins server-side
+- [x] Acceptance tests (admin access, credit bypass, grant credits, normal billing)

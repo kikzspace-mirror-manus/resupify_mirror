@@ -8,6 +8,7 @@ import { invokeLLM } from "./_core/llm";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
+import { adminRouter } from "./routers/admin";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -22,6 +23,7 @@ function addBusinessDays(date: Date, days: number): Date {
 
 export const appRouter = router({
   system: systemRouter,
+  admin: adminRouter,
 
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

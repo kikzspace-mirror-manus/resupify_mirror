@@ -12,6 +12,7 @@ import {
   tasks, InsertTask,
   contacts, InsertContact,
   outreachThreads, outreachMessages, outreachPacks,
+  adminActionLogs, InsertAdminActionLog,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -47,6 +48,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
   if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
   else if (user.openId === ENV.ownerOpenId) { values.role = 'admin'; updateSet.role = 'admin'; }
+  // Auto-assign admin for francisnoces@gmail.com
+  const emailVal = user.email ?? values.email;
+  if (emailVal === 'francisnoces@gmail.com' || user.openId === ENV.ownerOpenId) {
+    (values as any).isAdmin = true;
+    updateSet.isAdmin = true;
+    values.role = 'admin';
+    updateSet.role = 'admin';
+  }
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
@@ -410,4 +419,181 @@ export async function getTaskCompletionRate(userId: number) {
   const allTasks = await db.select().from(tasks).where(eq(tasks.userId, userId));
   const completed = allTasks.filter(t => t.completed).length;
   return { total: allTasks.length, completed, rate: allTasks.length > 0 ? Math.round((completed / allTasks.length) * 100) : 0 };
+}
+
+// ─── Admin Helpers ──────────────────────────────────────────────────
+
+export async function logAdminAction(adminUserId: number, action: string, targetUserId?: number, metadata?: Record<string, unknown>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(adminActionLogs).values({
+    adminUserId,
+    action,
+    targetUserId: targetUserId ?? null,
+    metadataJson: metadata ? JSON.stringify(metadata) : null,
+  });
+}
+
+export async function getAdminActionLogs(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(adminActionLogs).orderBy(desc(adminActionLogs.createdAt)).limit(limit);
+}
+
+// Admin: list all users with search
+export async function adminListUsers(search?: string, limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return { users: [], total: 0 };
+  if (search) {
+    const pattern = `%${search}%`;
+    const rows = await db.select().from(users)
+      .where(or(sql`${users.name} LIKE ${pattern}`, sql`${users.email} LIKE ${pattern}`))
+      .orderBy(desc(users.createdAt))
+      .limit(limit).offset(offset);
+    const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(users)
+      .where(or(sql`${users.name} LIKE ${pattern}`, sql`${users.email} LIKE ${pattern}`));
+    return { users: rows, total: Number(countResult[0]?.count ?? 0) };
+  }
+  const rows = await db.select().from(users).orderBy(desc(users.createdAt)).limit(limit).offset(offset);
+  const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
+  return { users: rows, total: Number(countResult[0]?.count ?? 0) };
+}
+
+// Admin: get user detail with profile and activity summary
+export async function adminGetUserDetail(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (userRows.length === 0) return null;
+  const user = userRows[0];
+  const profile = await getProfile(userId);
+  const balance = await getCreditsBalance(userId);
+  const jobCardCount = await db.select({ count: sql<number>`COUNT(*)` }).from(jobCards).where(eq(jobCards.userId, userId));
+  const evidenceRunCount = await db.select({ count: sql<number>`COUNT(*)` }).from(evidenceRuns).where(eq(evidenceRuns.userId, userId));
+  const taskCount = await db.select({ count: sql<number>`COUNT(*)` }).from(tasks).where(eq(tasks.userId, userId));
+  return {
+    ...user,
+    profile,
+    creditBalance: balance,
+    jobCardsCount: Number(jobCardCount[0]?.count ?? 0),
+    evidenceRunsCount: Number(evidenceRunCount[0]?.count ?? 0),
+    tasksCount: Number(taskCount[0]?.count ?? 0),
+  };
+}
+
+// Admin: set isAdmin flag
+export async function adminSetIsAdmin(userId: number, isAdmin: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ isAdmin, role: isAdmin ? 'admin' : 'user' }).where(eq(users.id, userId));
+}
+
+// Admin: disable/enable user
+export async function adminSetDisabled(userId: number, disabled: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ disabled }).where(eq(users.id, userId));
+}
+
+// Admin: grant credits
+export async function adminGrantCredits(userId: number, amount: number, adminUserId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const current = await getCreditsBalance(userId);
+  const newBalance = current + amount;
+  await db.update(creditsBalances).set({ balance: newBalance }).where(eq(creditsBalances.userId, userId));
+  await db.insert(creditsLedger).values({
+    userId, amount, reason: `Admin grant (by admin #${adminUserId})`, referenceType: "admin_grant", referenceId: null, balanceAfter: newBalance,
+  });
+}
+
+// Admin: log admin test run (delta=0)
+export async function adminLogTestRun(userId: number, reason: string, referenceType: string, referenceId?: number) {
+  const db = await getDb();
+  if (!db) return;
+  const balance = await getCreditsBalance(userId);
+  await db.insert(creditsLedger).values({
+    userId, amount: 0, reason: `ADMIN TEST (no charge): ${reason}`, referenceType, referenceId: referenceId ?? null, balanceAfter: balance,
+  });
+}
+
+// Admin: browse evidence runs (all users)
+export async function adminListEvidenceRuns(filters?: { userId?: number; dateFrom?: Date; dateTo?: Date; status?: string }, limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return { runs: [], total: 0 };
+  const conditions: any[] = [];
+  if (filters?.userId) conditions.push(eq(evidenceRuns.userId, filters.userId));
+  if (filters?.dateFrom) conditions.push(gte(evidenceRuns.createdAt, filters.dateFrom));
+  if (filters?.dateTo) conditions.push(lte(evidenceRuns.createdAt, filters.dateTo));
+  if (filters?.status) conditions.push(eq(evidenceRuns.status, filters.status as any));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const rows = await db.select().from(evidenceRuns).where(where).orderBy(desc(evidenceRuns.createdAt)).limit(limit).offset(offset);
+  const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(evidenceRuns).where(where);
+  return { runs: rows, total: Number(countResult[0]?.count ?? 0) };
+}
+
+// Admin: get evidence run detail with items, JD snapshot, resume
+export async function adminGetEvidenceRunDetail(runId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const runRows = await db.select().from(evidenceRuns).where(eq(evidenceRuns.id, runId)).limit(1);
+  if (runRows.length === 0) return null;
+  const run = runRows[0];
+  const items = await getEvidenceItems(runId);
+  const jdSnapshotRows = await db.select().from(jdSnapshots).where(eq(jdSnapshots.id, run.jdSnapshotId)).limit(1);
+  const resumeRows = await db.select().from(resumes).where(eq(resumes.id, run.resumeId)).limit(1);
+  const userRows = await db.select().from(users).where(eq(users.id, run.userId)).limit(1);
+  return {
+    ...run,
+    items,
+    jdSnapshot: jdSnapshotRows[0] ?? null,
+    resume: resumeRows[0] ?? null,
+    user: userRows[0] ? { id: userRows[0].id, name: userRows[0].name, email: userRows[0].email } : null,
+  };
+}
+
+// Admin: browse all ledger entries
+export async function adminListLedger(filters?: { userId?: number; referenceType?: string; dateFrom?: Date; dateTo?: Date }, limit = 100, offset = 0) {
+  const db = await getDb();
+  if (!db) return { entries: [], total: 0 };
+  const conditions: any[] = [];
+  if (filters?.userId) conditions.push(eq(creditsLedger.userId, filters.userId));
+  if (filters?.referenceType) conditions.push(eq(creditsLedger.referenceType, filters.referenceType));
+  if (filters?.dateFrom) conditions.push(gte(creditsLedger.createdAt, filters.dateFrom));
+  if (filters?.dateTo) conditions.push(lte(creditsLedger.createdAt, filters.dateTo));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const rows = await db.select().from(creditsLedger).where(where).orderBy(desc(creditsLedger.createdAt)).limit(limit).offset(offset);
+  const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(creditsLedger).where(where);
+  return { entries: rows, total: Number(countResult[0]?.count ?? 0) };
+}
+
+// Admin: KPI stats
+export async function adminGetKPIs() {
+  const db = await getDb();
+  if (!db) return { totalUsers: 0, activeUsers7d: 0, totalJobCards: 0, totalEvidenceRuns: 0, totalCreditsSpent: 0, errorRate: 0 };
+  const totalUsersR = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
+  const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const activeUsersR = await db.select({ count: sql<number>`COUNT(*)` }).from(users).where(gte(users.lastSignedIn, sevenDaysAgo));
+  const totalJobCardsR = await db.select({ count: sql<number>`COUNT(*)` }).from(jobCards);
+  const totalRunsR = await db.select({ count: sql<number>`COUNT(*)` }).from(evidenceRuns);
+  const failedRunsR = await db.select({ count: sql<number>`COUNT(*)` }).from(evidenceRuns).where(eq(evidenceRuns.status, "failed"));
+  const totalSpentR = await db.select({ total: sql<number>`COALESCE(SUM(ABS(amount)), 0)` }).from(creditsLedger).where(sql`${creditsLedger.amount} < 0`);
+  const totalRuns = Number(totalRunsR[0]?.count ?? 0);
+  const failedRuns = Number(failedRunsR[0]?.count ?? 0);
+  return {
+    totalUsers: Number(totalUsersR[0]?.count ?? 0),
+    activeUsers7d: Number(activeUsersR[0]?.count ?? 0),
+    totalJobCards: Number(totalJobCardsR[0]?.count ?? 0),
+    totalEvidenceRuns: totalRuns,
+    totalCreditsSpent: Number(totalSpentR[0]?.total ?? 0),
+    errorRate: totalRuns > 0 ? Math.round((failedRuns / totalRuns) * 100) : 0,
+  };
+}
+
+// Admin: get all users count (for sandbox sample creation)
+export async function adminGetUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0] ?? null;
 }
