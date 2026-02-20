@@ -170,7 +170,43 @@ export async function getJobCards(userId: number, filters?: { stage?: string; se
   if (filters?.stage) conditions.push(eq(jobCards.stage, filters.stage as any));
   if (filters?.season) conditions.push(eq(jobCards.season, filters.season as any));
   if (filters?.priority) conditions.push(eq(jobCards.priority, filters.priority as any));
-  return db.select().from(jobCards).where(and(...conditions)).orderBy(desc(jobCards.updatedAt));
+
+  // Single LEFT JOIN to get MIN(dueDate) of incomplete follow_up tasks per card.
+  // This avoids N+1 queries — one query returns all cards + their next follow-up date.
+  const rows = await db
+    .select({
+      // All jobCards columns
+      id: jobCards.id,
+      userId: jobCards.userId,
+      title: jobCards.title,
+      company: jobCards.company,
+      location: jobCards.location,
+      stage: jobCards.stage,
+      priority: jobCards.priority,
+      season: jobCards.season,
+      notes: jobCards.notes,
+      url: jobCards.url,
+      salary: jobCards.salary,
+      jobType: jobCards.jobType,
+      dueDate: jobCards.dueDate,
+      followupsScheduledAt: jobCards.followupsScheduledAt,
+      createdAt: jobCards.createdAt,
+      updatedAt: jobCards.updatedAt,
+      // Computed: earliest incomplete follow_up task due date
+      nextFollowupDueAt: sql<Date | null>`MIN(CASE WHEN ${tasks.taskType} = 'follow_up' AND ${tasks.completed} = 0 AND ${tasks.dueDate} IS NOT NULL THEN ${tasks.dueDate} END)`,
+    })
+    .from(jobCards)
+    .leftJoin(tasks, and(eq(tasks.jobCardId, jobCards.id), eq(tasks.userId, userId)))
+    .where(and(...conditions))
+    .groupBy(
+      jobCards.id, jobCards.userId, jobCards.title, jobCards.company, jobCards.location,
+      jobCards.stage, jobCards.priority, jobCards.season, jobCards.notes, jobCards.url,
+      jobCards.salary, jobCards.jobType, jobCards.dueDate, jobCards.followupsScheduledAt,
+      jobCards.createdAt, jobCards.updatedAt
+    )
+    .orderBy(desc(jobCards.updatedAt));
+
+  return rows;
 }
 
 export async function getJobCardById(id: number, userId: number) {

@@ -30,6 +30,7 @@ import {
   Calendar,
   ExternalLink,
   Search,
+  Bell,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -45,6 +46,33 @@ const stageColors: Record<string, string> = {
   rejected: "bg-red-100 text-red-700 border-red-200",
   archived: "bg-gray-100 text-gray-500 border-gray-200",
 };
+
+/**
+ * Returns styling and label for the next follow-up badge.
+ * - Overdue (past today): red
+ * - Due within 2 days: amber
+ * - Otherwise: green/muted
+ */
+function getFollowupBadgeProps(nextFollowupDueAt: Date | null | undefined): {
+  label: string;
+  className: string;
+} | null {
+  if (!nextFollowupDueAt) return null;
+  const due = new Date(nextFollowupDueAt);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = due.getTime() - todayStart.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const dateStr = due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  if (diffDays < 0) {
+    return { label: `Overdue · ${dateStr}`, className: "bg-red-100 text-red-700 border-red-200" };
+  }
+  if (diffDays <= 2) {
+    return { label: `Follow-up · ${dateStr}`, className: "bg-amber-100 text-amber-700 border-amber-200" };
+  }
+  return { label: `Follow-up · ${dateStr}`, className: "bg-emerald-100 text-emerald-700 border-emerald-200" };
+}
 
 const kanbanHeaderColors: Record<string, string> = {
   bookmarked: "border-t-slate-400",
@@ -244,9 +272,20 @@ export default function JobCards() {
                     )}
                   </div>
                 </div>
-                <Badge className={`shrink-0 ${stageColors[job.stage] ?? ""}`}>
-                  {STAGE_LABELS[job.stage as keyof typeof STAGE_LABELS] ?? job.stage}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  {(() => {
+                    const fp = getFollowupBadgeProps((job as any).nextFollowupDueAt);
+                    return fp ? (
+                      <Badge className={`text-xs border ${fp.className}`}>
+                        <Bell className="h-3 w-3 mr-1" />
+                        {fp.label}
+                      </Badge>
+                    ) : null;
+                  })()}
+                  <Badge className={`${stageColors[job.stage] ?? ""}`}>
+                    {STAGE_LABELS[job.stage as keyof typeof STAGE_LABELS] ?? job.stage}
+                  </Badge>
+                </div>
               </div>
             ))
           )}
@@ -292,6 +331,15 @@ export default function JobCards() {
                           High Priority
                         </Badge>
                       )}
+                      {(() => {
+                        const fp = getFollowupBadgeProps((job as any).nextFollowupDueAt);
+                        return fp ? (
+                          <div className={`flex items-center gap-1 text-xs mt-2 px-2 py-0.5 rounded-full border w-fit ${fp.className}`}>
+                            <Bell className="h-3 w-3" />
+                            <span>{fp.label}</span>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   ))}
                 </div>

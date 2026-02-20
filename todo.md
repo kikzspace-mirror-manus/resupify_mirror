@@ -136,3 +136,9 @@
 - [x] Add red "Disabled" badge to each user row in AdminUsers.tsx (was already present)
 - [x] Add "Show disabled only" frontend filter toggle
 - [x] Add 2 unit tests: disabled user shows badge; enabled user does not
+
+## Patch: Next Follow-up Due Date Badge (Job Cards)
+- [x] Extend jobCards.list query to include nextFollowupDueAt (MIN due_at from followup tasks, status=todo)
+- [x] Render color-coded badge in list view rows (green/amber/red)
+- [x] Render color-coded badge in kanban card tiles
+- [x] Tests: 3 tasks shows earliest; completed ignored; no tasks = no badge; overdue = red
