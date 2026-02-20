@@ -11,6 +11,7 @@ import { Search, Shield, Coins, Ban, User, Briefcase, FlaskConical, ListTodo } f
 
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
+  const [showDisabledOnly, setShowDisabledOnly] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [grantDialog, setGrantDialog] = useState<{ userId: number; name: string } | null>(null);
   const [grantAmount, setGrantAmount] = useState("5");
@@ -43,15 +44,26 @@ export default function AdminUsers() {
           <p className="text-muted-foreground">Search users, view profiles, grant credits, manage access</p>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search + filter */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            size="sm"
+            variant={showDisabledOnly ? "destructive" : "outline"}
+            onClick={() => setShowDisabledOnly((v) => !v)}
+            className="shrink-0"
+          >
+            <Ban className="h-4 w-4 mr-2" />
+            {showDisabledOnly ? "Showing disabled only" : "Show disabled only"}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -66,7 +78,7 @@ export default function AdminUsers() {
               </div>
             ) : (
               <div className="space-y-2">
-                {usersData?.users.map((u) => (
+                {(usersData?.users ?? []).filter((u) => !showDisabledOnly || u.disabled).map((u) => (
                   <Card
                     key={u.id}
                     className={`cursor-pointer transition-colors ${selectedUserId === u.id ? "border-orange-300 bg-orange-50/50" : "hover:bg-accent/50"}`}

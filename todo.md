@@ -130,3 +130,9 @@
 - [x] Frontend: intercept ACCOUNT_DISABLED in tRPC client and show blocking screen
 - [x] Build AccountDisabled full-page component (message + Contact link)
 - [x] Tests: disabled user blocked on all 6 endpoints; non-disabled unaffected; re-enable restores access
+
+## Patch: Disabled Badge in Admin Users List
+- [x] Confirm disabled field returned by adminListUsers query
+- [x] Add red "Disabled" badge to each user row in AdminUsers.tsx (was already present)
+- [x] Add "Show disabled only" frontend filter toggle
+- [x] Add 2 unit tests: disabled user shows badge; enabled user does not
