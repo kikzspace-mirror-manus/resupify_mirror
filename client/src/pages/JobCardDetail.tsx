@@ -28,6 +28,10 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  Settings,
   XCircle,
   MinusCircle,
   Loader2,
@@ -372,10 +376,12 @@ function ScoreTrendCard({
 // ─── Overview Tab ────────────────────────────────────────────────────
 function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job: any; updateJob: any; jobCardId: number; resumes: any[]; evidenceRuns: any[] }) {
   const [notes, setNotes] = useState(job.notes ?? "");
+  const { data: profile } = trpc.profile.get.useQuery();
 
   return (
     <div className="space-y-4">
       <ScoreTrendCard jobCardId={jobCardId} resumes={resumes} evidenceRuns={evidenceRuns} />
+      <EligibilityBanner evidenceRuns={evidenceRuns} workStatus={profile?.workStatus ?? "unknown"} />
       <div className="grid md:grid-cols-2 gap-4">
       <Card>
         <CardHeader className="pb-3">
@@ -439,6 +445,75 @@ function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job
       </Card>
       </div>
     </div>
+  );
+}
+
+// ─── Eligibility Banner ─────────────────────────────────────────────
+function EligibilityBanner({ evidenceRuns, workStatus }: { evidenceRuns: any[]; workStatus?: string }) {
+  const [, setLocation] = useLocation();
+
+  // Find the latest completed run with scoreBreakdownJson
+  const latestRun = evidenceRuns
+    .filter((r: any) => r.status === "completed" && r.scoreBreakdownJson)
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+  let workAuthFlags: Array<{ ruleId: string; title: string; guidance: string; penalty: number }> = [];
+  if (latestRun?.scoreBreakdownJson) {
+    try {
+      const bd = JSON.parse(latestRun.scoreBreakdownJson);
+      workAuthFlags = bd.workAuthorizationFlags ?? [];
+    } catch {
+      workAuthFlags = [];
+    }
+  }
+
+  const hasFlags = workAuthFlags.length > 0;
+  const statusUnknown = !workStatus || workStatus === "unknown";
+
+  if (!hasFlags && !statusUnknown) return null;
+
+  return (
+    <Card className={hasFlags ? "border-amber-200 bg-amber-50/50" : "border-blue-100 bg-blue-50/30"}>
+      <CardHeader className="pb-2 pt-4">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          {hasFlags ? (
+            <ShieldAlert className="h-4 w-4 text-amber-600" />
+          ) : (
+            <ShieldQuestion className="h-4 w-4 text-blue-500" />
+          )}
+          Eligibility checks
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 pb-4">
+        {hasFlags ? (
+          workAuthFlags.map((flag: any) => (
+            <div key={flag.ruleId} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                <span className="text-sm font-medium text-amber-800">{flag.title}</span>
+                <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 ml-auto shrink-0">
+                  Role fit: {flag.penalty}
+                </Badge>
+              </div>
+              <p className="text-xs text-amber-700 ml-5">{flag.guidance}</p>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-blue-700">
+            Add your work status to reduce eligibility uncertainty on postings that screen for authorization.
+          </p>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-7 mt-1"
+          onClick={() => setLocation("/profile")}
+        >
+          <Settings className="h-3 w-3 mr-1" />
+          Update work status
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

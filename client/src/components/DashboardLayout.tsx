@@ -34,6 +34,7 @@ import {
   CalendarCheck,
   Zap,
   Shield,
+  UserCircle,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -50,6 +51,7 @@ const menuItems = [
   { icon: Users, label: "Outreach", path: "/outreach" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
+  { icon: UserCircle, label: "Profile", path: "/profile" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

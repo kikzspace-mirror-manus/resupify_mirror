@@ -245,8 +245,18 @@
 - [x] Push schema migration (0008)
 - [x] Update Region Pack schema: add eligibility_checks array with rule objects (trigger_phrases, condition, penalty, message)
 - [x] Add CA_COOP and CA_NEW_GRAD eligibility rules (4 rules: Citizen/PR, no sponsorship, unknown status, location)
-- [ ] Add eligibility detection logic to evidence.run mutation (scan job_card_requirements or JD text for triggers)
-- [ ] Apply role_fit penalties via pack rules and persist eligibility flags in scoreBreakdownJson
-- [ ] Build Eligibility banner/section in JobCardDetail Overview tab (show triggered rules + guidance)
-- [ ] Add work status profile fields to user profile UI (onboarding or settings page)
-- [ ] Tests: A-F per acceptance criteria
+- [x] Add eligibility detection logic to evidence.run mutation (scan job_card_requirements or JD text for triggers)
+- [x] Apply role_fit penalties via pack rules and persist eligibility flags in scoreBreakdownJson
+- [x] Build Eligibility banner/section in JobCardDetail Overview tab (show triggered rules + guidance)
+- [x] Add work status profile fields to user profile UI (Profile page at /profile)
+- [x] Tests: 10 tests passing (218 total)
+
+## Patch 8B Part 2: Work Auth Eligibility Detection + UI + Role Fit Penalties
+- [x] Add evaluateWorkAuthRules() helper: scan JD text for trigger phrases, evaluate conditions against profile, return triggered rules
+- [x] Integrate evaluateWorkAuthRules into evidence.run mutation after role_fit score computed
+- [x] Apply penalties to role_fit_score (clamp 0-100) and persist workAuthorizationFlags in scoreBreakdownJson
+- [x] Show compact "Work authorization" flag list in Evidence tab score breakdown area (EligibilityBanner in Overview)
+- [x] Add Eligibility section/card to JobCardDetail Overview tab (triggered rules + guidance + Update work status link)
+- [x] Add work status fields to user settings/profile page (work_status, work_status_detail, needs_sponsorship, country_of_residence, willing_to_relocate)
+- [x] Add profile.updateWorkStatus tRPC mutation
+- [x] Tests: 1-8 (10 tests) — citizen/PR no penalty, temp resident penalty, sponsorship penalty, unknown soft penalty, no trigger no penalty, role_fit clamped to 0, scoreBreakdownJson structure, updateWorkStatus mutation

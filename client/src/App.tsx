@@ -20,6 +20,7 @@ import Outreach from "./pages/Outreach";
 import Analytics from "./pages/Analytics";
 import Billing from "./pages/Billing";
 import Onboarding from "./pages/Onboarding";
+import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminRuns from "./pages/admin/AdminRuns";
@@ -79,6 +80,9 @@ function Router() {
       </Route>
       <Route path="/billing">
         <DashboardRoute component={Billing} />
+      </Route>
+      <Route path="/profile">
+        <DashboardRoute component={Profile} />
       </Route>
 
       {/* Admin pages */}

@@ -104,6 +104,16 @@ export const appRouter = router({
       await db.upsertProfile(ctx.user.id, input);
       return { success: true };
     }),
+    updateWorkStatus: protectedProcedure.input(z.object({
+      workStatus: z.enum(["citizen_pr", "temporary_resident", "unknown"]).optional(),
+      workStatusDetail: z.enum(["open_work_permit", "employer_specific_permit", "student_work_authorization", "other"]).nullable().optional(),
+      needsSponsorship: z.enum(["true", "false", "unknown"]).optional(),
+      countryOfResidence: z.string().nullable().optional(),
+      willingToRelocate: z.boolean().nullable().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.upsertProfile(ctx.user.id, input as any);
+      return { success: true };
+    }),
   }),
 
   // ─── Region Packs ─────────────────────────────────────────────────
@@ -660,12 +670,37 @@ export const appRouter = router({
         if (trackCode === "NEW_GRAD" && seniorityMatches.length > 0) {
           roleFitScore -= 20;
           flags.push(`overqualified_risk: Resume signals high seniority (${seniorityMatches.slice(0, 2).join(", ")}). New grad roles may flag this as overqualified.`);
+        }        // Work authorization rule evaluation (pack-driven)
+        const workAuthorizationFlags: Array<{ ruleId: string; title: string; guidance: string; penalty: number }> = [];
+        if (pack.workAuthRules && pack.workAuthRules.length > 0) {
+          const jdTextLower = jdSnapshot.snapshotText.toLowerCase();
+          for (const rule of pack.workAuthRules) {
+            const triggered = rule.triggerPhrases.some(phrase => jdTextLower.includes(phrase.toLowerCase()));
+            if (!triggered) continue;
+            let conditionMet = false;
+            const workStatus = profile?.workStatus ?? "unknown";
+            const needsSponsorship = profile?.needsSponsorship ?? "unknown";
+            const countryOfResidence = profile?.countryOfResidence ?? null;
+            if (rule.condition === "work_status != citizen_pr") {
+              conditionMet = workStatus !== "citizen_pr";
+            } else if (rule.condition === "needs_sponsorship == true") {
+              conditionMet = needsSponsorship === "true";
+            } else if (rule.condition === "work_status == unknown") {
+              conditionMet = workStatus === "unknown";
+            } else if (rule.condition === "country_of_residence != Canada") {
+              conditionMet = countryOfResidence !== null && countryOfResidence.toLowerCase() !== "canada";
+            }
+            if (conditionMet) {
+              roleFitScore += rule.penalty; // penalty is negative
+              workAuthorizationFlags.push({ ruleId: rule.id, title: rule.label, guidance: rule.message, penalty: rule.penalty });
+              flags.push(`work_auth:${rule.id}: ${rule.message}`);
+            }
+          }
         }
 
-        roleFitScore = Math.max(0, roleFitScore);
+        roleFitScore = Math.max(0, Math.min(100, roleFitScore));
 
-        // ── 11. Compute overall_score using pack.scoringWeights ───────────
-        // Map our 4 components to pack weight keys
+        // ── 11. Compute overall_score using pack.scoringWeights ───────────────       // Map our 4 components to pack weight keys
         // Pack weights: eligibility, tools, responsibilities, skills, softSkills
         // We map: role_fit → eligibility weight, keyword_coverage → tools+responsibilities, evidence_strength → skills+softSkills, formatting → remaining
         // Simplified: use a weighted blend of 4 components with pack-derived weights
@@ -715,10 +750,11 @@ export const appRouter = router({
             score: roleFitScore,
             weight: roleFitWeight,
             explanation: flags.length > 0
-              ? `Flags detected: ${flags.join(" | ")}`
+              ? `Flags detected: ${flags.join(" | ")}${workAuthorizationFlags.length > 0 ? " | Role fit includes work authorization eligibility checks." : ""}`
               : "No eligibility or seniority issues detected.",
           },
           flags,
+          workAuthorizationFlags,
           pack_label: pack.label,
           computed_at: new Date().toISOString(),
         };
