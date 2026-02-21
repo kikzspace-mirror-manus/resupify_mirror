@@ -1,4 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
+import axios from "axios";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -481,6 +484,120 @@ export const appRouter = router({
       jobCardId: z.number(),
     })).query(async ({ input }) => {
       return db.getRequirements(input.jobCardId);
+    }),
+    // ─── Patch 8I: Fetch JD text from a URL ─────────────────────────
+    fetchFromUrl: protectedProcedure.input(z.object({
+      url: z.string().url(),
+    })).mutation(async ({ input }) => {
+      const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+      const TIMEOUT_MS = 15_000;
+      const MIN_TEXT_LENGTH = 200;
+      const BLOCKED_CONTENT_TYPES = ["application/pdf", "application/octet-stream", "image/", "video/", "audio/"];
+
+      // Guard: https-only
+      const parsed = new URL(input.url);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error("Only http(s) URLs are supported.");
+      }
+
+      let html: string;
+      try {
+        const response = await axios.get<string>(input.url, {
+          timeout: TIMEOUT_MS,
+          maxContentLength: MAX_BYTES,
+          maxBodyLength: MAX_BYTES,
+          responseType: "text",
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; Resupify/1.0; +https://resupify.app)",
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+          validateStatus: (status) => status < 500,
+        });
+
+        // Guard: blocked/anti-bot responses
+        if (response.status === 403 || response.status === 401 || response.status === 429) {
+          throw new Error("Couldn't fetch text from this URL. Please paste the JD instead.");
+        }
+        if (response.status === 404) {
+          throw new Error("Job posting not found (404). Please check the URL.");
+        }
+        if (response.status >= 400) {
+          throw new Error(`Couldn't fetch this URL (HTTP ${response.status}). Please paste the JD instead.`);
+        }
+
+        // Guard: binary content types
+        const contentType = (response.headers["content-type"] ?? "").toLowerCase();
+        if (BLOCKED_CONTENT_TYPES.some((t) => contentType.includes(t))) {
+          throw new Error("URL does not point to a web page. Please paste the JD instead.");
+        }
+
+        html = response.data as string;
+      } catch (err: any) {
+        if (axios.isAxiosError(err)) {
+          if (err.code === "ECONNABORTED" || err.code === "ETIMEDOUT") {
+            throw new Error("Request timed out. Please paste the JD instead.");
+          }
+          if (err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
+            throw new Error("Couldn't reach this URL. Please check the address and try again.");
+          }
+          if (err.message.includes("maxContentLength")) {
+            throw new Error("Page is too large to fetch. Please paste the JD instead.");
+          }
+        }
+        // Re-throw user-facing errors as-is
+        if (err instanceof Error && !axios.isAxiosError(err)) throw err;
+        throw new Error("Couldn't fetch text from this URL. Please paste the JD instead.");
+      }
+
+      // Extract readable text using Mozilla Readability
+      let extractedText = "";
+      try {
+        const dom = new JSDOM(html, { url: input.url });
+        const reader = new Readability(dom.window.document);
+        const article = reader.parse();
+        if (article?.textContent) {
+          // Collapse whitespace and trim
+          extractedText = article.textContent
+            .replace(/\r\n/g, "\n")
+            .replace(/[ \t]+/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        }
+      } catch {
+        // Readability failed — fall through to fallback
+      }
+
+      // Fallback: strip scripts/styles and collapse whitespace
+      if (extractedText.length < MIN_TEXT_LENGTH) {
+        try {
+          const dom = new JSDOM(html);
+          const doc = dom.window.document;
+          // Remove noise elements
+          for (const tag of ["script", "style", "noscript", "nav", "footer", "header"]) {
+            doc.querySelectorAll(tag).forEach((el) => el.remove());
+          }
+          const rawText = doc.body?.textContent ?? "";
+          extractedText = rawText
+            .replace(/\r\n/g, "\n")
+            .replace(/[ \t]+/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        } catch {
+          throw new Error("Couldn't extract text from this page. Please paste the JD instead.");
+        }
+      }
+
+      // Guard: too short
+      if (extractedText.length < MIN_TEXT_LENGTH) {
+        throw new Error("Fetched text too short. Please paste the JD manually.");
+      }
+
+      // Truncate to a reasonable max for the textarea
+      const MAX_TEXT = 20_000;
+      const text = extractedText.length > MAX_TEXT ? extractedText.substring(0, MAX_TEXT) : extractedText;
+
+      return { text, fetchedAt: new Date().toISOString() };
     }),
   }),
 

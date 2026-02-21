@@ -548,6 +548,10 @@ const REQUIREMENT_TYPE_COLORS: Record<string, string> = {
 function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots: any[] }) {
   const [newJdText, setNewJdText] = useState("");
   const [extractError, setExtractError] = useState<string | null>(null);
+  // Patch 8I: URL fetch state
+  const [fetchUrl, setFetchUrl] = useState("");
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const utils = trpc.useUtils();
 
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
@@ -557,6 +561,19 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
       utils.jdSnapshots.list.invalidate({ jobCardId });
       setNewJdText("");
       toast.success("JD Snapshot saved");
+    },
+  });
+
+  const fetchFromUrl = trpc.jdSnapshots.fetchFromUrl.useMutation({
+    onSuccess: (data) => {
+      setNewJdText(data.text);
+      setFetchedAt(new Date(data.fetchedAt).toLocaleTimeString());
+      setFetchError(null);
+      setFetchUrl("");
+      toast.success("JD text fetched! Review and click Save Snapshot.");
+    },
+    onError: (err) => {
+      setFetchError(err.message);
     },
   });
 
@@ -591,11 +608,42 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Add New JD Snapshot</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {/* Patch 8I: URL fetch row */}
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="Paste a job posting URL (Greenhouse, Lever, Ashby, Workday…)"
+              value={fetchUrl}
+              onChange={(e) => { setFetchUrl(e.target.value); setFetchError(null); }}
+              className="text-sm flex-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && fetchUrl.trim() && !fetchFromUrl.isPending) {
+                  fetchFromUrl.mutate({ url: fetchUrl.trim() });
+                }
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fetchFromUrl.mutate({ url: fetchUrl.trim() })}
+              disabled={fetchFromUrl.isPending || !fetchUrl.trim()}
+            >
+              {fetchFromUrl.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Fetching...</> : "Fetch from URL"}
+            </Button>
+          </div>
+          {fetchError && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3 shrink-0" />{fetchError}
+            </p>
+          )}
+          {fetchedAt && !fetchError && (
+            <p className="text-xs text-muted-foreground">Fetched at {fetchedAt} — review the text below, then click Save Snapshot.</p>
+          )}
           <Textarea
             value={newJdText}
             onChange={(e) => setNewJdText(e.target.value)}
-            placeholder="Paste the job description text here..."
+            placeholder="Paste the job description text here, or fetch from a URL above…"
             className="min-h-[120px] text-sm font-mono"
           />
           <div className="flex gap-2 mt-3">

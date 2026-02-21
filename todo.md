@@ -331,3 +331,13 @@
 - [x] Confirm proceeds with existing generate mutation, disables button during loading
 - [x] Keyboard accessible: ESC closes, focus trap (Radix AlertDialog built-in)
 - [x] Tests: A-G (7 tests) — no kit immediate, kit exists dialog, cancel no-op, confirm generate, state transitions, composite key, dialog content spec
+
+## Patch 8I: JD URL Fetch (Auto-Populate JD Snapshot from a Link)
+- [x] Read JD Snapshot tab UI and existing jdSnapshots router
+- [x] Install @mozilla/readability + jsdom for server-side HTML extraction
+- [x] Add jdSnapshots.fetchFromUrl tRPC protectedProcedure with guardrails (https-only, 2MB size limit, 15s timeout, content-type block, 403/404/429 handling)
+- [x] Extract readable text from HTML (Readability first, fallback to script/style strip + whitespace collapse)
+- [x] Add URL input + "Fetch from URL" button to JD Snapshot tab UI (Enter key also triggers)
+- [x] On success: populate JD paste textarea with fetched text, show "Fetched at {time}" note, clear URL input
+- [x] Error states: timeout, blocked/403, too short (<200 chars), non-https, 404, binary content-type
+- [x] Tests: A-J (15 tests) — valid fetch, axios call args, eligibility precheck, all error cases, no-credits, truncation, guardrail unit tests
