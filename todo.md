@@ -322,3 +322,12 @@
 - [x] Empty state: "Run your first scan to see trends" when no cards have runs
 - [x] "No runs yet" row state for cards without runs
 - [x] Tests: A-H (8 tests) — activeTrends returns cards, series ordering, latest score+delta, no N+1, empty state, zero-run cards, grouping logic, trim logic
+
+## Patch 8H: Application Kit Regeneration Guard
+- [x] Read ApplicationKitTab to understand generate/regenerate button state
+- [x] Add AlertDialog (shadcn) with "Replace existing kit?" title, body text, Replace kit/Cancel buttons
+- [x] Wire guard: no kit → generate immediately; kit exists → open dialog first (showConfirmDialog state)
+- [x] Cancel closes dialog, no generation call
+- [x] Confirm proceeds with existing generate mutation, disables button during loading
+- [x] Keyboard accessible: ESC closes, focus trap (Radix AlertDialog built-in)
+- [x] Tests: A-G (7 tests) — no kit immediate, kit exists dialog, cancel no-op, confirm generate, state transitions, composite key, dialog content spec

@@ -4,6 +4,16 @@ import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFile
 import JSZip from "jszip";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -990,6 +1000,8 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(completedRuns[0]?.id ?? null);
   const [tone, setTone] = useState<Tone>("Human");
+  // Patch 8H: regeneration guard
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const selectedRun = completedRuns.find((r) => r.id === selectedRunId);
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
   const hasRequirements = (requirements?.length ?? 0) > 0;
@@ -1191,11 +1203,40 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   <Download className="h-4 w-4 mr-1.5" />Download Kit (.zip)
                 </Button>
               )}
+              {/* Patch 8H: regeneration guard dialog */}
+              <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Replace existing kit?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Regenerating will replace your current Application Kit content (cover letter, rewrites, and top changes). If you already downloaded files, regenerate only if you want new versions.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={generateKit.isPending}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={generateKit.isPending}
+                      onClick={() => {
+                        setShowConfirmDialog(false);
+                        generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone });
+                      }}
+                    >
+                      {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Replacing...</> : "Replace kit"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button
                 onClick={() => {
                   if (!selectedResumeId) { toast.error("Select a resume first."); return; }
                   if (!selectedRunId) { toast.error("Select an evidence run first."); return; }
-                  generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
+                  if (existingKit) {
+                    // Kit already exists — show confirmation guard
+                    setShowConfirmDialog(true);
+                  } else {
+                    // First-time generation — run immediately
+                    generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
+                  }
                 }}
                 disabled={generateKit.isPending || !hasRequirements || noRun}
               >
