@@ -286,3 +286,9 @@
 - [x] Confirmed: no separate URL import/scrape flow exists — url field is metadata only
 - [x] Both JD entry paths (jobCards.create + jdSnapshots.create) already have precheck wired (8C1)
 - [x] Tests: A-D (11 tests) — conflict detection, no-trigger none, null profile recommended, citizen_pr no conflict, pure function shape, empty rules
+
+## Patch 8C4: Profile Completeness Nudge on Today Page
+- [x] Extract ProfileNudgeBanner to shared component (client/src/components/ProfileNudgeBanner.tsx)
+- [x] Update Dashboard to import from shared component (useProfileNudge hook)
+- [x] Add ProfileNudgeBanner to Today page (same condition + localStorage key)
+- [x] Tests: A-D+EC (15 tests) — unknown shows, dismiss shared key, known status hides, NUDGE_KEY constant, TTL expiry
