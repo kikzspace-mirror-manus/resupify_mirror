@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { buildCoverLetterFilename, buildResumePatchFilename } from "../../../shared/filename";
+import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename } from "../../../shared/filename";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1117,9 +1117,66 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Top Changes ({topChanges.length})</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => createTasks.mutate({ jobCardId })} disabled={createTasks.isPending}>
-                    {createTasks.isPending ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Creating...</> : <><CheckSquare className="h-3.5 w-3.5 mr-1.5" />Create Tasks</>}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const d = new Date();
+                        const year = d.getFullYear();
+                        const month = String(d.getMonth() + 1).padStart(2, "0");
+                        const day = String(d.getDate()).padStart(2, "0");
+                        const dateStr = `${year}-${month}-${day}`;
+                        const selectedResume = resumes.find((r) => r.id === selectedResumeId);
+                        const resumeName = selectedResume?.name ?? "Resume";
+                        const runDate = selectedRun?.createdAt
+                          ? new Date(selectedRun.createdAt).toLocaleDateString()
+                          : "N/A";
+
+                        const lines: string[] = [
+                          `Job: ${job?.title ?? ""} — ${job?.company ?? "Company"}`,
+                          `Date: ${dateStr}`,
+                          `Resume: ${resumeName}`,
+                          `Evidence run: ${runDate}`,
+                          "",
+                          "=== Top Changes ===",
+                          "",
+                        ];
+
+                        topChanges.forEach((change, i) => {
+                          lines.push(`${i + 1}. ${change.requirement_text}`);
+                          lines.push(`   Status: ${change.status === "missing" ? "Missing" : "Partial"}`);
+                          lines.push(`   Action: ${change.fix}`);
+                          lines.push("");
+                        });
+
+                        lines.push("=== Next Steps ===");
+                        lines.push("");
+                        lines.push("[ ] Update resume bullets");
+                        lines.push("[ ] Review cover letter draft");
+                        lines.push("[ ] Submit application");
+
+                        const content = lines.join("\n");
+                        const filename = buildTopChangesFilename(
+                          user?.name ?? "User",
+                          job?.company ?? "Company"
+                        );
+                        const blob = new Blob([content + "\n"], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = filename;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success(`Downloaded ${filename}`);
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />Download .txt
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => createTasks.mutate({ jobCardId })} disabled={createTasks.isPending}>
+                      {createTasks.isPending ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Creating...</> : <><CheckSquare className="h-3.5 w-3.5 mr-1.5" />Create Tasks</>}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">

@@ -299,3 +299,9 @@
 - [x] Add "Download .txt" button to ApplicationKitTab bullet rewrites section (card header right side)
 - [x] Button renders only when bulletRewrites.length > 0 (conditional render guard)
 - [x] Tests: A-E (19 tests) — conditional render, filename convention (7), content structure (4), needs_confirmation, cover letter regression (4)
+
+## Patch 8E: Top Changes Export (.txt Action Checklist)
+- [x] Add buildTopChangesFilename(name, company, date?) to shared/filename.ts
+- [x] Add "Download .txt" button to ApplicationKitTab Top Changes card header (left of Create Tasks button)
+- [x] Button renders only when topChanges.length > 0 (conditional render guard)
+- [x] Tests: A-D (19 tests) — render guard, filename convention (8), content structure (4), no regressions to cover letter + resume patch (5)
