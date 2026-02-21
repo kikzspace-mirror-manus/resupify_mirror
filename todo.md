@@ -341,3 +341,13 @@
 - [x] On success: populate JD paste textarea with fetched text, show "Fetched at {time}" note, clear URL input
 - [x] Error states: timeout, blocked/403, too short (<200 chars), non-https, 404, binary content-type
 - [x] Tests: A-J (15 tests) — valid fetch, axios call args, eligibility precheck, all error cases, no-credits, truncation, guardrail unit tests
+
+## Patch 8J: Evidence Run History Panel (Past Runs in Evidence Tab)
+- [x] Read Evidence Map tab and existing evidence router
+- [x] Add collapsible "Past Runs" section to Evidence Map tab (default collapsed, chevron rotates on open)
+- [x] List items: run date/time, overall score, color-coded (green/amber/red), delta vs previous (TrendingUp/Down/Minus icon), resume name
+- [x] Clicking a run sets it as the active run (Option A: read-only view of that run's EvidenceItems + score breakdown)
+- [x] Active run highlighted with left border + "Viewing" badge
+- [x] Limit to last 20 runs (slice logic)
+- [x] Empty state: "No past runs yet."
+- [x] Tests: A-G (11 tests) — descending order, run fields, items per run, empty state, no credits, delta logic, 20-run limit, non-completed status

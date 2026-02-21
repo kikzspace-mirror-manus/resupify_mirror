@@ -4,6 +4,7 @@ import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFile
 import JSZip from "jszip";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +58,8 @@ import {
   TrendingDown,
   Minus,
   Download,
+  ChevronDown,
+  History,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -751,6 +754,8 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
 function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: any[]; resumes: any[] }) {
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(runs[0]?.id ?? null);
+  // Patch 8J: Past Runs panel state (collapsed by default)
+  const [pastRunsOpen, setPastRunsOpen] = useState(false);
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
 
@@ -868,24 +873,87 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
         </CardContent>
       </Card>
 
-      {/* Run selector */}
-      {runs.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {runs.map((run) => (
-            <Button
-              key={run.id}
-              variant={selectedRunId === run.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedRunId(run.id)}
-            >
-              Run #{run.id} — {run.overallScore ?? "?"}%
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {run.status}
-              </Badge>
-            </Button>
-          ))}
-        </div>
-      )}
+      {/* Patch 8J: Past Runs collapsible panel */}
+      <Collapsible open={pastRunsOpen} onOpenChange={setPastRunsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Past Runs
+              {runs.length > 0 && (
+                <Badge variant="secondary" className="text-xs">{Math.min(runs.length, 20)}</Badge>
+              )}
+            </span>
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${pastRunsOpen ? "rotate-180" : ""}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-2 rounded-lg border bg-card">
+            {runs.length === 0 ? (
+              <div className="flex items-center gap-2 px-4 py-6 text-center justify-center text-muted-foreground">
+                <History className="h-4 w-4" />
+                <p className="text-sm">No past runs yet.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {runs.slice(0, 20).map((run, idx) => {
+                  const prevRun = runs[idx + 1];
+                  const delta = (run.overallScore != null && prevRun?.overallScore != null)
+                    ? run.overallScore - prevRun.overallScore
+                    : null;
+                  const resume = resumes.find((r) => r.id === run.resumeId);
+                  const isActive = selectedRunId === run.id;
+                  return (
+                    <button
+                      key={run.id}
+                      onClick={() => setSelectedRunId(run.id)}
+                      className={`w-full flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50 transition-colors text-left ${
+                        isActive ? "bg-primary/5 border-l-2 border-primary" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-xs text-muted-foreground">
+                            {new Date(run.createdAt).toLocaleString()}
+                          </span>
+                          {resume && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[160px]">{resume.title}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {run.status === "completed" ? (
+                          <>
+                            <span className={`text-sm font-bold ${
+                              (run.overallScore ?? 0) >= 75 ? "text-emerald-600" :
+                              (run.overallScore ?? 0) >= 50 ? "text-amber-600" : "text-red-600"
+                            }`}>
+                              {run.overallScore ?? "—"}%
+                            </span>
+                            {delta !== null && (
+                              <span className={`text-xs font-medium flex items-center gap-0.5 ${
+                                delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-600" : "text-muted-foreground"
+                              }`}>
+                                {delta > 0 ? <TrendingUp className="h-3 w-3" /> : delta < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                                {delta > 0 ? `+${delta}` : delta}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">{run.status}</Badge>
+                        )}
+                        {isActive && (
+                          <Badge variant="default" className="text-xs">Viewing</Badge>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Score + Breakdown */}
       {activeRun && activeRun.status === "completed" && (
