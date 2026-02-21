@@ -273,3 +273,11 @@
 - [x] Badge tooltip: "Based on the job description. Complete your profile or run a scan for details."
 - [x] Badge click: navigate to job card detail page
 - [x] Tests: A-F+EC (18 tests) — conflict, recommended, none, case-insensitive, multiple rules, null profile, pure function, no credits, no block on failure
+
+## Patch 8C2: Dashboard Profile Completeness Nudge
+- [x] Add ProfileNudgeBanner component (dismissible, localStorage persistence 30 days)
+- [x] Show banner on Dashboard only when work_status is unknown/null
+- [x] Primary CTA: "Complete profile" → /profile
+- [x] Secondary: "Dismiss" with X icon (keyboard accessible)
+- [x] localStorage key: profileNudgeDismissed with timestamp, 30-day expiry
+- [x] Tests: A-D+EC (14 tests) — unknown shows, set hides, dismiss persists, 30-day expiry, expired re-shows, invalid storage, empty string treated as unknown
