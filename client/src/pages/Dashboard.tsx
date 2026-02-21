@@ -17,6 +17,7 @@ import {
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
+import { ScoreTrendsWidget } from "@/components/ScoreTrendsWidget";
 import { STAGE_LABELS } from "../../../shared/regionPacks";
 
 const stageColors: Record<string, string> = {
@@ -132,6 +133,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ATS Score Trends — Patch 8G */}
+      <ScoreTrendsWidget />
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Today's Tasks */}

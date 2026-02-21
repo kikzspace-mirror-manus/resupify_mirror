@@ -498,6 +498,10 @@ export const appRouter = router({
     })).query(async ({ input }) => {
       return db.getScoreHistory(input.jobCardId, input.resumeId, 20);
     }),
+    // Patch 8G: aggregated active-card score trends for Dashboard widget
+    activeTrends: protectedProcedure.query(async ({ ctx }) => {
+      return db.getActiveScoredJobCards(ctx.user.id, 10, 10);
+    }),
     run: protectedProcedure.input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),

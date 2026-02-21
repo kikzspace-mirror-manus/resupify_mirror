@@ -313,3 +313,12 @@
 - [x] Button renders when existingKit AND any of: coverLetterText, bulletRewrites, topChanges exist
 - [x] Zip contains only files with content; filenames use existing builders
 - [x] Tests: A-D (16 tests) — filename convention (8), zip label+separators (2), regression (4), fallbacks (2)
+
+## Patch 8G: Dashboard Score Trends (Multi-Card Mini Sparklines)
+- [x] Add getActiveScoredJobCards db helper: fetch active job cards + last 10 evidence run scores in one query (no N+1)
+- [x] Add evidence.activeTrends tRPC protectedProcedure
+- [x] Build ScoreTrendsWidget component (mini sparklines per card, latest score, delta badge)
+- [x] Add ScoreTrendsWidget to Dashboard below stats cards, above Today's Tasks grid
+- [x] Empty state: "Run your first scan to see trends" when no cards have runs
+- [x] "No runs yet" row state for cards without runs
+- [x] Tests: A-H (8 tests) — activeTrends returns cards, series ordering, latest score+delta, no N+1, empty state, zero-run cards, grouping logic, trim logic
