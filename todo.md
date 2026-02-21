@@ -281,3 +281,8 @@
 - [x] Secondary: "Dismiss" with X icon (keyboard accessible)
 - [x] localStorage key: profileNudgeDismissed with timestamp, 30-day expiry
 - [x] Tests: A-D+EC (14 tests) — unknown shows, set hides, dismiss persists, 30-day expiry, expired re-shows, invalid storage, empty string treated as unknown
+
+## Patch 8C3: Eligibility Pre-Check on JD URL Import (Parity)
+- [x] Confirmed: no separate URL import/scrape flow exists — url field is metadata only
+- [x] Both JD entry paths (jobCards.create + jdSnapshots.create) already have precheck wired (8C1)
+- [x] Tests: A-D (11 tests) — conflict detection, no-trigger none, null profile recommended, citizen_pr no conflict, pure function shape, empty rules
