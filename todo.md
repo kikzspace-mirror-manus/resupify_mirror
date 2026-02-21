@@ -351,3 +351,14 @@
 - [x] Limit to last 20 runs (slice logic)
 - [x] Empty state: "No past runs yet."
 - [x] Tests: A-G (11 tests) — descending order, run fields, items per run, empty state, no credits, delta logic, 20-run limit, non-completed status
+
+## Patch 8K: JD Snapshot Diff View (Side-by-Side Changes Between Versions)
+- [x] Read JdSnapshotTab structure and snapshot data shape
+- [x] Implement line-based LCS diff helper (pure function: computeLineDiff) in SnapshotDiffView.tsx
+- [x] Build SnapshotDiffView component: two-column layout, green additions (right), red removals (left), summary badge bar
+- [x] Add Snapshot History section to JdSnapshotTab (last 10 versions, date/time, version badge, sourceUrl link)
+- [x] From/To version selectors + "View diff" lazy render trigger + "Hide diff" toggle
+- [x] Auto-select oldest→newest if user clicks View diff without selecting versions
+- [x] Single snapshot: show "No prior version to compare." (diff controls hidden)
+- [x] Cap diff at 20k chars with "Diff truncated for performance" amber note
+- [x] Tests: A-G (11 tests) — single snap guard, two-snap diff, added right-only, removed left-only, no credits, truncation, summary counts, identical, completely different, column length parity

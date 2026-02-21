@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { SnapshotDiffView } from "@/components/SnapshotDiffView";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +61,7 @@ import {
   Download,
   ChevronDown,
   History,
+  GitCompare,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -555,6 +557,11 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
   const [fetchUrl, setFetchUrl] = useState("");
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Patch 8K: Diff state
+  const [diffOpen, setDiffOpen] = useState(false);
+  const sortedSnaps = [...snapshots].sort((a, b) => a.version - b.version);
+  const [fromVersion, setFromVersion] = useState<number | null>(null);
+  const [toVersion, setToVersion] = useState<number | null>(null);
   const utils = trpc.useUtils();
 
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
@@ -746,11 +753,127 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
           <p className="text-sm">No JD snapshots yet. Paste a job description above.</p>
         </div>
       )}
+
+      {/* Patch 8K: Snapshot History + Diff */}
+      {snapshots.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <GitCompare className="h-4 w-4" />
+                Snapshot History
+                <Badge variant="secondary" className="text-xs">{Math.min(sortedSnaps.length, 10)}</Badge>
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* History list */}
+            <div className="divide-y rounded-lg border">
+              {sortedSnaps.slice(-10).reverse().map((snap) => (
+                <div key={snap.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">v{snap.version}</Badge>
+                    <span className="text-muted-foreground text-xs">{new Date(snap.capturedAt).toLocaleString()}</span>
+                    {snap.sourceUrl && (
+                      <a href={snap.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate max-w-[200px]">
+                        {snap.sourceUrl}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Diff controls */}
+            {snapshots.length < 2 ? (
+              <p className="text-sm text-muted-foreground italic">No prior version to compare.</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-end gap-3 flex-wrap">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">From (older)</label>
+                    <Select
+                      value={fromVersion?.toString() ?? ""}
+                      onValueChange={(v) => setFromVersion(Number(v))}
+                    >
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Select version" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sortedSnaps.slice(0, -1).map((snap) => (
+                          <SelectItem key={snap.id} value={snap.version.toString()}>
+                            v{snap.version} — {new Date(snap.capturedAt).toLocaleDateString()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">To (newer)</label>
+                    <Select
+                      value={toVersion?.toString() ?? ""}
+                      onValueChange={(v) => setToVersion(Number(v))}
+                    >
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Select version" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sortedSnaps.slice(1).map((snap) => (
+                          <SelectItem key={snap.id} value={snap.version.toString()}>
+                            v{snap.version} — {new Date(snap.capturedAt).toLocaleDateString()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Auto-select oldest→newest if not chosen
+                      if (!fromVersion) setFromVersion(sortedSnaps[0]!.version);
+                      if (!toVersion) setToVersion(sortedSnaps[sortedSnaps.length - 1]!.version);
+                      setDiffOpen(true);
+                    }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <GitCompare className="h-4 w-4" />
+                    View diff
+                  </Button>
+                  {diffOpen && (
+                    <Button variant="ghost" size="sm" onClick={() => setDiffOpen(false)}>
+                      Hide diff
+                    </Button>
+                  )}
+                </div>
+
+                {/* Lazy diff render */}
+                {diffOpen && (() => {
+                  const effectiveFrom = fromVersion ?? sortedSnaps[0]!.version;
+                  const effectiveTo = toVersion ?? sortedSnaps[sortedSnaps.length - 1]!.version;
+                  const fromSnap = sortedSnaps.find((s) => s.version === effectiveFrom);
+                  const toSnap = sortedSnaps.find((s) => s.version === effectiveTo);
+                  if (!fromSnap || !toSnap || fromSnap.version === toSnap.version) {
+                    return (
+                      <p className="text-sm text-amber-600">Select two different versions to compare.</p>
+                    );
+                  }
+                  return (
+                    <SnapshotDiffView
+                      oldSnapshot={fromSnap}
+                      newSnapshot={toSnap}
+                    />
+                  );
+                })()}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
-
-// ─── Evidence Tab ────────────────────────────────────────────────────
+// ─── Evidence Tabb ────────────────────────────────────────────────────
 function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: any[]; resumes: any[] }) {
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(runs[0]?.id ?? null);
