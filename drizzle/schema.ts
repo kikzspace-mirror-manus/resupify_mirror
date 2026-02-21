@@ -104,6 +104,9 @@ export const jobCards = mysqlTable("job_cards", {
   dueDate: timestamp("dueDate"),
   salary: varchar("salary", { length: 128 }),
   jobType: varchar("jobType", { length: 64 }), // full-time, part-time, contract, internship
+  eligibilityPrecheckStatus: mysqlEnum("eligibilityPrecheckStatus", ["none", "recommended", "conflict"]).default("none"),
+  eligibilityPrecheckRulesJson: text("eligibilityPrecheckRulesJson"), // JSON array of { ruleId, title }
+  eligibilityPrecheckUpdatedAt: timestamp("eligibilityPrecheckUpdatedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

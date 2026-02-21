@@ -9,6 +9,7 @@ import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
+import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -224,6 +225,29 @@ export const appRouter = router({
       } as any);
       if (id && jdText) {
         await db.createJdSnapshot({ jobCardId: id, snapshotText: jdText, sourceUrl: input.url ?? null });
+        // Eligibility pre-check: lightweight scan, no credits, no LLM
+        try {
+          const profile = await db.getProfile(ctx.user.id);
+          const pack = profile?.regionCode && profile?.trackCode
+            ? getRegionPack(profile.regionCode, profile.trackCode)
+            : null;
+          const rules = (pack?.workAuthRules ?? []).map((r) => ({
+            id: r.id,
+            label: r.label,
+            triggerPhrases: r.triggerPhrases,
+            condition: r.condition,
+          }));
+          const precheck = runEligibilityPrecheck(jdText, profile, rules);
+          if (precheck.status !== "none") {
+            await db.updateJobCard(id, ctx.user.id, {
+              eligibilityPrecheckStatus: precheck.status,
+              eligibilityPrecheckRulesJson: JSON.stringify(precheck.triggeredRules),
+              eligibilityPrecheckUpdatedAt: new Date(),
+            } as any);
+          }
+        } catch {
+          // Pre-check failure must never block card creation
+        }
       }
       return { id };
     }),
@@ -293,12 +317,35 @@ export const appRouter = router({
       jobCardId: z.number(),
       snapshotText: z.string().min(1),
       sourceUrl: z.string().optional(),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
       const id = await db.createJdSnapshot({
         jobCardId: input.jobCardId,
         snapshotText: input.snapshotText,
         sourceUrl: input.sourceUrl ?? null,
       });
+      // Eligibility pre-check on snapshot save
+      try {
+        const profile = await db.getProfile(ctx.user.id);
+        const pack = profile?.regionCode && profile?.trackCode
+          ? getRegionPack(profile.regionCode, profile.trackCode)
+          : null;
+        const rules = (pack?.workAuthRules ?? []).map((r) => ({
+          id: r.id,
+          label: r.label,
+          triggerPhrases: r.triggerPhrases,
+          condition: r.condition,
+        }));
+        const precheck = runEligibilityPrecheck(input.snapshotText, profile, rules);
+        await db.updateJobCard(input.jobCardId, ctx.user.id, {
+          eligibilityPrecheckStatus: precheck.status,
+          eligibilityPrecheckRulesJson: precheck.triggeredRules.length > 0
+            ? JSON.stringify(precheck.triggeredRules)
+            : null,
+          eligibilityPrecheckUpdatedAt: new Date(),
+        } as any);
+      } catch {
+        // Pre-check failure must never block snapshot creation
+      }
       return { id };
     }),
     // ─── Real LLM extraction (replaces stub) ──────────────────────────

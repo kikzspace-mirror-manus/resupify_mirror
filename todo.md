@@ -260,3 +260,16 @@
 - [x] Add work status fields to user settings/profile page (work_status, work_status_detail, needs_sponsorship, country_of_residence, willing_to_relocate)
 - [x] Add profile.updateWorkStatus tRPC mutation
 - [x] Tests: 1-8 (10 tests) — citizen/PR no penalty, temp resident penalty, sponsorship penalty, unknown soft penalty, no trigger no penalty, role_fit clamped to 0, scoreBreakdownJson structure, updateWorkStatus mutation
+
+## Patch 8C1: Eligibility Pre-Check on Job Card Creation (Soft Badge)
+- [x] Add eligibilityPrecheckStatus enum (none|recommended|conflict), eligibilityPrecheckRulesJson (text nullable), eligibilityPrecheckUpdatedAt to jobCards table
+- [x] Push schema migration (0009)
+- [x] Add runEligibilityPrecheck(jdText, profile, pack) pure helper: returns { status, triggeredRules }
+- [x] Wire into jdSnapshots.save: after snapshot saved, run precheck and update job card
+- [x] Wire into jobCards.create: if JD text provided, run precheck after card created
+- [x] eligibilityPrecheckStatus returned via existing jobCards.list/get (Drizzle returns all columns)
+- [x] Render "Eligibility" badge (amber) and "Eligibility risk" badge (red) on list view rows
+- [x] Render same badges on Kanban card tiles
+- [x] Badge tooltip: "Based on the job description. Complete your profile or run a scan for details."
+- [x] Badge click: navigate to job card detail page
+- [x] Tests: A-F+EC (18 tests) — conflict, recommended, none, case-insensitive, multiple rules, null profile, pure function, no credits, no block on failure

@@ -31,6 +31,7 @@ import {
   ExternalLink,
   Search,
   Bell,
+  ShieldAlert,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -65,6 +66,29 @@ const stageColors: Record<string, string> = {
  * - Due within 2 days: amber
  * - Otherwise: green/muted
  */
+/**
+ * Returns badge props for the eligibility pre-check status.
+ */
+function getEligibilityBadgeProps(status: string | null | undefined): {
+  label: string;
+  className: string;
+  title: string;
+} | null {
+  if (!status || status === "none") return null;
+  if (status === "conflict") {
+    return {
+      label: "Eligibility risk",
+      className: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700",
+      title: "Based on the job description. Complete your profile or run a scan for details.",
+    };
+  }
+  return {
+    label: "Eligibility",
+    className: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700",
+    title: "Based on the job description. Complete your profile or run a scan for details.",
+  };
+}
+
 function getFollowupBadgeProps(nextFollowupDueAt: Date | null | undefined): {
   label: string;
   className: string;
@@ -332,6 +356,22 @@ export default function JobCards() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {(() => {
+                    const ep = getEligibilityBadgeProps((job as any).eligibilityPrecheckStatus);
+                    return ep ? (
+                      <Badge
+                        className={`text-xs border ${ep.className} cursor-pointer`}
+                        title={ep.title}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocation(`/jobs/${job.id}`);
+                        }}
+                      >
+                        <ShieldAlert className="h-3 w-3 mr-1" />
+                        {ep.label}
+                      </Badge>
+                    ) : null;
+                  })()}
+                  {(() => {
                     const fp = getFollowupBadgeProps((job as any).nextFollowupDueAt);
                     return fp ? (
                       <Badge className={`text-xs border ${fp.className}`}>
@@ -393,7 +433,7 @@ function KanbanColumn({
   onCardClick,
 }: {
   stage: string;
-  jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null }>;
+  jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null }>;
   onCardClick: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
@@ -430,7 +470,7 @@ function KanbanCard({
   job,
   onCardClick,
 }: {
-  job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null };
+  job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null };
   onCardClick: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -460,6 +500,19 @@ function KanbanCard({
           High Priority
         </Badge>
       )}
+      {(() => {
+        const ep = getEligibilityBadgeProps(job.eligibilityPrecheckStatus);
+        return ep ? (
+          <div
+            className={`flex items-center gap-1 text-xs mt-2 px-2 py-0.5 rounded-full border w-fit cursor-pointer ${ep.className}`}
+            title={ep.title}
+            onClick={(e) => { e.stopPropagation(); onCardClick(job.id); }}
+          >
+            <ShieldAlert className="h-3 w-3" />
+            <span>{ep.label}</span>
+          </div>
+        ) : null;
+      })()}
       {(() => {
         const fp = getFollowupBadgeProps(job.nextFollowupDueAt);
         return fp ? (
