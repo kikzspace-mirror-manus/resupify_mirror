@@ -1,6 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename } from "../../../shared/filename";
+import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename, buildApplicationKitZipFilename } from "../../../shared/filename";
+import JSZip from "jszip";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1092,16 +1093,115 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
             <div className="text-xs text-muted-foreground">
               {selectedRun && <span>Run #{selectedRun.id} ({selectedRun.overallScore}%) • {new Date(selectedRun.createdAt).toLocaleDateString()}</span>}
             </div>
-            <Button
-              onClick={() => {
-                if (!selectedResumeId) { toast.error("Select a resume first."); return; }
-                if (!selectedRunId) { toast.error("Select an evidence run first."); return; }
-                generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
-              }}
-              disabled={generateKit.isPending || !hasRequirements || noRun}
-            >
-              {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating...</> : existingKit ? <><Sparkles className="h-4 w-4 mr-1.5" />Regenerate Kit</> : <><Sparkles className="h-4 w-4 mr-1.5" />Generate Kit</>}
-            </Button>
+            <div className="flex items-center gap-2">
+              {existingKit && (coverLetterText || bulletRewrites.length > 0 || topChanges.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const zip = new JSZip();
+                    const d = new Date();
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    const dateStr = `${year}-${month}-${day}`;
+                    const selectedResume = resumes.find((r) => r.id === selectedResumeId);
+                    const resumeName = selectedResume?.name ?? "Resume";
+                    const runDate = selectedRun?.createdAt
+                      ? new Date(selectedRun.createdAt).toLocaleDateString()
+                      : "N/A";
+                    const userName = user?.name ?? "User";
+                    const companyName = job?.company ?? "Company";
+
+                    // Cover letter
+                    if (coverLetterText) {
+                      const filename = buildCoverLetterFilename(userName, companyName);
+                      zip.file(filename, coverLetterText + "\n");
+                    }
+
+                    // Resume patch (bullet rewrites)
+                    if (bulletRewrites.length > 0) {
+                      const filename = buildResumePatchFilename(userName, companyName);
+                      const lines: string[] = [
+                        `Job: ${job?.title ?? ""} \u2014 ${companyName}`,
+                        `Date: ${dateStr}`,
+                        `Resume: ${resumeName}`,
+                        `Evidence run: ${runDate}`,
+                        "",
+                      ];
+                      const groups = bulletRewrites.reduce((acc: Record<string, typeof bulletRewrites>, item) => {
+                        const key = item.requirement_text?.split(" ")[0] ?? "other";
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(item);
+                        return acc;
+                      }, {});
+                      for (const [groupKey, items] of Object.entries(groups)) {
+                        lines.push(`=== ${groupKey.toUpperCase()} ===`);
+                        lines.push("");
+                        for (const item of items) {
+                          lines.push(`Requirement: ${item.requirement_text}`);
+                          lines.push(`Status: ${item.status === "missing" ? "Missing" : "Partial"}`);
+                          lines.push(`Fix: ${item.fix}`);
+                          if (item.rewrite_a) lines.push(`Rewrite A: ${item.rewrite_a}`);
+                          if (item.rewrite_b) lines.push(`Rewrite B: ${item.rewrite_b}`);
+                          if (item.needs_confirmation) lines.push(`Needs confirmation: Yes`);
+                          lines.push("");
+                        }
+                      }
+                      zip.file(filename, lines.join("\n") + "\n");
+                    }
+
+                    // Top changes
+                    if (topChanges.length > 0) {
+                      const filename = buildTopChangesFilename(userName, companyName);
+                      const lines: string[] = [
+                        `Job: ${job?.title ?? ""} \u2014 ${companyName}`,
+                        `Date: ${dateStr}`,
+                        `Resume: ${resumeName}`,
+                        `Evidence run: ${runDate}`,
+                        "",
+                        "=== Top Changes ===",
+                        "",
+                      ];
+                      topChanges.forEach((change, i) => {
+                        lines.push(`${i + 1}. ${change.requirement_text}`);
+                        lines.push(`   Status: ${change.status === "missing" ? "Missing" : "Partial"}`);
+                        lines.push(`   Action: ${change.fix}`);
+                        lines.push("");
+                      });
+                      lines.push("=== Next Steps ===");
+                      lines.push("");
+                      lines.push("[ ] Update resume bullets");
+                      lines.push("[ ] Review cover letter draft");
+                      lines.push("[ ] Submit application");
+                      zip.file(filename, lines.join("\n") + "\n");
+                    }
+
+                    const zipFilename = buildApplicationKitZipFilename(userName, companyName);
+                    const blob = await zip.generateAsync({ type: "blob" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = zipFilename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`Downloaded ${zipFilename}`);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-1.5" />Download Kit (.zip)
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  if (!selectedResumeId) { toast.error("Select a resume first."); return; }
+                  if (!selectedRunId) { toast.error("Select an evidence run first."); return; }
+                  generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
+                }}
+                disabled={generateKit.isPending || !hasRequirements || noRun}
+              >
+                {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating...</> : existingKit ? <><Sparkles className="h-4 w-4 mr-1.5" />Regenerate Kit</> : <><Sparkles className="h-4 w-4 mr-1.5" />Generate Kit</>}
+              </Button>
+            </div>
           </div>
           {existingKit && (
             <p className="text-xs text-muted-foreground">Generated {new Date(existingKit.createdAt).toLocaleString()} • Tone: {existingKit.tone} • Included free with Evidence Scan</p>

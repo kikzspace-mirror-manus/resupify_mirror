@@ -305,3 +305,11 @@
 - [x] Add "Download .txt" button to ApplicationKitTab Top Changes card header (left of Create Tasks button)
 - [x] Button renders only when topChanges.length > 0 (conditional render guard)
 - [x] Tests: A-D (19 tests) — render guard, filename convention (8), content structure (4), no regressions to cover letter + resume patch (5)
+
+## Patch 8F: Download Kit (.zip) — Bundle All Three Exports
+- [x] Install JSZip (pnpm add jszip + @types/jszip)
+- [x] Add buildApplicationKitZipFilename(name, company, date?) to shared/filename.ts
+- [x] Add "Download Kit (.zip)" button to ApplicationKitTab header (left of Generate/Regenerate)
+- [x] Button renders when existingKit AND any of: coverLetterText, bulletRewrites, topChanges exist
+- [x] Zip contains only files with content; filenames use existing builders
+- [x] Tests: A-D (16 tests) — filename convention (8), zip label+separators (2), regression (4), fallbacks (2)
