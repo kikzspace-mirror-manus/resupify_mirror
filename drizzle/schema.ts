@@ -30,6 +30,11 @@ export const userProfiles = mysqlTable("user_profiles", {
   graduationDate: varchar("graduationDate", { length: 32 }),
   currentlyEnrolled: boolean("currentlyEnrolled").default(false),
   onboardingComplete: boolean("onboardingComplete").default(false),
+  workStatus: mysqlEnum("workStatus", ["citizen_pr", "temporary_resident", "unknown"]).default("unknown"),
+  workStatusDetail: mysqlEnum("workStatusDetail", ["open_work_permit", "employer_specific_permit", "student_work_authorization", "other"]),
+  needsSponsorship: mysqlEnum("needsSponsorship", ["true", "false", "unknown"]).default("unknown"),
+  countryOfResidence: varchar("countryOfResidence", { length: 128 }),
+  willingToRelocate: boolean("willingToRelocate"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

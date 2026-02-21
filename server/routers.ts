@@ -489,11 +489,11 @@ export const appRouter = router({
 
       // ── 6. Build eligibility context for the LLM prompt ─────────────
       const missingEligibilityFields = pack.eligibilityChecks
-        .filter(check => check.required && !(profile as any)?.[check.field])
+        .filter(check => check.required && check.field && !(profile as any)?.[check.field])
         .map(check => check.label);
 
       const eligibilityContext = pack.eligibilityChecks.map(check => {
-        const profileValue = profile ? (profile as any)[check.field] : null;
+        const profileValue = check.field && profile ? (profile as any)[check.field] : null;
         return `- ${check.label}: ${profileValue ? "Present" : "MISSING"}${!profileValue && check.required ? ` (RISK: ${check.riskMessage})` : ""}`;
       }).join("\n");
 

@@ -239,3 +239,14 @@
 - [x] Filter scoreHistory query by selectedResumeId
 - [x] Empty state when selected resume has 0 runs (different message when dropdown visible)
 - [x] Tests: A-G+A2+B2+C2+D2 (11 tests) — one resume hidden, multiple shown, orphaned run IDs, dedup, empty state messages, default selection, title mapping
+
+## Patch 8B: Work Authorization Eligibility (Citizen/PR vs Temp Resident)
+- [x] Add work_status, work_status_detail, needs_sponsorship, country_of_residence, willing_to_relocate fields to userProfiles table
+- [x] Push schema migration (0008)
+- [x] Update Region Pack schema: add eligibility_checks array with rule objects (trigger_phrases, condition, penalty, message)
+- [x] Add CA_COOP and CA_NEW_GRAD eligibility rules (4 rules: Citizen/PR, no sponsorship, unknown status, location)
+- [ ] Add eligibility detection logic to evidence.run mutation (scan job_card_requirements or JD text for triggers)
+- [ ] Apply role_fit penalties via pack rules and persist eligibility flags in scoreBreakdownJson
+- [ ] Build Eligibility banner/section in JobCardDetail Overview tab (show triggered rules + guidance)
+- [ ] Add work status profile fields to user profile UI (onboarding or settings page)
+- [ ] Tests: A-F per acceptance criteria
