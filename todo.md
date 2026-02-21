@@ -292,3 +292,10 @@
 - [x] Update Dashboard to import from shared component (useProfileNudge hook)
 - [x] Add ProfileNudgeBanner to Today page (same condition + localStorage key)
 - [x] Tests: A-D+EC (15 tests) — unknown shows, dismiss shared key, known status hides, NUDGE_KEY constant, TTL expiry
+
+## Patch 8D: Bullet Rewrites Export (.txt "Resume Patch")
+- [x] Add buildResumePatchFilename(name, company, date?) to shared/filename.ts
+- [x] buildResumePatchText logic inline in the onClick handler (no separate helper needed)
+- [x] Add "Download .txt" button to ApplicationKitTab bullet rewrites section (card header right side)
+- [x] Button renders only when bulletRewrites.length > 0 (conditional render guard)
+- [x] Tests: A-E (19 tests) — conditional render, filename convention (7), content structure (4), needs_confirmation, cover letter regression (4)

@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { buildCoverLetterFilename } from "../../../shared/filename";
+import { buildCoverLetterFilename, buildResumePatchFilename } from "../../../shared/filename";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1139,7 +1139,69 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
           {bulletRewrites.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Bullet Rewrites ({bulletRewrites.length})</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold">Bullet Rewrites ({bulletRewrites.length})</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Build plain-text resume patch document
+                      const d = new Date();
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      const dateStr = `${year}-${month}-${day}`;
+                      const selectedResume = resumes.find((r) => r.id === selectedResumeId);
+                      const resumeName = selectedResume?.name ?? "Resume";
+                      const runDate = selectedRun?.createdAt
+                        ? new Date(selectedRun.createdAt).toLocaleDateString()
+                        : "N/A";
+
+                      const lines: string[] = [
+                        `Job: ${job?.title ?? ""} — ${job?.company ?? "Company"}`,
+                        `Date: ${dateStr}`,
+                        `Resume: ${resumeName}`,
+                        `Evidence run: ${runDate}`,
+                        "",
+                      ];
+
+                      const groups = [
+                        { label: "Missing — Add to resume", items: missingRewrites },
+                        { label: "Partial — Strengthen existing bullets", items: partialRewrites },
+                      ];
+                      for (const group of groups) {
+                        if (group.items.length === 0) continue;
+                        lines.push(`=== ${group.label} ===`);
+                        lines.push("");
+                        for (const item of group.items) {
+                          lines.push(`Requirement: ${item.requirement_text}`);
+                          lines.push(`Status: ${item.status === "missing" ? "Missing" : "Partial"}`);
+                          lines.push(`Fix: ${item.fix}`);
+                          lines.push(`Rewrite A: ${item.rewrite_a}`);
+                          lines.push(`Rewrite B: ${item.rewrite_b}`);
+                          if (item.needs_confirmation) lines.push("Needs confirmation: Yes");
+                          lines.push("");
+                        }
+                      }
+
+                      const content = lines.join("\n");
+                      const filename = buildResumePatchFilename(
+                        user?.name ?? "User",
+                        job?.company ?? "Company"
+                      );
+                      const blob = new Blob([content + "\n"], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success(`Downloaded ${filename}`);
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />Download .txt
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {missingRewrites.length > 0 && (
