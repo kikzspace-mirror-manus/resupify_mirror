@@ -214,7 +214,7 @@ describe("Patch 8I: JD URL Fetch", () => {
 
     await expect(
       caller.jdSnapshots.fetchFromUrl({ url: "https://jobs.workday.com/blocked-job" })
-    ).rejects.toThrow("Couldn't fetch text from this URL. Please paste the JD instead.");
+    ).rejects.toThrow("This site blocks automated fetch");
   });
 
   // ── Test C2: timeout returns user-friendly error ──────────────────
@@ -241,7 +241,7 @@ describe("Patch 8I: JD URL Fetch", () => {
 
     await expect(
       caller.jdSnapshots.fetchFromUrl({ url: "https://jobs.example.com/short" })
-    ).rejects.toThrow("Fetched text too short. Please paste the JD manually.");
+    ).rejects.toThrow("Fetched text too short");
   });
 
   // ── Test C4: non-https URL rejected by Zod ────────────────────────

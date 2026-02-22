@@ -372,3 +372,12 @@
 - [x] On error: show inline error below URL field (same error messages as JD Snapshot tab)
 - [x] URL change clears previous fetch state (error + fetchedAt)
 - [x] Tests: A-H (8 tests) — valid https, http disabled, non-url, procedure returns text+fetchedAt, short text error, no credits, non-https rejected, binary content-type rejected
+
+## Phase 9A: URL Fetch Robustness (Board-Agnostic + Graceful Failures)
+- [x] Read current fetchFromUrl procedure
+- [x] Add Chrome-like browser headers (User-Agent, Accept, Accept-Encoding gzip/br, Cache-Control, Sec-Fetch-*) + maxRedirects: 5
+- [x] Upgrade fallback extractor: remove noise tags (script/style/noscript/svg/iframe/nav/footer/header), prefer content containers (main/article/[role=main]/.job-description/.jobDescription/.description/.content/.posting/#job-description etc.)
+- [x] Add gated/blocked detection: 401/403/429 HTTP + keyword check (captcha/access denied/enable javascript/sign in to view/login required) on thin pages
+- [x] Return friendly GATED_MESSAGE for gated pages
+- [x] All existing guardrails preserved (https-only, 2 MB, 15s timeout, binary block, MIN_CHARS)
+- [x] Tests: A-J (13 tests) — Greenhouse HTML, container fallback, 403 gated, captcha keyword, https-only, binary, too-short, 404, no credits, browser headers, maxRedirects, 429, script-heavy fallback

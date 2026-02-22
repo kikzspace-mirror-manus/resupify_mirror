@@ -493,13 +493,25 @@ export const appRouter = router({
       const TIMEOUT_MS = 15_000;
       const MIN_TEXT_LENGTH = 200;
       const BLOCKED_CONTENT_TYPES = ["application/pdf", "application/octet-stream", "image/", "video/", "audio/"];
-
+      // Gated/blocked page detection keywords
+      const GATED_KEYWORDS = [
+        "enable javascript",
+        "access denied",
+        "captcha",
+        "are you a robot",
+        "verify you are human",
+        "blocked",
+        "sign in to view",
+        "please sign in",
+        "log in to view",
+        "login required",
+      ];
+      const GATED_MESSAGE = "This site blocks automated fetch (common with LinkedIn/Indeed/Workday in some cases). Please paste the JD text instead.";
       // Guard: https-only
       const parsed = new URL(input.url);
       if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
         throw new Error("Only http(s) URLs are supported.");
       }
-
       let html: string;
       try {
         const response = await axios.get<string>(input.url, {
@@ -507,17 +519,25 @@ export const appRouter = router({
           maxContentLength: MAX_BYTES,
           maxBodyLength: MAX_BYTES,
           responseType: "text",
+          maxRedirects: 5,
           headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; Resupify/1.0; +https://resupify.app)",
-            "Accept": "text/html,application/xhtml+xml",
+            // Realistic Chrome-like browser headers for better board compatibility
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Upgrade-Insecure-Requests": "1",
           },
           validateStatus: (status) => status < 500,
         });
-
-        // Guard: blocked/anti-bot responses
+        // Guard: blocked/anti-bot HTTP status codes
         if (response.status === 403 || response.status === 401 || response.status === 429) {
-          throw new Error("Couldn't fetch text from this URL. Please paste the JD instead.");
+          throw new Error(GATED_MESSAGE);
         }
         if (response.status === 404) {
           throw new Error("Job posting not found (404). Please check the URL.");
@@ -525,13 +545,11 @@ export const appRouter = router({
         if (response.status >= 400) {
           throw new Error(`Couldn't fetch this URL (HTTP ${response.status}). Please paste the JD instead.`);
         }
-
         // Guard: binary content types
         const contentType = (response.headers["content-type"] ?? "").toLowerCase();
         if (BLOCKED_CONTENT_TYPES.some((t) => contentType.includes(t))) {
           throw new Error("URL does not point to a web page. Please paste the JD instead.");
         }
-
         html = response.data as string;
       } catch (err: any) {
         if (axios.isAxiosError(err)) {
@@ -549,15 +567,20 @@ export const appRouter = router({
         if (err instanceof Error && !axios.isAxiosError(err)) throw err;
         throw new Error("Couldn't fetch text from this URL. Please paste the JD instead.");
       }
-
-      // Extract readable text using Mozilla Readability
+      // Guard: gated/blocked page by content keywords (only flag if page is suspiciously thin)
+      const htmlLower = html.toLowerCase();
+      const textPreview = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (GATED_KEYWORDS.some((kw) => htmlLower.includes(kw)) && textPreview.length < 2000) {
+        throw new Error(GATED_MESSAGE);
+      }
+      // ── Extraction pipeline ──────────────────────────────────────────────
       let extractedText = "";
+      // Layer A: Mozilla Readability (best for article-style pages)
       try {
         const dom = new JSDOM(html, { url: input.url });
         const reader = new Readability(dom.window.document);
         const article = reader.parse();
         if (article?.textContent) {
-          // Collapse whitespace and trim
           extractedText = article.textContent
             .replace(/\r\n/g, "\n")
             .replace(/[ \t]+/g, " ")
@@ -567,17 +590,44 @@ export const appRouter = router({
       } catch {
         // Readability failed — fall through to fallback
       }
-
-      // Fallback: strip scripts/styles and collapse whitespace
+      // Layer B: Content-container-first fallback (board-agnostic)
       if (extractedText.length < MIN_TEXT_LENGTH) {
         try {
-          const dom = new JSDOM(html);
+          const dom = new JSDOM(html, { url: input.url });
           const doc = dom.window.document;
           // Remove noise elements
-          for (const tag of ["script", "style", "noscript", "nav", "footer", "header"]) {
+          for (const tag of ["script", "style", "noscript", "svg", "iframe", "nav", "footer", "header"]) {
             doc.querySelectorAll(tag).forEach((el) => el.remove());
           }
-          const rawText = doc.body?.textContent ?? "";
+          // Remove common ad/tracker elements
+          doc.querySelectorAll('[class*="ad-"], [class*="ads-"], [id*="ad-"], [class*="cookie"], [class*="banner"]').forEach((el) => el.remove());
+          // Prefer known content containers (ordered by specificity)
+          const CONTENT_SELECTORS = [
+            "main",
+            "article",
+            '[role="main"]',
+            ".job-description",
+            ".jobDescription",
+            ".job-details",
+            ".posting-description",
+            ".description",
+            ".content",
+            ".job",
+            ".posting",
+            "#job-description",
+            "#jobDescription",
+            "#job-details",
+          ];
+          let container: Element | null = null;
+          for (const sel of CONTENT_SELECTORS) {
+            const el = doc.querySelector(sel);
+            if (el && (el.textContent?.trim().length ?? 0) > MIN_TEXT_LENGTH) {
+              container = el;
+              break;
+            }
+          }
+          // Fall back to body if no specific container found
+          const rawText = (container ?? doc.body)?.textContent ?? "";
           extractedText = rawText
             .replace(/\r\n/g, "\n")
             .replace(/[ \t]+/g, " ")
@@ -587,16 +637,13 @@ export const appRouter = router({
           throw new Error("Couldn't extract text from this page. Please paste the JD instead.");
         }
       }
-
-      // Guard: too short
+      // Guard: still too short after both layers
       if (extractedText.length < MIN_TEXT_LENGTH) {
-        throw new Error("Fetched text too short. Please paste the JD manually.");
+        throw new Error("Fetched text too short to be a job description. Please paste the JD manually.");
       }
-
       // Truncate to a reasonable max for the textarea
       const MAX_TEXT = 20_000;
       const text = extractedText.length > MAX_TEXT ? extractedText.substring(0, MAX_TEXT) : extractedText;
-
       return { text, fetchedAt: new Date().toISOString() };
     }),
   }),
