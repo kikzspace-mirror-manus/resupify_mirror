@@ -400,3 +400,9 @@
 - [x] Evidence Run dropdown: replace "Run #..." with "{Company} — {Job Title} ({score}%) · {MMM D}" label
 - [x] Evidence Run dropdown: keep run id as tooltip (title attribute on span)
 - [x] Tests: 13 tests — openCategories, toggleCategory, sort order, kitSections, toggleKitSection, run label format, fallback, em dash, company-only, no run id in label
+
+## Micro Fix: Evidence Run Label Consistency
+- [x] Found the under-tone "Run #..." summary line in ApplicationKitTab header (line 1380)
+- [x] Replaced with inline IIFE using same formatter as dropdown: "{Company} — {Job Title} ({score}%) · {MMM D}"
+- [x] Run id preserved as tooltip (title attribute on span)
+- [x] 431 tests pass (no regressions)

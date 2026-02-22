@@ -1377,7 +1377,15 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
           </div>
           <div className="flex items-center justify-between">
             <div className="text-xs text-muted-foreground">
-              {selectedRun && <span>Run #{selectedRun.id} ({selectedRun.overallScore}%) • {new Date(selectedRun.createdAt).toLocaleDateString()}</span>}
+              {selectedRun && (() => {
+                const d = new Date(selectedRun.createdAt);
+                const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                const company = job?.company ?? "";
+                const title = job?.title ?? "";
+                const lbl = [company, title].filter(Boolean).join(" — ");
+                const friendly = lbl ? `${lbl} (${selectedRun.overallScore}%) · ${mmmd}` : `${selectedRun.overallScore}% · ${mmmd}`;
+                return <span title={`Run #${selectedRun.id}`}>{friendly}</span>;
+              })()}
             </div>
             <div className="flex items-center gap-2">
               {existingKit && (coverLetterText || bulletRewrites.length > 0 || topChanges.length > 0) && (
