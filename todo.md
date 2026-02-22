@@ -667,3 +667,8 @@
 - [x] Swap invokeLLM in outreach router to callLLM
 - [x] Swap invokeLLM in application kit router to callLLM
 - [x] Tests: A-I (9 tests) — 870 tests pass total, 0 TypeScript errors
+
+## Patch: Admin LLM Status
+- [x] Add admin.llmStatus.get adminProcedure (returns provider + openaiModel, no secrets)
+- [x] Display LLM status badge in admin dashboard header
+- [x] Tests: A-H (8 tests) — 878 tests pass total (LLM_PROVIDER=manus), 0 TypeScript errors

@@ -1,4 +1,5 @@
 import { adminProcedure, router } from "../_core/trpc";
+import { ENV } from "../_core/env";
 import { z } from "zod";
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
@@ -611,6 +612,14 @@ ${buildToneSystemPrompt()}`
     return db.getAdminActionLogs(input?.limit ?? 100);
   }),
 
+  // ─── LLM Status (Admin LLM Status patch) ──────────────────────────
+  // Returns active provider + model. No secrets. Admin-only.
+  llmStatus: router({
+    get: adminProcedure.query(() => ({
+      provider: ENV.LLM_PROVIDER,
+      openaiModel: ENV.LLM_MODEL_OPENAI,
+    })),
+  }),
   // ─── Stripe Events (Phase 10C-2) ──────────────────────────────────
   // Read-only, admin-only. Returns stripe_events table rows only.
   // No joins, no PII, no free text.
