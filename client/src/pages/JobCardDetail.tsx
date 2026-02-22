@@ -1980,16 +1980,19 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
     },
   });
 
-  const [newContactName, setNewContactName] = useState("");
+   const [newContactName, setNewContactName] = useState("");
   const [newContactRole, setNewContactRole] = useState("");
   const [newContactEmail, setNewContactEmail] = useState("");
-
+  const [newContactLinkedInUrl, setNewContactLinkedInUrl] = useState("");
+  const [linkedInUrlError, setLinkedInUrlError] = useState<string | null>(null);
   const createContact = trpc.contacts.create.useMutation({
     onSuccess: () => {
       utils.contacts.list.invalidate({ jobCardId });
       setNewContactName("");
       setNewContactRole("");
       setNewContactEmail("");
+      setNewContactLinkedInUrl("");
+      setLinkedInUrlError(null);
       toast.success("Contact added");
     },
   });
@@ -2094,16 +2097,50 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
               )}
             </div>
           ))}
-          <div className="flex gap-2">
-            <Input placeholder="Name" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="flex-1" />
-            <Input placeholder="Role" value={newContactRole} onChange={(e) => setNewContactRole(e.target.value)} className="flex-1" />
-            <Input placeholder="Email" value={newContactEmail} onChange={(e) => setNewContactEmail(e.target.value)} className="flex-1" />
-            <Button size="sm" onClick={() => {
-              if (!newContactName.trim()) return;
-              createContact.mutate({ jobCardId, name: newContactName, role: newContactRole || undefined, email: newContactEmail || undefined });
-            }}>
-              <Plus className="h-4 w-4" />
-            </Button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input placeholder="Name *" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="flex-1" />
+              <Input placeholder="Role" value={newContactRole} onChange={(e) => setNewContactRole(e.target.value)} className="flex-1" />
+              <Input placeholder="Email" value={newContactEmail} onChange={(e) => setNewContactEmail(e.target.value)} className="flex-1" />
+            </div>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <Input
+                  placeholder="https://linkedin.com/in/… (optional)"
+                  value={newContactLinkedInUrl}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewContactLinkedInUrl(val);
+                    if (val && !val.startsWith("https://")) {
+                      setLinkedInUrlError("LinkedIn URL must start with https://");
+                    } else {
+                      setLinkedInUrlError(null);
+                    }
+                  }}
+                  className={linkedInUrlError ? "border-destructive" : ""}
+                />
+                {linkedInUrlError && (
+                  <p className="text-xs text-destructive mt-0.5">{linkedInUrlError}</p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!newContactName.trim()) return;
+                  if (linkedInUrlError) return;
+                  createContact.mutate({
+                    jobCardId,
+                    name: newContactName,
+                    role: newContactRole || undefined,
+                    email: newContactEmail || undefined,
+                    linkedinUrl: newContactLinkedInUrl || undefined,
+                  });
+                }}
+                disabled={!!linkedInUrlError}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

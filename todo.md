@@ -493,3 +493,8 @@
 - [x] Insert card above generate controls in OutreachTab (below SelectedContactChip)
 - [x] Wire "Edit sources" / "Add sources" CTA to switch to Personalization tab (controlled Tabs state)
 - [x] Tests: A-H (14 tests) — 590 tests pass total
+
+## Phase 9C6: Add Contact Form — LinkedIn URL Field
+- [x] Add newContactLinkedInUrl state + input + https:// validation to OutreachTab Add Contact form
+- [x] Pass linkedinUrl to createContact mutation
+- [x] Tests: A-J (10 tests) — 601 tests pass total
