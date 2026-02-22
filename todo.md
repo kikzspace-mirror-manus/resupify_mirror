@@ -547,3 +547,13 @@
 - [x] Wire limiter to JD URL fetch endpoint (30/IP per 10 min)
 - [x] Wire limiter to Auth endpoints (20/IP per 10 min)
 - [x] Tests: acceptance criteria A-H (25 tests) — 708 tests pass total
+
+## Phase 10A-2: Client-side 429 Handling + No-Debit Tests
+- [x] Audit spend mutation call sites (Evidence, Outreach, Kit) and confirm limiter ordering
+- [x] Add 429 toast to Evidence/ATS run mutation onError
+- [x] Add 429 toast to Outreach generatePack mutation onError
+- [x] Add 429 toast to Application Kit generate mutation onError
+- [x] Tests: 429 triggers for each spend endpoint (error=RATE_LIMITED, retryAfterSeconds, Retry-After header)
+- [x] Tests: no credit debit on 429 (balance unchanged, ledger unchanged)
+- [x] Tests: URL fetch per-IP 429
+- [x] Tests: Auth per-IP 429 — 20 new tests (A-H), 728 total passing

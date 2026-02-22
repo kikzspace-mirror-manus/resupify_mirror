@@ -944,7 +944,12 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
       toast.success(`Evidence scan complete! Score: ${data.score}/100 (${data.itemCount} items)`);
     },
     onError: (error) => {
-      if (error.message.includes("NO_REQUIREMENTS")) {
+      if (error.data?.code === "TOO_MANY_REQUESTS") {
+        const match = error.message.match(/(\d+)s/);
+        const seconds = match ? parseInt(match[1], 10) : 600;
+        const minutes = Math.ceil(seconds / 60);
+        toast.error(`You've run too many scans. Try again in ${minutes} minute${minutes !== 1 ? "s" : ""}.`);
+      } else if (error.message.includes("NO_REQUIREMENTS")) {
         toast.error("Extract requirements first from the JD Snapshot tab.");
       } else {
         toast.error(error.message);
@@ -1322,9 +1327,18 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   const generateKit = trpc.applicationKits.generate.useMutation({
     onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); },
     onError: (error) => {
-      if (error.message.includes("NO_EVIDENCE_RUN")) toast.error("Run Evidence+ATS scan first.");
-      else if (error.message.includes("NO_REQUIREMENTS")) toast.error("Extract requirements from JD Snapshot tab first.");
-      else toast.error(error.message);
+      if (error.data?.code === "TOO_MANY_REQUESTS") {
+        const match = error.message.match(/(\d+)s/);
+        const seconds = match ? parseInt(match[1], 10) : 600;
+        const minutes = Math.ceil(seconds / 60);
+        toast.error(`You've generated too many kits. Try again in ${minutes} minute${minutes !== 1 ? "s" : ""}.`);
+      } else if (error.message.includes("NO_EVIDENCE_RUN")) {
+        toast.error("Run Evidence+ATS scan first.");
+      } else if (error.message.includes("NO_REQUIREMENTS")) {
+        toast.error("Extract requirements from JD Snapshot tab first.");
+      } else {
+        toast.error(error.message);
+      }
     },
   });
   const createTasks = trpc.applicationKits.createTasks.useMutation({
@@ -2005,10 +2019,19 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
       toast.success("Outreach Pack generated!");
     },
     onError: (error) => {
-      const msg = error.message.toLowerCase().includes("insufficient")
-        ? "Insufficient credits. Outreach Pack costs 1 credit. Top up in Billing."
-        : "Couldn't generate the outreach pack. Try again.";
-      setPackError(msg);
+      if (error.data?.code === "TOO_MANY_REQUESTS") {
+        const match = error.message.match(/(\d+)s/);
+        const seconds = match ? parseInt(match[1], 10) : 600;
+        const minutes = Math.ceil(seconds / 60);
+        const msg = `You've sent too many outreach requests. Try again in ${minutes} minute${minutes !== 1 ? "s" : ""}.`;
+        setPackError(msg);
+        toast.error(msg);
+      } else {
+        const msg = error.message.toLowerCase().includes("insufficient")
+          ? "Insufficient credits. Outreach Pack costs 1 credit. Top up in Billing."
+          : "Couldn't generate the outreach pack. Try again.";
+        setPackError(msg);
+      }
     },
   });
 
