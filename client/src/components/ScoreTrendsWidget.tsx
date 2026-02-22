@@ -86,6 +86,11 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   );
 }
 
+// ─── Title clamp helper ───────────────────────────────────────────────
+function clampTitle(title: string, max = 80): string {
+  return title.length > max ? title.slice(0, max) + "\u2026" : title;
+}
+
 // ─── Single card row ──────────────────────────────────────────────────
 function TrendRow({ card }: { card: TrendCard }) {
   const [, setLocation] = useLocation();
@@ -113,19 +118,24 @@ function TrendRow({ card }: { card: TrendCard }) {
     >
       {/* Company + role */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate leading-tight">{card.title}</p>
+        <p
+          className="text-sm font-medium leading-tight"
+          style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+        >
+          {clampTitle(card.title)}
+        </p>
         <p className="text-xs text-muted-foreground truncate">
           {card.company ?? "Unknown Company"}
         </p>
       </div>
 
-      {/* Sparkline or "No runs yet" */}
+      {/* Sparkline (only shown when ≥2 runs; 1-run shows score only) */}
       <div className="shrink-0 w-20 flex items-center justify-center">
         {runs.length >= 2 ? (
           <MiniSparkline runs={runs} />
         ) : (
           <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-            {runs.length === 0 ? "No runs yet" : "1 run"}
+            1 run
           </span>
         )}
       </div>
@@ -172,19 +182,25 @@ export function ScoreTrendsWidget() {
             <p className="text-sm">No active job cards yet.</p>
             <p className="text-xs mt-1">Add a job card to start tracking ATS scores.</p>
           </div>
-        ) : cards.every((c) => c.runs.length === 0) ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <TrendingUp className="h-8 w-8 mb-2 opacity-30" />
-            <p className="text-sm">Run your first scan to see trends.</p>
-            <p className="text-xs mt-1">Open a job card and run Evidence+ATS.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/50">
-            {cards.map((card) => (
-              <TrendRow key={card.id} card={card} />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const withRuns = cards.filter((c) => c.runs.length > 0);
+          if (withRuns.length === 0) {
+            return (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <TrendingUp className="h-8 w-8 mb-2 opacity-30" />
+                <p className="text-sm">No scans yet. Run your first scan to see trends.</p>
+                <p className="text-xs mt-1">Open a job card and run Evidence+ATS.</p>
+              </div>
+            );
+          }
+          return (
+            <div className="divide-y divide-border/50">
+              {withRuns.map((card) => (
+                <TrendRow key={card.id} card={card} />
+              ))}
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );

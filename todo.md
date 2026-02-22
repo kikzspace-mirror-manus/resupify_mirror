@@ -565,3 +565,10 @@
 - [x] Apply client-side maxLength HTML attributes to all forms (JobCards, JobCardDetail, Resumes, Profile, Outreach, Today)
 - [x] Tests: A-H (19 tests) — over-limit payloads fail as BAD_REQUEST (not 500), no credits spent on validation failure
 - [x] All existing tests remain green — 747 tests pass total
+
+## Patch: ATS Score Trends UI Polish
+- [x] Filter ATS Score Trends list to only jobs with ≥1 run
+- [x] Show empty state "No scans yet. Run your first scan to see trends." when 0 qualifying items
+- [x] Clamp displayed title to 80 chars with "…" suffix
+- [x] Add overflow-wrap:anywhere + word-break:break-word to title element
+- [x] Tests: A-D (13 tests) — 760 tests pass total
