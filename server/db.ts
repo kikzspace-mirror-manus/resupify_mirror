@@ -372,6 +372,12 @@ export async function deleteContact(id: number, userId: number) {
   if (!db) return;
   await db.delete(contacts).where(and(eq(contacts.id, id), eq(contacts.userId, userId)));
 }
+export async function getContactById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(contacts).where(and(eq(contacts.id, id), eq(contacts.userId, userId))).limit(1);
+  return rows[0] ?? null;
+}
 
 // ─── Outreach ────────────────────────────────────────────────────────
 export async function getOutreachThreads(userId: number, jobCardId?: number) {

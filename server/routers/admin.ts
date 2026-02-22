@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
+import { computeSalutation, fixSalutation } from "../../shared/outreachHelpers";
 
 export const adminRouter = router({
   // ─── Dashboard KPIs ──────────────────────────────────────────────
@@ -503,6 +504,7 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
 
     generateOutreachTestMode: adminProcedure.input(z.object({
       jobCardId: z.number(),
+      contactName: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
       const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
       if (!jobCard) throw new Error("Job card not found.");
@@ -510,6 +512,9 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
       const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "COOP");
+      // Resolve contact name for deterministic salutation (Fix 1/4)
+      const emailSalutation = computeSalutation(input.contactName ?? null, "email");
+      const linkedinSalutation = computeSalutation(input.contactName ?? null, "linkedin");
       // Build signature lines from real profile fields (same as production, Prompt B1)
       const sigLines: string[] = [];
       if (profile?.phone) sigLines.push(`Phone: ${profile.phone}`);
@@ -528,7 +533,7 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}`
           }
         ],
         response_format: {
@@ -552,7 +557,24 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
       });
 
       const content = llmResult.choices[0]?.message?.content;
-      const parsed = JSON.parse(typeof content === "string" ? content : "{}");
+      const rawParsed = JSON.parse(typeof content === "string" ? content : "{}");
+      // Strip bracket placeholders and fix salutation (parity with production)
+      const stripBrackets = (text: string) =>
+        text
+          .replace(/\[Your Phone Number\]/gi, "")
+          .replace(/\[Your LinkedIn Profile URL\]/gi, "")
+          .replace(/\[Your LinkedIn URL\]/gi, "")
+          .replace(/\[LinkedIn Profile\]/gi, "")
+          .replace(/\[Phone\]/gi, "")
+          .replace(/\[[^\]]{1,60}\]/g, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      const parsed = {
+        recruiter_email: fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"),
+        linkedin_dm: fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"),
+        follow_up_1: fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email"),
+        follow_up_2: fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email"),
+      };
 
       const packId = await db.createOutreachPack({
         userId: ctx.user.id,

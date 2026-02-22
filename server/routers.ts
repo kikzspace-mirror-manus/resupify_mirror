@@ -9,6 +9,7 @@ import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
+import { computeSalutation, fixSalutation } from "../shared/outreachHelpers";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
@@ -1273,6 +1274,7 @@ export const appRouter = router({
     }),
     generatePack: protectedProcedure.input(z.object({
       jobCardId: z.number(),
+      contactId: z.number().optional(),
     })).mutation(async ({ ctx, input }) => {
       // Check credits
       const balance = await db.getCreditsBalance(ctx.user.id);
@@ -1284,6 +1286,15 @@ export const appRouter = router({
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
       const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "NEW_GRAD");
+
+      // Resolve contact name for deterministic salutation (Fix 1/4)
+      let contactName: string | null = null;
+      if (input.contactId) {
+        const contact = await db.getContactById(input.contactId, ctx.user.id);
+        contactName = contact?.name ?? null;
+      }
+      const emailSalutation = computeSalutation(contactName, "email");
+      const linkedinSalutation = computeSalutation(contactName, "linkedin");
 
       // Build signature lines from real profile fields; omit if missing
       const sigLines: string[] = [];
@@ -1299,7 +1310,7 @@ export const appRouter = router({
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}`
           }
         ],
         response_format: {
@@ -1336,12 +1347,11 @@ export const appRouter = router({
           .replace(/\n{3,}/g, "\n\n") // collapse triple+ newlines left by removed lines
           .trim();
       const parsed = {
-        recruiter_email: stripBrackets(rawParsed.recruiter_email ?? ""),
-        linkedin_dm: stripBrackets(rawParsed.linkedin_dm ?? ""),
-        follow_up_1: stripBrackets(rawParsed.follow_up_1 ?? ""),
-        follow_up_2: stripBrackets(rawParsed.follow_up_2 ?? ""),
+        recruiter_email: fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"),
+        linkedin_dm: fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"),
+        follow_up_1: fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email"),
+        follow_up_2: fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email"),
       };
-
       const spent = await db.spendCredits(ctx.user.id, 1, "Outreach Pack generation", "outreach_pack");
       if (!spent) throw new Error("Failed to spend credit.");
 

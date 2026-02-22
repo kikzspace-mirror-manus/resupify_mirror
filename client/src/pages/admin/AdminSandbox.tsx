@@ -13,6 +13,7 @@ export default function AdminSandbox() {
   const [sampleResumeId, setSampleResumeId] = useState<number | null>(null);
   const [evidenceResult, setEvidenceResult] = useState<{ runId: number; score: number; itemCount: number } | null>(null);
   const [outreachResult, setOutreachResult] = useState<any>(null);
+  const [testContactName, setTestContactName] = useState("");
 
   // Manual IDs for running on existing data
   const [manualJobId, setManualJobId] = useState("");
@@ -211,6 +212,15 @@ export default function AdminSandbox() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Contact Name (optional — for salutation test)</label>
+              <Input
+                placeholder="e.g. Erick Tran (leave blank to test fallback)"
+                value={testContactName}
+                onChange={(e) => setTestContactName(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
             <Button
               variant="outline"
               onClick={() => {
@@ -218,7 +228,7 @@ export default function AdminSandbox() {
                   toast.error("Please create or specify a job card first.");
                   return;
                 }
-                outreachMut.mutate({ jobCardId: effectiveJobId });
+                outreachMut.mutate({ jobCardId: effectiveJobId, contactName: testContactName.trim() || undefined });
               }}
               disabled={outreachMut.isPending || !effectiveJobId}
             >

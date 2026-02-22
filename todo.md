@@ -424,3 +424,10 @@
 - [x] Added Regenerate (Test Mode) button (RefreshCw icon) to AdminSandbox UI after result is shown
 - [x] Production outreach.generatePack unchanged (still credit-gated for all users including admin)
 - [x] Tests: A-F (10 tests) — production charges credits, admin not exempt in production, delta=0 in sandbox, FORBIDDEN for non-admin, audit log, credits-cannot-go-negative, no user_id override
+
+## Outreach Fix 1/4: Salutation Fallback (No "Dear ,")
+- [x] Read generatePack and generateOutreachTestMode prompt builders
+- [x] Add computeSalutation/fixSalutation/extractFirstName helpers in shared/outreachHelpers.ts
+- [x] Inject salutation into both production and sandbox LLM prompts (Option A)
+- [x] Add post-process guard: replace any remaining "Dear ," / "Dear," with "Dear Hiring Manager,"
+- [x] Tests: A-J (476 tests pass)

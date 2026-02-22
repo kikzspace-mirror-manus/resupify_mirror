@@ -1820,6 +1820,7 @@ function CopyBlock({ label, content }: { label: string; content: string }) {
 function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number; contacts: any[]; outreachPack: any }) {
   const utils = trpc.useUtils();
   const [packError, setPackError] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<number | undefined>(undefined);
   const generatePack = trpc.outreach.generatePack.useMutation({
     onSuccess: () => {
       setPackError(null);
@@ -1867,7 +1868,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId }); }}
+                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
                   disabled={generatePack.isPending}
                 >
                   {generatePack.isPending ? (
@@ -1886,7 +1887,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
               <p className="text-sm text-muted-foreground mb-1">No outreach pack yet.</p>
               <p className="text-xs text-muted-foreground mb-3">Creates: recruiter email + LinkedIn DM + 2 follow-ups</p>
               <Button
-                onClick={() => { setPackError(null); generatePack.mutate({ jobCardId }); }}
+                onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
                 disabled={generatePack.isPending}
               >
                 {generatePack.isPending ? (
@@ -1910,13 +1911,16 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
         </CardHeader>
         <CardContent className="space-y-3">
           {contacts.map((contact) => (
-            <div key={contact.id} className="flex items-center gap-3 p-3 rounded-lg border">
+            <div key={contact.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === contact.id ? "border-primary bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => setSelectedContactId(selectedContactId === contact.id ? undefined : contact.id)}>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{contact.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {contact.contactRole ?? ""} {contact.email ? `· ${contact.email}` : ""}
                 </p>
               </div>
+              {selectedContactId === contact.id && (
+                <span className="text-xs text-primary font-medium">Selected for outreach</span>
+              )}
             </div>
           ))}
           <div className="flex gap-2">
