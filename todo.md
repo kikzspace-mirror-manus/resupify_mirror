@@ -476,3 +476,9 @@
 - [x] Post-process: strip [LinkedIn Profile URL] brackets; prepend LinkedIn: line if missing and URL provided
 - [x] Update Admin Sandbox UI: add optional LinkedIn URL input field
 - [x] Tests: A-O (15 tests) — 557 tests pass total
+
+## Outreach Fix 4/4: "Copy All" Button
+- [x] Create buildOutreachCopyAllText(pack) helper in client/src/lib/outreachCopyAll.ts
+- [x] Add "Copy All" button to OutreachTab outreach pack card header
+- [x] Show success/failure toast after clipboard write
+- [x] Tests: A-I (9 tests) — 568 tests pass total

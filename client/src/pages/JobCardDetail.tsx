@@ -65,11 +65,13 @@ import {
   Pencil,
   Trash2,
   BookOpen,
+  CopyCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS, EVIDENCE_GROUP_LABELS } from "../../../shared/regionPacks";
+import { buildOutreachCopyAllText } from "@/lib/outreachCopyAll";
 
 const stageColors: Record<string, string> = {
   bookmarked: "bg-slate-100 text-slate-700",
@@ -1864,7 +1866,30 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
       {/* Generate Pack */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>
+            {outreachPack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  const text = buildOutreachCopyAllText({
+                    recruiter_email: outreachPack.recruiterEmail,
+                    linkedin_dm: outreachPack.linkedinDm,
+                    follow_up_1: outreachPack.followUp1,
+                    follow_up_2: outreachPack.followUp2,
+                  });
+                  navigator.clipboard.writeText(text)
+                    .then(() => toast.success("Copied all messages"))
+                    .catch(() => toast.error("Could not copy. Please try again."));
+                }}
+              >
+                <CopyCheck className="h-3.5 w-3.5" />
+                Copy all
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {outreachPack ? (
