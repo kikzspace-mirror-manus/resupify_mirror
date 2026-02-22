@@ -610,4 +610,23 @@ ${buildToneSystemPrompt()}`
   }).optional()).query(async ({ input }) => {
     return db.getAdminActionLogs(input?.limit ?? 100);
   }),
+
+  // ─── Operational Events (Phase 10B-2B) ───────────────────────────
+  // Read-only, admin-only. Returns non-PII operational signals.
+  // No payload, no names, no emails — only hashes + enum fields.
+  operationalEvents: router({
+    list: adminProcedure.input(z.object({
+      endpointGroup: z.enum(["evidence", "outreach", "kit", "url_fetch", "auth"]).optional(),
+      eventType: z.enum(["rate_limited", "provider_error", "validation_error", "unknown"]).optional(),
+      limit: z.number().min(1).max(500).optional().default(100),
+      offset: z.number().min(0).optional().default(0),
+    }).optional()).query(async ({ input }) => {
+      return db.adminListOperationalEvents({
+        endpointGroup: input?.endpointGroup,
+        eventType: input?.eventType,
+        limit: input?.limit ?? 100,
+        offset: input?.offset ?? 0,
+      });
+    }),
+  }),
 });

@@ -29,6 +29,7 @@ import AdminPacks from "./pages/admin/AdminPacks";
 import AdminHealth from "./pages/admin/AdminHealth";
 import AdminSandbox from "./pages/admin/AdminSandbox";
 import AdminAudit from "./pages/admin/AdminAudit";
+import AdminOperationalEvents from "./pages/admin/AdminOperationalEvents";
 
 function DashboardRoute({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/admin/health" component={AdminHealth} />
       <Route path="/admin/sandbox" component={AdminSandbox} />
       <Route path="/admin/audit" component={AdminAudit} />
+      <Route path="/admin/operational-events" component={AdminOperationalEvents} />
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

@@ -16,6 +16,7 @@ import {
   jobCardRequirements, InsertJobCardRequirement,
   applicationKits, InsertApplicationKit,
   jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
+  operationalEvents, InsertOperationalEvent, OperationalEvent,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -973,4 +974,56 @@ export async function getAllScannedJobCards(
       return bLatest - aLatest;
     });
   return result;
+}
+
+// ─── Operational Events ───────────────────────────────────────────────────────
+
+/**
+ * Insert a single operational event. Fire-and-forget — never throws.
+ * Stores only non-PII fields: no payload, no names, no emails.
+ */
+export async function logOperationalEvent(
+  event: InsertOperationalEvent
+): Promise<void> {
+  try {
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(operationalEvents).values(event);
+  } catch {
+    // Silently swallow — logging must never break the request path
+  }
+}
+
+export interface AdminListOperationalEventsFilter {
+  endpointGroup?: OperationalEvent["endpointGroup"];
+  eventType?: OperationalEvent["eventType"];
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Return up to 500 operational events, newest first.
+ * Supports optional filters by endpointGroup and eventType.
+ */
+export async function adminListOperationalEvents(
+  filter: AdminListOperationalEventsFilter = {}
+): Promise<OperationalEvent[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const { eq, and, desc } = await import("drizzle-orm");
+  const { limit = 100, offset = 0, endpointGroup, eventType } = filter;
+
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (endpointGroup) conditions.push(eq(operationalEvents.endpointGroup, endpointGroup));
+  if (eventType) conditions.push(eq(operationalEvents.eventType, eventType));
+
+  const rows = await db
+    .select()
+    .from(operationalEvents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(operationalEvents.createdAt))
+    .limit(Math.min(limit, 500))
+    .offset(offset);
+
+  return rows;
 }

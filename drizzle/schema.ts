@@ -309,3 +309,22 @@ export const jobCardPersonalizationSources = mysqlTable("job_card_personalizatio
 });
 export type JobCardPersonalizationSource = typeof jobCardPersonalizationSources.$inferSelect;
 export type InsertJobCardPersonalizationSource = typeof jobCardPersonalizationSources.$inferInsert;
+
+// ─── Operational Events (admin-only, no PII, no payloads) ────────────────────
+// Stores only non-PII operational signals: rate limits, provider errors,
+// validation errors. No free-text, no names, no emails, no resume/JD/outreach
+// content. user_id_hash and ip_hash are one-way SHA-256 truncated hashes.
+export const operationalEvents = mysqlTable("operational_events", {
+  id: int("id").autoincrement().primaryKey(),
+  requestId: varchar("requestId", { length: 36 }).notNull(),
+  endpointGroup: mysqlEnum("endpointGroup", ["evidence", "outreach", "kit", "url_fetch", "auth"]).notNull(),
+  eventType: mysqlEnum("eventType", ["rate_limited", "provider_error", "validation_error", "unknown"]).notNull(),
+  statusCode: int("statusCode").notNull(),
+  retryAfterSeconds: int("retryAfterSeconds"),
+  userIdHash: varchar("userIdHash", { length: 16 }),
+  ipHash: varchar("ipHash", { length: 16 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type OperationalEvent = typeof operationalEvents.$inferSelect;
+export type InsertOperationalEvent = typeof operationalEvents.$inferInsert;

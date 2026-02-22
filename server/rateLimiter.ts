@@ -8,9 +8,15 @@
  *
  * Single-instance deployment: Map lives in process memory.
  * No new infrastructure required.
+ *
+ * Phase 10B-2B — Operational event logging
+ * When a rate limit fires, a non-PII event is written to operational_events.
+ * user_id_hash and ip_hash are first-16-chars of a SHA-256 hex digest.
  */
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
+import { createHash } from "crypto";
+import { nanoid } from "nanoid";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,6 +164,21 @@ export const LIMITS = {
   AUTH_IP: { limit: 20, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
 } as const;
 
+// ─── Hashing helpers ──────────────────────────────────────────────────────────
+
+/**
+ * One-way hash for user IDs and IPs.
+ * Returns the first 16 hex chars of SHA-256 — enough for bucketing/correlation
+ * without being reversible or storing PII.
+ */
+export function shortHash(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+// ─── Endpoint group mapping ───────────────────────────────────────────────────
+
+export type EndpointGroup = "evidence" | "outreach" | "kit" | "url_fetch" | "auth";
+
 // ─── tRPC middleware factory ──────────────────────────────────────────────────
 
 import { initTRPC } from "@trpc/server";
@@ -168,11 +189,13 @@ const t = initTRPC.context<TrpcContext>().create();
 /**
  * Build a tRPC middleware that enforces per-user AND per-IP limits.
  * Pass `null` for either config to skip that dimension.
+ * When a limit fires, a non-PII operational event is logged asynchronously.
  */
 export function makeRateLimitMiddleware(
   userConfig: RateLimitConfig | null,
   ipConfig: RateLimitConfig | null,
-  prefix: string
+  prefix: string,
+  endpointGroup: EndpointGroup
 ) {
   return t.middleware(async ({ ctx, next }) => {
     const ip = getClientIp(ctx.req);
@@ -185,6 +208,13 @@ export function makeRateLimitMiddleware(
         if (typeof ctx.res?.setHeader === "function") {
           ctx.res.setHeader("Retry-After", String(ipResult.retryAfterSeconds));
         }
+        // Log non-PII event (fire-and-forget)
+        void logRateLimitEvent({
+          endpointGroup,
+          retryAfterSeconds: ipResult.retryAfterSeconds,
+          userIdHash: ctx.user ? shortHash(String(ctx.user.id)) : undefined,
+          ipHash: shortHash(ip),
+        });
         throwRateLimited(ipResult.retryAfterSeconds);
       }
     }
@@ -197,6 +227,13 @@ export function makeRateLimitMiddleware(
         if (typeof ctx.res?.setHeader === "function") {
           ctx.res.setHeader("Retry-After", String(userResult.retryAfterSeconds));
         }
+        // Log non-PII event (fire-and-forget)
+        void logRateLimitEvent({
+          endpointGroup,
+          retryAfterSeconds: userResult.retryAfterSeconds,
+          userIdHash: shortHash(String(ctx.user.id)),
+          ipHash: shortHash(ip),
+        });
         throwRateLimited(userResult.retryAfterSeconds);
       }
     }
@@ -205,30 +242,64 @@ export function makeRateLimitMiddleware(
   });
 }
 
+// ─── Operational event logger ─────────────────────────────────────────────────
+
+interface LogRateLimitEventArgs {
+  endpointGroup: EndpointGroup;
+  retryAfterSeconds: number;
+  userIdHash?: string;
+  ipHash?: string;
+}
+
+/**
+ * Fire-and-forget: log a rate_limited operational event.
+ * Dynamically imports db to avoid circular dependency issues.
+ */
+async function logRateLimitEvent(args: LogRateLimitEventArgs): Promise<void> {
+  try {
+    const { logOperationalEvent } = await import("./db");
+    await logOperationalEvent({
+      requestId: nanoid(),
+      endpointGroup: args.endpointGroup,
+      eventType: "rate_limited",
+      statusCode: 429,
+      retryAfterSeconds: args.retryAfterSeconds,
+      userIdHash: args.userIdHash ?? null,
+      ipHash: args.ipHash ?? null,
+    });
+  } catch {
+    // Silently swallow — logging must never break the request path
+  }
+}
+
 // ─── Pre-built middleware instances ──────────────────────────────────────────
 
 export const evidenceRateLimit = makeRateLimitMiddleware(
   LIMITS.EVIDENCE_USER,
   null, // no per-IP for LLM endpoints (user auth is sufficient)
+  "evidence",
   "evidence"
 );
 
 export const outreachRateLimit = makeRateLimitMiddleware(
   LIMITS.OUTREACH_USER,
   null,
+  "outreach",
   "outreach"
 );
 
 export const kitRateLimit = makeRateLimitMiddleware(
   LIMITS.KIT_USER,
   null,
+  "kit",
   "kit"
 );
 
 export const urlFetchRateLimit = makeRateLimitMiddleware(
   LIMITS.URL_FETCH_IP, // per-user (when auth'd)
   LIMITS.URL_FETCH_IP, // per-IP (always)
-  "urlfetch"
+  "urlfetch",
+  "url_fetch"
 );
 
 // ─── Express middleware for auth endpoints ────────────────────────────────────
@@ -245,6 +316,21 @@ export function authRateLimitMiddleware(req: Request, res: Response, next: NextF
   const result = checkRateLimit(key, LIMITS.AUTH_IP);
   if (!result.allowed) {
     res.setHeader("Retry-After", String(result.retryAfterSeconds));
+    // Log non-PII event (fire-and-forget)
+    void (async () => {
+      try {
+        const { logOperationalEvent } = await import("./db");
+        await logOperationalEvent({
+          requestId: nanoid(),
+          endpointGroup: "auth",
+          eventType: "rate_limited",
+          statusCode: 429,
+          retryAfterSeconds: result.retryAfterSeconds,
+          userIdHash: null,
+          ipHash: shortHash(ip),
+        });
+      } catch { /* swallow */ }
+    })();
     res.status(429).json(buildRateLimitBody(result.retryAfterSeconds));
     return;
   }

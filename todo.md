@@ -605,3 +605,15 @@
 - [x] Audit Express body parser setup in server/_core/index.ts (was 50mb, reduced to 512kb)
 - [x] Apply express.json({ limit: "512kb" }) + urlencoded({ limit: "512kb" }) before tRPC handler
 - [x] Tests: A-B (8 tests) — oversized body returns 413, normal 25kb payloads pass, 810 tests pass total
+
+## Phase 10B-2B: Admin Operational Events
+- [x] Add operational_events table to drizzle/schema.ts (9 columns, no PII, no payload)
+- [x] Run db:push migration (0013_wealthy_hobgoblin.sql)
+- [x] Add logOperationalEvent + adminListOperationalEvents helpers to server/db.ts
+- [x] Add shortHash (16-char SHA-256 truncation) to server/rateLimiter.ts
+- [x] Wire rate_limited event logging into makeRateLimitMiddleware (tRPC) and authRateLimitMiddleware (Express)
+- [x] Add admin.operationalEvents.list tRPC procedure (adminProcedure, filters: endpointGroup + eventType, limit/offset)
+- [x] Build AdminOperationalEvents.tsx page with endpoint/type filters, refresh button, table view
+- [x] Add "Ops Events" nav item to AdminLayout.tsx
+- [x] Register /admin/operational-events route in App.tsx
+- [x] Tests: A-H (8 tests) — 818 tests pass total, 0 TypeScript errors
