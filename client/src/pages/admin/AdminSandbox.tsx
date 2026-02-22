@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { TestTube2, Briefcase, FileText, FlaskConical, Mail, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { TestTube2, Briefcase, FileText, FlaskConical, Mail, CheckCircle2, Loader2, ArrowRight, RefreshCw } from "lucide-react";
 
 export default function AdminSandbox() {
   const [sampleJobId, setSampleJobId] = useState<number | null>(null);
@@ -236,6 +236,32 @@ export default function AdminSandbox() {
             </Button>
 
             {outreachResult && (
+              <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!effectiveJobId) {
+                    toast.error("Please create or specify a job card first.");
+                    return;
+                  }
+                  outreachMut.mutate({ jobCardId: effectiveJobId });
+                }}
+                disabled={outreachMut.isPending || !effectiveJobId}
+                className="mt-2"
+              >
+                {outreachMut.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate (Test Mode)
+                  </>
+                )}
+              </Button>
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -261,6 +287,7 @@ export default function AdminSandbox() {
                   </div>
                 </div>
               </div>
+              </>  
             )}
           </CardContent>
         </Card>

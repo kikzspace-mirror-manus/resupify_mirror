@@ -415,3 +415,12 @@
 - [x] Inject real phone/linkedin into generatePack LLM prompt signatureBlock (omit lines if missing)
 - [x] Post-process: stripBrackets removes all bracket placeholder variants
 - [x] Tests: A-K (11 tests) — all bracket variants stripped, real content preserved, signatureBlock with/without phone/linkedin, triple newline collapse
+
+## Admin Test Mode Expansion: Outreach Pack Sandbox
+- [x] Read Admin Sandbox panel and outreach.generatePack procedure
+- [x] Confirmed existing generateOutreachTestMode is adminProcedure-gated (is_admin check)
+- [x] Upgraded sandbox procedure: inject phone/linkedin (Prompt B1 parity) + stripBrackets
+- [x] Procedure uses ctx.user.id only (no user_id override)
+- [x] Added Regenerate (Test Mode) button (RefreshCw icon) to AdminSandbox UI after result is shown
+- [x] Production outreach.generatePack unchanged (still credit-gated for all users including admin)
+- [x] Tests: A-F (10 tests) — production charges credits, admin not exempt in production, delta=0 in sandbox, FORBIDDEN for non-admin, audit log, credits-cannot-go-negative, no user_id override
