@@ -701,3 +701,8 @@
 - [x] Add Early Access nav item to AdminLayout
 - [x] Register /admin/early-access route in App.tsx
 - [x] Tests: A-K+J2 (12 tests) — 893 tests pass total, 0 TypeScript errors
+
+## Patch: Waitlist Auth States
+- [x] Update Waitlist.tsx: logged-out state (Sign in / Sign up, no account implication)
+- [x] Update Waitlist.tsx: logged-in gated state (keep current waitlist message + Sign out)
+- [x] Tests: A-F (6 tests) — 899 tests pass total, 0 TypeScript errors
