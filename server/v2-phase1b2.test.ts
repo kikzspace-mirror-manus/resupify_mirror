@@ -222,23 +222,61 @@ describe("H: admin.growth.kpis — access control", () => {
 // ─── I: admin.growth.kpis — admin gets response ──────────────────────────────
 
 describe("I: admin.growth.kpis — admin response shape", () => {
-  it("admin user gets a response with enabled boolean", async () => {
+  it("admin user gets a response with enabled and analyticsEnabled booleans", async () => {
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.admin.growth.kpis();
     expect(result).toHaveProperty("enabled");
     expect(typeof result.enabled).toBe("boolean");
+    expect(result).toHaveProperty("analyticsEnabled");
+    expect(typeof result.analyticsEnabled).toBe("boolean");
   });
 
-  it("when flag is OFF, returns { enabled: false, data: null }", async () => {
-    const originalFlag = featureFlags.v2GrowthDashboardEnabled;
+  it("when growth flag is OFF, returns { enabled: false, analyticsEnabled: boolean, data: null }", async () => {
+    const originalGrowth = featureFlags.v2GrowthDashboardEnabled;
     featureFlags.v2GrowthDashboardEnabled = false;
     try {
       const caller = appRouter.createCaller(makeAdminCtx());
       const result = await caller.admin.growth.kpis();
       expect(result.enabled).toBe(false);
       expect(result.data).toBeNull();
+      expect(result).toHaveProperty("analyticsEnabled");
+      expect(typeof result.analyticsEnabled).toBe("boolean");
     } finally {
-      featureFlags.v2GrowthDashboardEnabled = originalFlag;
+      featureFlags.v2GrowthDashboardEnabled = originalGrowth;
+    }
+  });
+
+  it("when growth=true and analytics=false, returns enabled=true and analyticsEnabled=false", async () => {
+    const originalGrowth = featureFlags.v2GrowthDashboardEnabled;
+    const originalAnalytics = featureFlags.v2AnalyticsEnabled;
+    featureFlags.v2GrowthDashboardEnabled = true;
+    featureFlags.v2AnalyticsEnabled = false;
+    try {
+      const caller = appRouter.createCaller(makeAdminCtx());
+      const result = await caller.admin.growth.kpis();
+      expect(result.enabled).toBe(true);
+      expect(result.analyticsEnabled).toBe(false);
+      expect(result.data).not.toBeNull();
+    } finally {
+      featureFlags.v2GrowthDashboardEnabled = originalGrowth;
+      featureFlags.v2AnalyticsEnabled = originalAnalytics;
+    }
+  });
+
+  it("when both flags are true, returns enabled=true and analyticsEnabled=true", async () => {
+    const originalGrowth = featureFlags.v2GrowthDashboardEnabled;
+    const originalAnalytics = featureFlags.v2AnalyticsEnabled;
+    featureFlags.v2GrowthDashboardEnabled = true;
+    featureFlags.v2AnalyticsEnabled = true;
+    try {
+      const caller = appRouter.createCaller(makeAdminCtx());
+      const result = await caller.admin.growth.kpis();
+      expect(result.enabled).toBe(true);
+      expect(result.analyticsEnabled).toBe(true);
+      expect(result.data).not.toBeNull();
+    } finally {
+      featureFlags.v2GrowthDashboardEnabled = originalGrowth;
+      featureFlags.v2AnalyticsEnabled = originalAnalytics;
     }
   });
 });

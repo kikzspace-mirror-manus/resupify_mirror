@@ -1,18 +1,60 @@
 /**
- * AdminGrowthDashboard.tsx — V2 Phase 1B.2
+ * AdminGrowthDashboard.tsx — V2 Phase 1B.2 (updated: 1B.2-fix)
  *
- * Shows analytics KPIs from the analytics_events table.
+ * Admin-only Growth KPI Dashboard.
  * Gated behind featureFlags.v2GrowthDashboardEnabled (server-side).
- * When flag is OFF, renders a "Coming Soon" placeholder.
+ *
+ * Three states:
+ * 1) growth=false → "Not enabled" card (exact env var name shown)
+ * 2) growth=true, analytics=false → dashboard shell + analytics-off warning banner
+ * 3) growth=true, analytics=true → full dashboard
  */
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import {
   Users, TrendingUp, Zap, AlertTriangle, Clock,
-  BarChart2, CheckCircle2
+  BarChart2, CheckCircle2, XCircle, Activity
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// ─── Flag Status Box ──────────────────────────────────────────────────────────
+
+function FlagStatusBox({
+  growthEnabled,
+  analyticsEnabled,
+}: {
+  growthEnabled: boolean;
+  analyticsEnabled: boolean;
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/40 px-4 py-3 flex flex-wrap gap-x-6 gap-y-2 items-center text-sm">
+      <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Flag Status</span>
+      <span className="flex items-center gap-1.5">
+        {growthEnabled
+          ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+          : <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+        <code className="text-xs bg-background border rounded px-1">V2_GROWTH_DASHBOARD_ENABLED</code>
+        <Badge variant={growthEnabled ? "default" : "secondary"} className="text-xs h-5">
+          {growthEnabled ? "ON" : "OFF"}
+        </Badge>
+      </span>
+      <span className="flex items-center gap-1.5">
+        {analyticsEnabled
+          ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+          : <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+        <code className="text-xs bg-background border rounded px-1">V2_ANALYTICS_ENABLED</code>
+        <Badge variant={analyticsEnabled ? "default" : "secondary"} className="text-xs h-5">
+          {analyticsEnabled ? "ON" : "OFF"}
+        </Badge>
+      </span>
+      {(!growthEnabled || !analyticsEnabled) && (
+        <span className="text-muted-foreground text-xs ml-auto">Enable both to see live data.</span>
+      )}
+    </div>
+  );
+}
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
@@ -74,17 +116,9 @@ export default function AdminGrowthDashboard() {
 
         {/* Loading */}
         {isLoading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="pt-5 pb-4">
-                  <div className="animate-pulse space-y-2">
-                    <div className="h-3 bg-muted rounded w-2/3" />
-                    <div className="h-7 bg-muted rounded w-1/2" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Activity className="h-4 w-4 animate-pulse" />
+            Loading KPIs…
           </div>
         )}
 
@@ -97,28 +131,51 @@ export default function AdminGrowthDashboard() {
           </Card>
         )}
 
-        {/* Flag OFF — Coming Soon */}
+        {/* State 1: growth flag OFF */}
         {!isLoading && !error && data && !data.enabled && (
-          <Card>
-            <CardContent className="pt-10 pb-10 text-center space-y-3">
-              <BarChart2 className="h-12 w-12 text-muted-foreground mx-auto" />
-              <h2 className="text-lg font-semibold">Growth Dashboard is not yet enabled</h2>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Set <code className="bg-muted px-1 rounded text-xs">V2_GROWTH_DASHBOARD_ENABLED=true</code> in
-                your environment to activate analytics KPI tracking.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <FlagStatusBox growthEnabled={false} analyticsEnabled={data.analyticsEnabled} />
+            <Card>
+              <CardContent className="pt-10 pb-10 text-center space-y-3">
+                <BarChart2 className="h-12 w-12 text-muted-foreground mx-auto" />
+                <h2 className="text-lg font-semibold">Growth Dashboard is not yet enabled</h2>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Set{" "}
+                  <code className="bg-muted px-1 rounded text-xs">V2_GROWTH_DASHBOARD_ENABLED=true</code>{" "}
+                  in Settings → Secrets to activate this dashboard.
+                </p>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  Also set{" "}
+                  <code className="bg-muted px-1 rounded text-xs">V2_ANALYTICS_ENABLED=true</code>{" "}
+                  to start logging events.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
-        {/* Flag ON — KPI Data */}
+        {/* States 2 & 3: growth flag ON */}
         {!isLoading && !error && data?.enabled && data.data && (() => {
           const d = data.data;
-          // funnel7d is Array<{step, count, pct}> — index by step name
-          const funnelMap = Object.fromEntries(d.funnel7d.map((f) => [f.step, f]));
 
           return (
             <div className="space-y-6">
+              {/* Flag Status */}
+              <FlagStatusBox growthEnabled={true} analyticsEnabled={data.analyticsEnabled} />
+
+              {/* State 2: analytics flag OFF — warning banner */}
+              {!data.analyticsEnabled && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Analytics logging is OFF.</strong>{" "}
+                    Set{" "}
+                    <code className="bg-muted px-1 rounded text-xs">V2_ANALYTICS_ENABLED=true</code>{" "}
+                    in Settings → Secrets to start populating data. KPIs below will show 0 until events are logged.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Audience KPIs */}
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Audience</h2>
@@ -134,7 +191,14 @@ export default function AdminGrowthDashboard() {
               <div>
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Activation</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <KpiCard label="Activated (7d)" value={d.activatedUsers7d} icon={CheckCircle2} color="text-teal-600" bg="bg-teal-50" description="Users who created a job card" />
+                  <KpiCard
+                    label="Activated (7d)"
+                    value={d.activatedUsers7d}
+                    icon={CheckCircle2}
+                    color="text-teal-600"
+                    bg="bg-teal-50"
+                    description="Users who created a job card"
+                  />
                   <KpiCard
                     label="Activation Rate (7d)"
                     value={d.activationRate7d !== null ? `${d.activationRate7d}%` : null}
@@ -143,14 +207,27 @@ export default function AdminGrowthDashboard() {
                     bg="bg-teal-50"
                     description="Activated / new users"
                   />
-                  <KpiCard label="P95 AI Latency (7d)" value={d.p95LatencyMs7d !== null ? `${d.p95LatencyMs7d}ms` : null} icon={Clock} color="text-purple-600" bg="bg-purple-50" description="95th percentile" />
-                  <KpiCard label="Errors (7d)" value={d.errorCount7d} icon={AlertTriangle} color="text-red-600" bg="bg-red-50" description="Failed AI runs" />
+                  <KpiCard
+                    label="P95 AI Latency (7d)"
+                    value={d.p95LatencyMs7d !== null ? `${d.p95LatencyMs7d}ms` : null}
+                    icon={Clock}
+                    color="text-purple-600"
+                    bg="bg-purple-50"
+                    description="95th percentile"
+                  />
+                  <KpiCard
+                    label="Errors (7d)"
+                    value={d.errorCount7d}
+                    icon={AlertTriangle}
+                    color="text-red-600"
+                    bg="bg-red-50"
+                    description="Failed AI runs"
+                  />
                 </div>
               </div>
 
               {/* Funnel + Outcomes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Funnel */}
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -177,7 +254,9 @@ export default function AdminGrowthDashboard() {
                         ))}
                         {d.funnel7d.length === 0 && (
                           <tr>
-                            <td colSpan={3} className="py-4 text-center text-sm text-muted-foreground">No funnel data yet.</td>
+                            <td colSpan={3} className="py-4 text-center text-sm text-muted-foreground">
+                              No funnel data yet.
+                            </td>
                           </tr>
                         )}
                       </tbody>
@@ -185,7 +264,6 @@ export default function AdminGrowthDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Outcomes */}
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -213,14 +291,11 @@ export default function AdminGrowthDashboard() {
                       </tbody>
                     </table>
                     <p className="text-xs text-muted-foreground mt-3">
-                      Reported by users via the Outcome tracking feature (not yet wired).
+                      Reported by users via the Outcome tracking feature.
                     </p>
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Unused funnelMap reference to avoid lint warning */}
-              {Object.keys(funnelMap).length === 0 && null}
             </div>
           );
         })()}

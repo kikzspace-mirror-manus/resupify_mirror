@@ -660,8 +660,9 @@ ${buildToneSystemPrompt()}`
   // ─── Growth Dashboard (V2 Phase 1B.2) ──────────────────────────
   growth: router({
     kpis: adminProcedure.query(async () => {
+      const analyticsEnabled = featureFlags.v2AnalyticsEnabled;
       if (!featureFlags.v2GrowthDashboardEnabled) {
-        return { enabled: false, data: null };
+        return { enabled: false, analyticsEnabled, data: null };
       }
       const [wau, mau, newUsers7d, newUsers30d, activatedUsers7d, funnel7d, p95Latency7d, outcomes, errorCount7d] = await Promise.all([
         db.getWAU(),
@@ -676,6 +677,7 @@ ${buildToneSystemPrompt()}`
       ]);
       return {
         enabled: true,
+        analyticsEnabled,
         data: {
           wau,
           mau,

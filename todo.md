@@ -763,3 +763,11 @@
 - [x] Create client/src/pages/admin/AdminGrowthDashboard.tsx (admin-only, flag-gated, N/A for missing metrics)
 - [x] Wire /admin/growth route in App.tsx and Growth nav item in AdminLayout.tsx
 - [x] Write server/v2-phase1b2.test.ts (A-P, 33 tests) — 991 tests pass total, 0 TypeScript errors
+
+## Patch: Growth Dashboard Flag Gating Fix + Flag Status Panel
+- [x] Audit shared/featureFlags.ts: env var names V2_GROWTH_DASHBOARD_ENABLED and V2_ANALYTICS_ENABLED confirmed correct, no typos
+- [x] Update admin.growth.kpis to return analyticsEnabled in both enabled and disabled states
+- [x] AdminGrowthDashboard.tsx: add FlagStatusBox component (shows ON/OFF for both flags)
+- [x] AdminGrowthDashboard.tsx: show analytics-off warning banner when growth=true but analytics=false
+- [x] AdminGrowthDashboard.tsx: 3 states (both-off, growth-on+analytics-off, both-on)
+- [x] Updated v2-phase1b2.test.ts test I: 4 sub-tests (both-false, growth-true+analytics-false, both-true, basic shape) — 993 tests pass, 0 TypeScript errors
