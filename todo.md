@@ -487,3 +487,9 @@
 - [x] Build SelectedContactChip component (name, email, LinkedIn URL, empty state)
 - [x] Insert chip above Generate/Regenerate controls in OutreachTab
 - [x] Tests: A-G (8 tests) — 576 tests pass total
+
+## Phase 9C5: Outreach Tab Personalization Context Card
+- [x] Build PersonalizationContextCard component (count, list up to 3, empty state, CTA)
+- [x] Insert card above generate controls in OutreachTab (below SelectedContactChip)
+- [x] Wire "Edit sources" / "Add sources" CTA to switch to Personalization tab (controlled Tabs state)
+- [x] Tests: A-H (14 tests) — 590 tests pass total

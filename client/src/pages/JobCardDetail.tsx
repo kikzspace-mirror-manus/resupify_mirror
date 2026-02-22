@@ -109,6 +109,7 @@ export default function JobCardDetail({ id }: { id: number }) {
   const { data: resumes } = trpc.resumes.list.useQuery();
   const { data: outreachPack } = trpc.outreach.pack.useQuery({ jobCardId: id });
   const { data: contacts } = trpc.contacts.list.useQuery({ jobCardId: id });
+  const [activeTab, setActiveTab] = useState("overview");
 
   const updateJob = trpc.jobCards.update.useMutation({
     onSuccess: (_, variables) => {
@@ -196,7 +197,7 @@ export default function JobCardDetail({ id }: { id: number }) {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview"><Briefcase className="h-3.5 w-3.5 mr-1.5" />Overview</TabsTrigger>
           <TabsTrigger value="jd"><FileText className="h-3.5 w-3.5 mr-1.5" />JD Snapshot</TabsTrigger>
@@ -229,7 +230,7 @@ export default function JobCardDetail({ id }: { id: number }) {
 
         {/* Outreach Tab */}
         <TabsContent value="outreach" className="space-y-4 mt-4">
-          <OutreachTab jobCardId={id} contacts={contacts ?? []} outreachPack={outreachPack} />
+          <OutreachTab jobCardId={id} contacts={contacts ?? []} outreachPack={outreachPack} onSwitchTab={setActiveTab} />
         </TabsContent>
 
         {/* Personalization Tab */}
@@ -1811,6 +1812,90 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   );
 }
 
+// ─── PersonalizationContextCard ─────────────────────────────────────────────
+const PCTX_TYPE_LABELS: Record<string, string> = {
+  linkedin_post: "LinkedIn Post",
+  linkedin_about: "LinkedIn About",
+  company_news: "Company News",
+  other: "Other",
+};
+const PCTX_TYPE_COLORS: Record<string, string> = {
+  linkedin_post: "bg-blue-100 text-blue-700",
+  linkedin_about: "bg-indigo-100 text-indigo-700",
+  company_news: "bg-amber-100 text-amber-700",
+  other: "bg-gray-100 text-gray-600",
+};
+
+function getSourceLabel(src: { sourceUrl?: string | null; pastedText?: string | null }): string {
+  if (src.sourceUrl) {
+    try { return new URL(src.sourceUrl).hostname; } catch { return src.sourceUrl.slice(0, 40); }
+  }
+  return "Pasted snippet";
+}
+
+function getSourcePreview(src: { pastedText?: string | null; sourceUrl?: string | null }): string {
+  const text = src.pastedText ?? src.sourceUrl ?? "";
+  return text.length > 80 ? text.slice(0, 80) + "…" : text;
+}
+
+function PersonalizationContextCard({ jobCardId, onEditSources }: { jobCardId: number; onEditSources: () => void }) {
+  const { data: sources, isLoading } = trpc.personalization.list.useQuery({ jobCardId });
+
+  if (isLoading) return null;
+
+  const list = sources ?? [];
+  const top3 = list.slice(0, 3);
+
+  if (list.length === 0) {
+    return (
+      <div className="mb-3 flex items-center justify-between rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        <span>No personalization sources saved (optional).</span>
+        <button
+          type="button"
+          onClick={onEditSources}
+          className="ml-2 text-primary hover:underline shrink-0"
+        >
+          Add sources
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-3 rounded-md border bg-muted/20 px-3 py-2 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium">Personalization context</span>
+        <button
+          type="button"
+          onClick={onEditSources}
+          className="text-xs text-primary hover:underline"
+        >
+          Edit sources
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">Using {list.length} saved source{list.length !== 1 ? "s" : ""}</p>
+      <ul className="space-y-1">
+        {top3.map((src: any) => (
+          <li key={src.id} className="flex items-start gap-2">
+            <span className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${PCTX_TYPE_COLORS[src.sourceType] ?? PCTX_TYPE_COLORS.other}`}>
+              {PCTX_TYPE_LABELS[src.sourceType] ?? "Other"}
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground truncate">{getSourceLabel(src)}</p>
+              {getSourcePreview(src) && (
+                <p className="text-[11px] text-muted-foreground/70 truncate">{getSourcePreview(src)}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[10px] text-muted-foreground/60 pt-0.5">
+        Resupify uses only what you pasted. One personalization line max in email/DM.
+      </p>
+    </div>
+  );
+}
+
 // ─── SelectedContactChip ─────────────────────────────────────────────────────
 function SelectedContactChip({ contact, hasContacts }: { contact: any | null; hasContacts: boolean }) {
   if (!contact) {
@@ -1876,7 +1961,7 @@ function CopyBlock({ label, content }: { label: string; content: string }) {
 }
 
 // ─── Outreach Tab ────────────────────────────────────────────────────
-function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number; contacts: any[]; outreachPack: any }) {
+function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCardId: number; contacts: any[]; outreachPack: any; onSwitchTab?: (tab: string) => void }) {
   const utils = trpc.useUtils();
   const [packError, setPackError] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | undefined>(undefined);
@@ -1942,6 +2027,8 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
         <CardContent>
           {/* Selected contact summary chip */}
           <SelectedContactChip contact={contacts.find((c) => c.id === selectedContactId) ?? null} hasContacts={contacts.length > 0} />
+          {/* Personalization context summary */}
+          <PersonalizationContextCard jobCardId={jobCardId} onEditSources={() => onSwitchTab?.("personalization")} />
           {outreachPack ? (
             <div className="space-y-3">
               <CopyBlock label="Recruiter Email" content={outreachPack.recruiterEmail} />
