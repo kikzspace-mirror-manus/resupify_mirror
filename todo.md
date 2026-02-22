@@ -676,3 +676,28 @@
 ## Patch: Test Stability (Force LLM_PROVIDER=manus)
 - [x] Override LLM_PROVIDER=manus and clear OPENAI_API_KEY in vitest setup
 - [x] Tests: A-C (3 tests) — 881 tests pass total, 0 TypeScript errors
+
+## Phase 10F-1: Early Access Allowlist + Waitlist Screen
+- [ ] Add earlyAccessEnabled boolean column to users table (default false)
+- [ ] Run db:push migration
+- [ ] Expose earlyAccessEnabled in auth.me response
+- [ ] Add route guard in App.tsx (non-allowlisted → /waitlist, admin bypasses)
+- [ ] Create /waitlist page (minimal, no redesign)
+- [ ] Add admin.earlyAccess.setAccess adminProcedure (by userId or email)
+- [ ] Add admin.earlyAccess.listUsers adminProcedure (search by email)
+- [ ] Add minimal admin UI control in AdminLayout (search + toggle)
+- [ ] Write acceptance tests (default false, gating, bypass, admin toggle, non-admin blocked)
+
+## Phase 10F-1: Early Access Gating
+- [x] Add earlyAccessEnabled boolean column to users table (default false)
+- [x] Run db:push migration
+- [x] Create /waitlist page (Waitlist.tsx)
+- [x] Add EarlyAccessGuard to App.tsx (redirects non-allowlisted users to /waitlist)
+- [x] Admin bypass: role=admin always passes the guard
+- [x] Add admin.earlyAccess.lookupByEmail adminProcedure
+- [x] Add admin.earlyAccess.setAccess adminProcedure (grant/revoke)
+- [x] Add adminSetEarlyAccess + adminGetUserByEmail db helpers to server/db.ts
+- [x] Build /admin/early-access page (AdminEarlyAccess.tsx)
+- [x] Add Early Access nav item to AdminLayout
+- [x] Register /admin/early-access route in App.tsx
+- [x] Tests: A-K+J2 (12 tests) — 893 tests pass total, 0 TypeScript errors

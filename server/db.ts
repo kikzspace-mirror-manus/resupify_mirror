@@ -1141,3 +1141,23 @@ export async function purgeOldStripeEvents(): Promise<number> {
     .where(lte(stripeEvents.createdAt, cutoff));
   return (result as any)?.rowsAffected ?? 0;
 }
+
+// ─── Early Access (Phase 10F-1) ──────────────────────────────────────────────
+/** Grant or revoke early access for a user by userId. */
+export async function adminSetEarlyAccess(userId: number, enabled: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ earlyAccessEnabled: enabled }).where(eq(users.id, userId));
+}
+
+/** Look up a user by email (for admin early-access toggle UI). */
+export async function adminGetUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({ id: users.id, name: users.name, email: users.email, role: users.role, earlyAccessEnabled: users.earlyAccessEnabled })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return result[0] ?? null;
+}

@@ -11,6 +11,7 @@ export const users = mysqlTable("users", {
   isAdmin: boolean("isAdmin").default(false).notNull(),
   adminNotes: text("adminNotes"),
   disabled: boolean("disabled").default(false).notNull(),
+  earlyAccessEnabled: boolean("earlyAccessEnabled").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

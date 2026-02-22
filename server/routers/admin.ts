@@ -656,4 +656,21 @@ ${buildToneSystemPrompt()}`
       });
     }),
   }),
+  // --- Early Access (Phase 10F-1) ---
+  // Admin-only toggle to grant/revoke earlyAccessEnabled on a user.
+  earlyAccess: router({
+    lookupByEmail: adminProcedure.input(z.object({
+      email: z.string().email().max(320),
+    })).query(async ({ input }) => {
+      return db.adminGetUserByEmail(input.email);
+    }),
+    setAccess: adminProcedure.input(z.object({
+      userId: z.number().int().positive(),
+      enabled: z.boolean(),
+    })).mutation(async ({ input, ctx }) => {
+      await db.adminSetEarlyAccess(input.userId, input.enabled);
+      await db.logAdminAction(ctx.user.id, input.enabled ? "early_access_granted" : "early_access_revoked", input.userId);
+      return { success: true, userId: input.userId, enabled: input.enabled };
+    }),
+  }),
 });
