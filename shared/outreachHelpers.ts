@@ -169,6 +169,65 @@ export function fixContactEmail(text: string, contactEmail?: string | null): str
   return result;
 }
 
+// ─── LinkedIn URL ────────────────────────────────────────────────────────────
+
+/** Regex patterns for bracket placeholder variants of LinkedIn profile URL */
+const LINKEDIN_URL_PLACEHOLDERS = [
+  /\[LinkedIn Profile URL\]/gi,
+  /\[linkedin profile url\]/gi,
+  /\[LinkedIn URL\]/gi,
+  /\[linkedin url\]/gi,
+  /\[Your LinkedIn Profile URL\]/gi,
+  /\[your linkedin profile url\]/gi,
+  /^LinkedIn Profile URL:\s*.*/gim,
+  /^LinkedIn:\s*\[.*?\]/gim,
+];
+
+/**
+ * Build the LinkedIn URL instruction block for the LLM prompt.
+ * Returns empty string when no URL is provided.
+ */
+export function buildLinkedInBlock(linkedinUrl: string | null | undefined): string {
+  if (!linkedinUrl || !linkedinUrl.trim()) return "";
+  const url = linkedinUrl.trim();
+  return [
+    `Contact LinkedIn URL: ${url}`,
+    `For the linkedin_dm field ONLY: add a "LinkedIn: ${url}" line as the very first line of the DM, before the greeting.`,
+    "Do NOT add a LinkedIn: line to recruiter_email, follow_up_1, or follow_up_2.",
+    "Never invent or guess a LinkedIn URL. Use only the one provided above.",
+    "Never output bracket placeholders like [LinkedIn Profile URL] \u2014 omit entirely if no URL is provided.",
+  ].join("\n");
+}
+
+/**
+ * Post-process the linkedin_dm field:
+ * 1. Strip all [LinkedIn Profile URL] bracket placeholders.
+ * 2. If linkedinUrl is provided and a LinkedIn: line is missing, prepend it.
+ * 3. Ensure the LinkedIn: line appears at most once.
+ */
+export function fixLinkedInUrl(text: string, linkedinUrl?: string | null): string {
+  if (!text) return text;
+  let result = text;
+
+  // 1. Strip bracket placeholders
+  for (const re of LINKEDIN_URL_PLACEHOLDERS) {
+    result = result.replace(re, "");
+  }
+  // Collapse multiple blank lines left by removals
+  result = result.replace(/\n{3,}/g, "\n\n").trim();
+
+  // 2. If URL provided, ensure exactly one LinkedIn: line at the top
+  if (linkedinUrl && linkedinUrl.trim()) {
+    const url = linkedinUrl.trim();
+    // Remove any existing LinkedIn: lines (to avoid duplication)
+    result = result.replace(/^LinkedIn:\s*.*$/gim, "").replace(/\n{3,}/g, "\n\n").trim();
+    // Prepend the canonical LinkedIn: line
+    result = `LinkedIn: ${url}\n${result}`;
+  }
+
+  return result;
+}
+
 /**
  * Post-process guard: replace any "Dear ," or "Dear," patterns left by the LLM
  * with the correct fallback salutation.

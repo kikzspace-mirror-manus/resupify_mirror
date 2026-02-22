@@ -15,6 +15,7 @@ export default function AdminSandbox() {
   const [outreachResult, setOutreachResult] = useState<any>(null);
   const [testContactName, setTestContactName] = useState("");
   const [testContactEmail, setTestContactEmail] = useState("");
+  const [testContactLinkedInUrl, setTestContactLinkedInUrl] = useState("");
 
   // Manual IDs for running on existing data
   const [manualJobId, setManualJobId] = useState("");
@@ -238,6 +239,16 @@ export default function AdminSandbox() {
                 className="max-w-sm"
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Contact LinkedIn URL (optional — adds LinkedIn: line to DM)</label>
+              <Input
+                type="url"
+                placeholder="e.g. https://linkedin.com/in/erick-tran (leave blank to omit)"
+                value={testContactLinkedInUrl}
+                onChange={(e) => setTestContactLinkedInUrl(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
             {effectiveJobId && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="font-medium">Using personalization:</span>
@@ -259,6 +270,7 @@ export default function AdminSandbox() {
                   jobCardId: effectiveJobId,
                   contactName: testContactName.trim() || undefined,
                   contactEmail: testContactEmail.trim() || undefined,
+                  contactLinkedInUrl: testContactLinkedInUrl.trim() || undefined,
                 });
               }}
               disabled={outreachMut.isPending || !effectiveJobId}

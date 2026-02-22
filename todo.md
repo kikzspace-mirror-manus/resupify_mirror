@@ -468,3 +468,11 @@
 - [x] Post-process: strip [Recruiter Email] brackets; prepend To: line if missing and email provided
 - [x] Update Admin Sandbox UI: add optional contact email input field
 - [x] Tests: A-L acceptance criteria — 542 tests pass
+
+## Outreach Fix 3/4: LinkedIn URL Injection (Remove [LinkedIn Profile URL] Placeholders)
+- [x] Add fixLinkedInUrl(text, linkedinUrl?) + buildLinkedInBlock() helpers in shared/outreachHelpers.ts
+- [x] Add linkedinUrl to generatePack LLM prompt (Option A: LinkedIn: line instruction)
+- [x] Add linkedinUrl to generateOutreachTestMode LLM prompt
+- [x] Post-process: strip [LinkedIn Profile URL] brackets; prepend LinkedIn: line if missing and URL provided
+- [x] Update Admin Sandbox UI: add optional LinkedIn URL input field
+- [x] Tests: A-O (15 tests) — 557 tests pass total
