@@ -617,3 +617,8 @@
 - [x] Add "Ops Events" nav item to AdminLayout.tsx
 - [x] Register /admin/operational-events route in App.tsx
 - [x] Tests: A-H (8 tests) — 818 tests pass total, 0 TypeScript errors
+
+## Patch: Friendly 413 Toast
+- [x] Intercept HTTP 413 in tRPC client fetch wrapper in main.tsx
+- [x] Show toast.error("Your request was too large. Please shorten the text and try again.")
+- [x] Tests: A-E (8 tests) — 826 tests pass total, 0 TypeScript errors
