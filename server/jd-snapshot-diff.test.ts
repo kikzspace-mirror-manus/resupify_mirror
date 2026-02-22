@@ -10,7 +10,11 @@
  *   F) Truncation at 20k chars
  *   G) Summary counts (additions, removals) are correct
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 
 // ─── Import the pure diff helper directly (no server needed) ─────────
 // We test the pure function from the client component directly

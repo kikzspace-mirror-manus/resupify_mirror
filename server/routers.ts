@@ -16,6 +16,7 @@ import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
+import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit } from "./rateLimiter";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -495,7 +496,7 @@ export const appRouter = router({
       return db.getRequirements(input.jobCardId);
     }),
     // ─── Patch 8I: Fetch JD text from a URL ─────────────────────────
-    fetchFromUrl: protectedProcedure.input(z.object({
+    fetchFromUrl: protectedProcedure.use(urlFetchRateLimit).input(z.object({
       url: z.string().url(),
     })).mutation(async ({ input }) => {
       const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -743,7 +744,7 @@ export const appRouter = router({
     activeTrends: protectedProcedure.query(async ({ ctx }) => {
       return db.getActiveScoredJobCards(ctx.user.id, 10, 10);
     }),
-    run: protectedProcedure.input(z.object({
+    run: protectedProcedure.use(evidenceRateLimit).input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),
     })).mutation(async ({ ctx, input }) => {
@@ -1295,7 +1296,7 @@ export const appRouter = router({
     pack: protectedProcedure.input(z.object({ jobCardId: z.number() })).query(async ({ ctx, input }) => {
       return db.getOutreachPack(input.jobCardId, ctx.user.id);
     }),
-    generatePack: protectedProcedure.input(z.object({
+    generatePack: protectedProcedure.use(outreachRateLimit).input(z.object({
       jobCardId: z.number(),
       contactId: z.number().optional(),
     })).mutation(async ({ ctx, input }) => {
@@ -1428,7 +1429,7 @@ ${buildToneSystemPrompt()}`
 
     // Generate (or regenerate) an Application Kit
     // Option A: free if a completed EvidenceRun already exists for this jobcard+resume
-    generate: protectedProcedure.input(z.object({
+    generate: protectedProcedure.use(kitRateLimit).input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),
       evidenceRunId: z.number(),

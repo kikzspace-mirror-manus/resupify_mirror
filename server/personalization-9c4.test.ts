@@ -13,7 +13,11 @@
  * J) Admin sandbox: personalization block is injected when sources exist
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import {
   buildPersonalizationBlock,
   stripPersonalizationFromFollowUp,

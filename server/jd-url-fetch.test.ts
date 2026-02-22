@@ -15,7 +15,11 @@
  *   G) URL protocol guardrail logic
  *   H) Binary content-type guardrail logic
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 

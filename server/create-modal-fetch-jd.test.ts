@@ -9,7 +9,11 @@
  *   E) Fetched text < 200 chars → procedure returns PRECONDITION_FAILED error
  *   F) No backend changes: no new procedures, no schema changes
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import axios from "axios";
 import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";

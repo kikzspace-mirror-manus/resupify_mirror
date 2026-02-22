@@ -15,7 +15,11 @@
  * K) Admin sandbox generateOutreachTestMode: with contactEmail → To: line present
  * L) Admin sandbox generateOutreachTestMode: without contactEmail → no To: line
  */
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import { fixContactEmail, buildContactEmailBlock } from "../shared/outreachHelpers";
 import { appRouter } from "./routers";
 import * as db from "./db";

@@ -13,7 +13,11 @@
  * I) Admin generateOutreachTestMode with contactName uses correct salutation
  * J) Admin generateOutreachTestMode with no contactName uses fallback
  */
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import { computeSalutation, fixSalutation, extractFirstName } from "../shared/outreachHelpers";
 import { appRouter } from "./routers";
 import * as db from "./db";

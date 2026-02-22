@@ -536,3 +536,14 @@
 - [x] Add Low badge to kanban card tiles
 - [x] Ensure null/undefined priority shows no badge
 - [x] Tests: A-E (17 tests) — 683 tests pass total
+
+## Phase 10A-1: Rate Limiting (Abuse Protection)
+- [x] Audit route structure — identify exact procedure names for each endpoint group
+- [x] Implement in-memory rate limiter utility (server/rateLimiter.ts) — per-user + per-IP, TTL Map
+- [x] Add 429 JSON helper (error/message/retryAfterSeconds + Retry-After header)
+- [x] Wire limiter to Evidence/ATS run endpoint (6/user per 10 min)
+- [x] Wire limiter to Outreach generate endpoint (10/user per 10 min)
+- [x] Wire limiter to Application Kit generate endpoint (8/user per 10 min)
+- [x] Wire limiter to JD URL fetch endpoint (30/IP per 10 min)
+- [x] Wire limiter to Auth endpoints (20/IP per 10 min)
+- [x] Tests: acceptance criteria A-H (25 tests) — 708 tests pass total

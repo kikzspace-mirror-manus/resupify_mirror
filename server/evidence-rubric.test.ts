@@ -3,9 +3,13 @@
  *
  * Acceptance tests A–F as specified in the patch requirements.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function makeCtx(overrides: Partial<TrpcContext["user"]> = {}): TrpcContext {
