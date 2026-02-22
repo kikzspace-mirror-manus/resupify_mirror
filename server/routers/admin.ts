@@ -664,16 +664,17 @@ ${buildToneSystemPrompt()}`
       if (!featureFlags.v2GrowthDashboardEnabled) {
         return { enabled: false, analyticsEnabled, data: null };
       }
-      const [wau, mau, newUsers7d, newUsers30d, activatedUsers7d, funnel7d, p95Latency7d, outcomes, errorCount7d] = await Promise.all([
+      const [wau, mau, newUsers7d, newUsers30d, activatedUsers7d, funnel7d, p95Latency7d, outcomes, errorCount7d, instrumentationHealth] = await Promise.all([
         db.getWAU(),
         db.getMAU(),
-        db.getNewUsers(7),
-        db.getNewUsers(30),
+        db.getNewUsers(7),   // DB ground truth (users.createdAt)
+        db.getNewUsers(30),  // DB ground truth (users.createdAt)
         db.getActivatedUsers7d(),
         db.getFunnelCompletion7d(),
         db.getP95AiLatency7d(),
         db.getOutcomeCounts(),
         db.getErrorCount7d(),
+        db.getInstrumentationHealth24h(),
       ]);
       return {
         enabled: true,
@@ -684,11 +685,13 @@ ${buildToneSystemPrompt()}`
           newUsers7d,
           newUsers30d,
           activatedUsers7d,
+          // null = N/A (avoid divide-by-zero when no new users)
           activationRate7d: newUsers7d > 0 ? Math.round((activatedUsers7d / newUsers7d) * 100) : null,
           funnel7d,
           p95LatencyMs7d: p95Latency7d,
           outcomes,
           errorCount7d,
+          instrumentationHealth,
         },
       };
     }),

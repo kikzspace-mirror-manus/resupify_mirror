@@ -771,3 +771,11 @@
 - [x] AdminGrowthDashboard.tsx: show analytics-off warning banner when growth=true but analytics=false
 - [x] AdminGrowthDashboard.tsx: 3 states (both-off, growth-on+analytics-off, both-on)
 - [x] Updated v2-phase1b2.test.ts test I: 4 sub-tests (both-false, growth-true+analytics-false, both-true, basic shape) — 993 tests pass, 0 TypeScript errors
+
+## Patch: Growth Dashboard — DB-Based New Users + Instrumentation Health Widget
+- [x] Replace getNewUsers(days) in server/db.ts: use users.createdAt (DB ground truth) instead of analytics_events
+- [x] Add getInstrumentationHealth24h() helper: events24h count, lastEventAt, topEvents24h (top 5 by name)
+- [x] Update admin.growth.kpis: use DB-based newUsers7d/30d; add instrumentationHealth to response
+- [x] Add Instrumentation Health card to AdminGrowthDashboard.tsx (3-column: events24h, last event, top events)
+- [x] Write tests Q (DB-based new users, 2 tests), R (activation rate 0-100 or null), S (instrumentation health, 4 tests)
+- [x] Fix v2-phase1a.test.ts test K: assert boolean type only (env-driven flags) — 1000 tests pass, 0 TypeScript errors

@@ -383,3 +383,104 @@ describe("P: getErrorCount7d", () => {
     expect(result).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ─── Q: getNewUsers — DB-based (not event-based) ─────────────────────────────
+
+describe("Q: getNewUsers — DB ground truth", () => {
+  it("returns same value regardless of analytics flag state (DB-based, not event-based)", async () => {
+    const { getNewUsers } = await import("./db");
+    const originalFlag = featureFlags.v2AnalyticsEnabled;
+    featureFlags.v2AnalyticsEnabled = false;
+    const resultFlagOff = await getNewUsers(7);
+    featureFlags.v2AnalyticsEnabled = true;
+    const resultFlagOn = await getNewUsers(7);
+    featureFlags.v2AnalyticsEnabled = originalFlag;
+    expect(typeof resultFlagOff).toBe("number");
+    expect(typeof resultFlagOn).toBe("number");
+    // Both use the same DB query — values must be identical
+    expect(resultFlagOff).toBe(resultFlagOn);
+  });
+
+  it("30-day count is >= 7-day count (monotonic)", async () => {
+    const { getNewUsers } = await import("./db");
+    const [d7, d30] = await Promise.all([getNewUsers(7), getNewUsers(30)]);
+    expect(d30).toBeGreaterThanOrEqual(d7);
+  });
+});
+
+// ─── R: activationRate7d — null when newUsers7d is 0 ─────────────────────────
+
+describe("R: activationRate7d — divide-by-zero guard", () => {
+  it("activationRate7d is null or a valid 0-100 percentage", async () => {
+    const originalGrowth = featureFlags.v2GrowthDashboardEnabled;
+    featureFlags.v2GrowthDashboardEnabled = true;
+    try {
+      const caller = appRouter.createCaller(makeAdminCtx());
+      const result = await caller.admin.growth.kpis();
+      if (result.enabled && result.data) {
+        const rate = result.data.activationRate7d;
+        if (rate !== null) {
+          expect(typeof rate).toBe("number");
+          expect(rate).toBeGreaterThanOrEqual(0);
+          expect(rate).toBeLessThanOrEqual(100);
+        } else {
+          // null is valid when newUsers7d === 0
+          expect(rate).toBeNull();
+        }
+      }
+    } finally {
+      featureFlags.v2GrowthDashboardEnabled = originalGrowth;
+    }
+  });
+});
+
+// ─── S: getInstrumentationHealth24h ──────────────────────────────────────────
+
+describe("S: getInstrumentationHealth24h", () => {
+  it("returns { events24h: number, lastEventAt: Date|null, topEvents24h: array }", async () => {
+    const { getInstrumentationHealth24h } = await import("./db");
+    const result = await getInstrumentationHealth24h();
+    expect(result).toHaveProperty("events24h");
+    expect(result).toHaveProperty("lastEventAt");
+    expect(result).toHaveProperty("topEvents24h");
+    expect(typeof result.events24h).toBe("number");
+    expect(result.events24h).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(result.topEvents24h)).toBe(true);
+  });
+
+  it("topEvents24h entries have { name: string, count: number }", async () => {
+    const { getInstrumentationHealth24h } = await import("./db");
+    const result = await getInstrumentationHealth24h();
+    for (const ev of result.topEvents24h) {
+      expect(typeof ev.name).toBe("string");
+      expect(typeof ev.count).toBe("number");
+      expect(ev.count).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("topEvents24h has at most 5 entries", async () => {
+    const { getInstrumentationHealth24h } = await import("./db");
+    const result = await getInstrumentationHealth24h();
+    expect(result.topEvents24h.length).toBeLessThanOrEqual(5);
+  });
+
+  it("admin.growth.kpis data includes instrumentationHealth when growth flag is ON", async () => {
+    const originalGrowth = featureFlags.v2GrowthDashboardEnabled;
+    featureFlags.v2GrowthDashboardEnabled = true;
+    try {
+      const caller = appRouter.createCaller(makeAdminCtx());
+      const result = await caller.admin.growth.kpis();
+      expect(result.enabled).toBe(true);
+      expect(result.data).not.toBeNull();
+      if (result.data) {
+        expect(result.data).toHaveProperty("instrumentationHealth");
+        const health = result.data.instrumentationHealth;
+        expect(health).toHaveProperty("events24h");
+        expect(health).toHaveProperty("lastEventAt");
+        expect(health).toHaveProperty("topEvents24h");
+      }
+    } finally {
+      featureFlags.v2GrowthDashboardEnabled = originalGrowth;
+    }
+  });
+});

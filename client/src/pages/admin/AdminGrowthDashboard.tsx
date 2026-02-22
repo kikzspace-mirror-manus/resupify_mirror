@@ -13,7 +13,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import {
   Users, TrendingUp, Zap, AlertTriangle, Clock,
-  BarChart2, CheckCircle2, XCircle, Activity
+  BarChart2, CheckCircle2, XCircle, Activity, Radio
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -225,6 +225,59 @@ export default function AdminGrowthDashboard() {
                   />
                 </div>
               </div>
+
+              {/* Instrumentation Health */}
+              {d.instrumentationHealth && (
+                <div>
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Instrumentation Health (24h)</h2>
+                  <Card>
+                    <CardContent className="pt-5">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Total events */}
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Events (24h)</p>
+                          <p className="text-3xl font-bold tabular-nums">{d.instrumentationHealth.events24h.toLocaleString()}</p>
+                          {d.instrumentationHealth.events24h === 0 && (
+                            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> No events in last 24h
+                            </p>
+                          )}
+                        </div>
+                        {/* Last event */}
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Last Event</p>
+                          {d.instrumentationHealth.lastEventAt ? (
+                            <>
+                              <p className="text-sm font-medium">{new Date(d.instrumentationHealth.lastEventAt).toLocaleString()}</p>
+                              <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                                <Radio className="h-3 w-3" /> Events flowing
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No events yet</p>
+                          )}
+                        </div>
+                        {/* Top events */}
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Top Events (24h)</p>
+                          {d.instrumentationHealth.topEvents24h.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">None</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {d.instrumentationHealth.topEvents24h.map((ev) => (
+                                <li key={ev.name} className="flex items-center justify-between text-xs">
+                                  <span className="font-mono text-muted-foreground truncate max-w-[140px]">{ev.name}</span>
+                                  <span className="font-medium tabular-nums ml-2">{ev.count}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {/* Funnel + Outcomes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

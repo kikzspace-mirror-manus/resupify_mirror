@@ -1341,7 +1341,16 @@ export async function getActivatedUsers7d(): Promise<number> {
 }
 
 export async function getNewUsers(days: 7 | 30): Promise<number> {
-  return countDistinctUsersForEvent(EVT_SIGNUP_COMPLETED, days);
+  // DB ground truth: count users created within the last N days
+  // Accurate even if signup_completed analytics events are missing
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(*)` })
+    .from(users)
+    .where(gte(users.createdAt, cutoff));
+  return Number(rows[0]?.cnt ?? 0);
 }
 
 export async function getWAU(): Promise<number> {
@@ -1436,4 +1445,46 @@ export async function getEventCount(eventName: string, days: number): Promise<nu
     .from(analyticsEvents)
     .where(and(eq(analyticsEvents.eventName, eventName), gte(analyticsEvents.eventAt, cutoff)));
   return Number(rows[0]?.cnt ?? 0);
+}
+
+// ─── Instrumentation Health (admin-only) ─────────────────────────────
+export interface InstrumentationHealth {
+  events24h: number;
+  lastEventAt: Date | null;
+  topEvents24h: Array<{ name: string; count: number }>;
+}
+
+export async function getInstrumentationHealth24h(): Promise<InstrumentationHealth> {
+  const db = await getDb();
+  if (!db) return { events24h: 0, lastEventAt: null, topEvents24h: [] };
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  // Total events in last 24h
+  const totalRows = await db
+    .select({ cnt: sql<number>`COUNT(*)` })
+    .from(analyticsEvents)
+    .where(gte(analyticsEvents.eventAt, cutoff));
+  const events24h = Number(totalRows[0]?.cnt ?? 0);
+
+  // Most recent event timestamp
+  const lastRows = await db
+    .select({ lastAt: sql<Date | null>`MAX(${analyticsEvents.eventAt})` })
+    .from(analyticsEvents)
+    .where(gte(analyticsEvents.eventAt, cutoff));
+  const lastEventAt = lastRows[0]?.lastAt ?? null;
+
+  // Top 5 event names by count in last 24h (no props — non-PII)
+  const topRows = await db
+    .select({
+      name: analyticsEvents.eventName,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(analyticsEvents)
+    .where(gte(analyticsEvents.eventAt, cutoff))
+    .groupBy(analyticsEvents.eventName)
+    .orderBy(sql`COUNT(*) DESC`)
+    .limit(5);
+  const topEvents24h = topRows.map((r) => ({ name: r.name, count: Number(r.count) }));
+
+  return { events24h, lastEventAt, topEvents24h };
 }
