@@ -750,3 +750,16 @@
 - [x] Update countryPackId enum in drizzle/schema.ts to include "GLOBAL" for users and job_cards
 - [x] Run db:push migration (0019_aberrant_longshot.sql)
 - [x] Add test: v2-phase1a1.test.ts (A-G, 8 tests); updated v2-phase1a.test.ts D and F — 966 tests pass, 0 TypeScript errors
+
+## V2 Phase 1B.2: Analytics Foundations + Growth KPI Dashboard
+- [x] Add analytics_events table to drizzle/schema.ts with indexes
+- [x] Add v2AnalyticsEnabled and v2GrowthDashboardEnabled flags to shared/featureFlags.ts
+- [x] Run db:push migration (0020_analytics_events.sql)
+- [x] Create shared/analyticsEvents.ts: canonical event name constants + FUNNEL_STEPS
+- [x] Create server/analytics.ts: logAnalyticsEvent (fire-and-forget, never blocks)
+- [x] Add KPI query helpers to server/db.ts (getWAU, getMAU, getNewUsers, getActivatedUsers7d, getFunnelCompletion7d, getP95AiLatency7d, getOutcomeCounts, getErrorCount7d)
+- [x] Instrument server-side flows: signup (oauth.ts), job_card_created, quick_match_run, cover_letter_generated, outreach_generated, paywall_viewed (stripe.createCheckoutSession), purchase_completed (stripeWebhook)
+- [x] Add admin.growth.kpis tRPC procedure to admin.ts router
+- [x] Create client/src/pages/admin/AdminGrowthDashboard.tsx (admin-only, flag-gated, N/A for missing metrics)
+- [x] Wire /admin/growth route in App.tsx and Growth nav item in AdminLayout.tsx
+- [x] Write server/v2-phase1b2.test.ts (A-P, 33 tests) — 991 tests pass total, 0 TypeScript errors

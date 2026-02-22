@@ -4,6 +4,8 @@ import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 import { authRateLimitMiddleware } from "../rateLimiter";
+import { logAnalyticsEvent } from "../analytics";
+import { EVT_SIGNUP_COMPLETED } from "../../shared/analyticsEvents";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -29,6 +31,9 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
+      // Detect first signup: check if user exists before upsert
+      const existingUser = await db.getUserByOpenId(userInfo.openId);
+      const isNewUser = !existingUser;
       await db.upsertUser({
         openId: userInfo.openId,
         name: userInfo.name || null,
@@ -36,6 +41,11 @@ export function registerOAuthRoutes(app: Express) {
         loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
         lastSignedIn: new Date(),
       });
+      // Fire signup_completed only on first login (fire-and-forget)
+      if (isNewUser) {
+        const newUser = await db.getUserByOpenId(userInfo.openId);
+        if (newUser?.id) logAnalyticsEvent(EVT_SIGNUP_COMPLETED, newUser.id);
+      }
 
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",

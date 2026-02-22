@@ -1304,3 +1304,136 @@ export async function resolveCountryPack(params: {
   }
   return { effectiveCountryPackId: DEFAULT_COUNTRY_PACK_ID, source: "default", userCountryPackId, jobCardCountryPackId };
 }
+
+// ─── V2 Analytics KPI Helpers (Phase 1B.2) ──────────────────────────────────
+import { analyticsEvents } from "../drizzle/schema";
+import {
+  EVT_SIGNUP_COMPLETED, EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN,
+  FUNNEL_STEPS,
+} from "../shared/analyticsEvents";
+
+async function countDistinctUsersForEvent(eventName: string, days: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(DISTINCT ${analyticsEvents.userId})` })
+    .from(analyticsEvents)
+    .where(and(eq(analyticsEvents.eventName, eventName), gte(analyticsEvents.eventAt, cutoff), sql`${analyticsEvents.userId} IS NOT NULL`));
+  return Number(rows[0]?.cnt ?? 0);
+}
+
+export async function getActivatedUsers7d(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const jobCardUsers = await db
+    .selectDistinct({ userId: analyticsEvents.userId })
+    .from(analyticsEvents)
+    .where(and(eq(analyticsEvents.eventName, EVT_JOB_CARD_CREATED), gte(analyticsEvents.eventAt, cutoff), sql`${analyticsEvents.userId} IS NOT NULL`));
+  if (jobCardUsers.length === 0) return 0;
+  const userIds = jobCardUsers.map((r) => r.userId as number);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(DISTINCT ${analyticsEvents.userId})` })
+    .from(analyticsEvents)
+    .where(and(eq(analyticsEvents.eventName, EVT_QUICK_MATCH_RUN), gte(analyticsEvents.eventAt, cutoff), inArray(analyticsEvents.userId, userIds)));
+  return Number(rows[0]?.cnt ?? 0);
+}
+
+export async function getNewUsers(days: 7 | 30): Promise<number> {
+  return countDistinctUsersForEvent(EVT_SIGNUP_COMPLETED, days);
+}
+
+export async function getWAU(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(DISTINCT ${analyticsEvents.userId})` })
+    .from(analyticsEvents)
+    .where(and(gte(analyticsEvents.eventAt, cutoff), sql`${analyticsEvents.userId} IS NOT NULL`));
+  return Number(rows[0]?.cnt ?? 0);
+}
+
+export async function getMAU(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(DISTINCT ${analyticsEvents.userId})` })
+    .from(analyticsEvents)
+    .where(and(gte(analyticsEvents.eventAt, cutoff), sql`${analyticsEvents.userId} IS NOT NULL`));
+  return Number(rows[0]?.cnt ?? 0);
+}
+
+export async function getFunnelCompletion7d(): Promise<Array<{ step: string; count: number; pct: number }>> {
+  const db = await getDb();
+  if (!db) return FUNNEL_STEPS.map((s) => ({ step: s, count: 0, pct: 0 }));
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const signupRows = await db
+    .selectDistinct({ userId: analyticsEvents.userId })
+    .from(analyticsEvents)
+    .where(and(eq(analyticsEvents.eventName, EVT_SIGNUP_COMPLETED), gte(analyticsEvents.eventAt, cutoff), sql`${analyticsEvents.userId} IS NOT NULL`));
+  const baseCount = signupRows.length;
+  if (baseCount === 0) return FUNNEL_STEPS.map((s) => ({ step: s, count: 0, pct: 0 }));
+  const signupUserIds = signupRows.map((r) => r.userId as number);
+  const result: Array<{ step: string; count: number; pct: number }> = [];
+  for (const step of FUNNEL_STEPS) {
+    if (step === EVT_SIGNUP_COMPLETED) { result.push({ step, count: baseCount, pct: 100 }); continue; }
+    const rows = await db
+      .select({ cnt: sql<number>`COUNT(DISTINCT ${analyticsEvents.userId})` })
+      .from(analyticsEvents)
+      .where(and(eq(analyticsEvents.eventName, step), inArray(analyticsEvents.userId, signupUserIds)));
+    const count = Number(rows[0]?.cnt ?? 0);
+    result.push({ step, count, pct: baseCount > 0 ? Math.round((count / baseCount) * 100) : 0 });
+  }
+  return result;
+}
+
+export async function getP95AiLatency7d(): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ props: analyticsEvents.props })
+    .from(analyticsEvents)
+    .where(and(eq(analyticsEvents.eventName, "ai_run_completed"), gte(analyticsEvents.eventAt, cutoff), sql`JSON_EXTRACT(${analyticsEvents.props}, '$.latency_ms') IS NOT NULL`));
+  const latencies = rows
+    .map((r) => { const p = r.props as Record<string, unknown> | null; return typeof p?.latency_ms === "number" ? p.latency_ms : null; })
+    .filter((v): v is number => v !== null)
+    .sort((a, b) => a - b);
+  if (latencies.length === 0) return null;
+  const idx = Math.ceil(latencies.length * 0.95) - 1;
+  return latencies[Math.max(0, idx)];
+}
+
+export async function getOutcomeCounts(): Promise<{ interviews: number; offers: number }> {
+  const db = await getDb();
+  if (!db) return { interviews: 0, offers: 0 };
+  const rows = await db.select({ props: analyticsEvents.props }).from(analyticsEvents).where(eq(analyticsEvents.eventName, "outcome_reported"));
+  let interviews = 0; let offers = 0;
+  for (const row of rows) { const p = row.props as Record<string, unknown> | null; if (p?.outcome === "interview") interviews++; if (p?.outcome === "offer") offers++; }
+  return { interviews, offers };
+}
+
+export async function getErrorCount7d(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(*)` })
+    .from(analyticsEvents)
+    .where(and(inArray(analyticsEvents.eventName, ["client_error", "server_error"]), gte(analyticsEvents.eventAt, cutoff)));
+  return Number(rows[0]?.cnt ?? 0);
+}
+
+export async function getEventCount(eventName: string, days: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ cnt: sql<number>`COUNT(*)` })
+    .from(analyticsEvents)
+    .where(and(eq(analyticsEvents.eventName, eventName), gte(analyticsEvents.eventAt, cutoff)));
+  return Number(rows[0]?.cnt ?? 0);
+}

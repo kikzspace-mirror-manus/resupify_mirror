@@ -141,6 +141,13 @@
       "when": 1771792114012,
       "tag": "0019_aberrant_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1771792568908,
+      "tag": "0020_eager_proudstar",
+      "breakpoints": true
     }
   ]
 }

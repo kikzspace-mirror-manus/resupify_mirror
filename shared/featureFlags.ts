@@ -59,6 +59,23 @@ export const featureFlags = {
    * Default: false.
    */
   v2BilingualViewEnabled: envBool("V2_BILINGUAL_VIEW_ENABLED"),
+
+  /**
+   * v2AnalyticsEnabled
+   * When true: enables writing analytics events to the analytics_events table.
+   * All event writes are fire-and-forget; disabling this flag silently no-ops
+   * all logAnalyticsEvent calls without affecting any user-facing flows.
+   * Default: false.
+   */
+  v2AnalyticsEnabled: envBool("V2_ANALYTICS_ENABLED"),
+
+  /**
+   * v2GrowthDashboardEnabled
+   * When true: shows the Growth KPI Dashboard at /admin/growth.
+   * Requires role=admin. Has no effect for non-admin users.
+   * Default: false.
+   */
+  v2GrowthDashboardEnabled: envBool("V2_GROWTH_DASHBOARD_ENABLED"),
 } as const;
 
 export type FeatureFlags = typeof featureFlags;

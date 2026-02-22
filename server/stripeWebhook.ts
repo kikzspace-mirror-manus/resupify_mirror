@@ -16,6 +16,8 @@ import Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { ENV } from "./_core/env";
 import * as db from "./db";
+import { logAnalyticsEvent } from "./analytics";
+import { EVT_PURCHASE_COMPLETED } from "../shared/analyticsEvents";
 
 // ─── Pack credits mapping (must match stripe.ts CREDIT_PACKS) ────────────────
 const PACK_CREDITS: Record<string, number> = {
@@ -70,6 +72,7 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         status: "processed",
       });
 
+      logAnalyticsEvent(EVT_PURCHASE_COMPLETED, userId, { pack_id: packId, credits });
       console.log(`[Stripe] Credited ${credits} credits to user ${userId} (event ${event.id})`);
       break;
     }

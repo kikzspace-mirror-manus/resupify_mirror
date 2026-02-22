@@ -2,6 +2,7 @@ import { adminProcedure, router } from "../_core/trpc";
 import { ENV } from "../_core/env";
 import { z } from "zod";
 import * as db from "../db";
+import { featureFlags } from "../../shared/featureFlags";
 import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../../shared/outreachHelpers";
@@ -654,6 +655,40 @@ ${buildToneSystemPrompt()}`
         limit: input?.limit ?? 100,
         offset: input?.offset ?? 0,
       });
+    }),
+  }),
+  // ─── Growth Dashboard (V2 Phase 1B.2) ──────────────────────────
+  growth: router({
+    kpis: adminProcedure.query(async () => {
+      if (!featureFlags.v2GrowthDashboardEnabled) {
+        return { enabled: false, data: null };
+      }
+      const [wau, mau, newUsers7d, newUsers30d, activatedUsers7d, funnel7d, p95Latency7d, outcomes, errorCount7d] = await Promise.all([
+        db.getWAU(),
+        db.getMAU(),
+        db.getNewUsers(7),
+        db.getNewUsers(30),
+        db.getActivatedUsers7d(),
+        db.getFunnelCompletion7d(),
+        db.getP95AiLatency7d(),
+        db.getOutcomeCounts(),
+        db.getErrorCount7d(),
+      ]);
+      return {
+        enabled: true,
+        data: {
+          wau,
+          mau,
+          newUsers7d,
+          newUsers30d,
+          activatedUsers7d,
+          activationRate7d: newUsers7d > 0 ? Math.round((activatedUsers7d / newUsers7d) * 100) : null,
+          funnel7d,
+          p95LatencyMs7d: p95Latency7d,
+          outcomes,
+          errorCount7d,
+        },
+      };
     }),
   }),
   // --- Early Access (Phase 10F-1) ---

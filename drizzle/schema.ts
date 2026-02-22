@@ -366,3 +366,21 @@ export const stripeEvents = mysqlTable("stripe_events", {
 });
 export type StripeEvent = typeof stripeEvents.$inferSelect;
 export type InsertStripeEvent = typeof stripeEvents.$inferInsert;
+
+// ─── Analytics Events (V2 Phase 1B.2) ────────────────────────────────────────
+// Growth analytics event log. No PII stored — userId is internal DB ID (not email/name).
+// All writes are fire-and-forget; failures MUST NOT block user actions.
+// Indexed on (event_name, event_at) and (user_id, event_at) for KPI queries.
+export const analyticsEvents = mysqlTable("analytics_events", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),                          // null for pre-signup/anonymous events
+  sessionId: varchar("sessionId", { length: 64 }), // optional client session ID
+  eventName: varchar("eventName", { length: 64 }).notNull(),
+  eventAt: timestamp("eventAt").defaultNow().notNull(),
+  props: json("props"),                            // { run_type, latency_ms, provider, outcome, ... }
+  countryPackId: varchar("countryPackId", { length: 16 }), // optional V2 country pack context
+  track: varchar("track", { length: 32 }),         // optional track code (COOP, NEW_GRAD, etc.)
+});
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;

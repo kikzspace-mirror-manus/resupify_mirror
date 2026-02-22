@@ -20,6 +20,11 @@ import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
 import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, shortHash } from "./rateLimiter";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
+import { logAnalyticsEvent } from "./analytics";
+import {
+  EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
+  EVT_OUTREACH_GENERATED, EVT_PAYWALL_VIEWED,
+} from "../shared/analyticsEvents";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -103,6 +108,7 @@ export const appRouter = router({
           userEmail: ctx.user.email,
           origin: input.origin,
         });
+        logAnalyticsEvent(EVT_PAYWALL_VIEWED, ctx.user.id, { pack_id: input.packId });
         return { url };
       }),
     packs: publicProcedure.query(() => CREDIT_PACKS),
@@ -290,6 +296,7 @@ export const appRouter = router({
           // Pre-check failure must never block card creation
         }
       }
+      logAnalyticsEvent(EVT_JOB_CARD_CREATED, ctx.user.id);
       return { id };
     }),
     update: protectedProcedure.input(z.object({
@@ -1107,6 +1114,7 @@ export const appRouter = router({
           });
         }
 
+        logAnalyticsEvent(EVT_QUICK_MATCH_RUN, ctx.user.id, { run_type: "evidence" });
         return {
           runId,
           score: overallScore,
@@ -1431,11 +1439,11 @@ ${buildToneSystemPrompt()}`
         followUp2: parsed.follow_up_2,
       });
 
+      logAnalyticsEvent(EVT_OUTREACH_GENERATED, ctx.user.id);
       return { id: packId, ...parsed };
     }),
   }),
-
-  // ─── Analytics ────────────────────────────────────────────────────
+  // ─── Analyticss ────────────────────────────────────────────────────
   analytics: router({
     stats: protectedProcedure.query(async ({ ctx }) => {
       const [jobStats, weeklyApps, taskCompletion] = await Promise.all([
@@ -1633,6 +1641,7 @@ ${buildToneSystemPrompt()}`
         coverLetterText: parsed.cover_letter_text ?? "",
       });
 
+       logAnalyticsEvent(EVT_COVER_LETTER_GENERATED, ctx.user.id);
       return {
         kitId,
         topChanges: parsed.top_changes ?? [],
@@ -1640,7 +1649,6 @@ ${buildToneSystemPrompt()}`
         coverLetterText: parsed.cover_letter_text ?? "",
       };
     }),
-
     // Create checklist tasks from the kit (no duplicates)
     createTasks: protectedProcedure.input(z.object({
       jobCardId: z.number(),
