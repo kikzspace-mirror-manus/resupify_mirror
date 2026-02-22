@@ -734,3 +734,9 @@
 - [x] Run db:push migration (0018_silky_zombie.sql)
 - [x] Add feature flag module (shared/featureFlags.ts): v2CountryPacksEnabled, v2VnTranslationEnabled, v2BilingualViewEnabled — all OFF by default
 - [x] Write acceptance tests (A-L, 12 tests) — 931 tests pass total, 0 TypeScript errors
+
+## V2 Phase 1B: Country Pack Resolution Helper + Pack Registry + Translation Utilities
+- [x] Create shared/countryPacks.ts: CountryPackId type, countryPackRegistry (VN/PH/US with language/style metadata)
+- [x] Add resolveCountryPack(userId, jobCardId?) helper to server/db.ts
+- [x] Create server/v2Translation.ts: shouldTranslateToVietnamese, translateEnToVi, prepareLocalizedFieldsForApplicationKit
+- [x] Write server/v2-phase1b.test.ts: 25 tests (A-U) — 956 tests pass total, 0 TypeScript errors

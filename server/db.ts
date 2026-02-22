@@ -1219,3 +1219,88 @@ export async function adminGetUserByEmail(email: string) {
     .limit(1);
   return result[0] ?? null;
 }
+
+// ─── V2 Phase 1B: Country Pack Resolver ──────────────────────────────────────
+// Single source of truth for resolving the effective country pack for a user/job.
+// Inheritance: job_cards.countryPackId → users.countryPackId → "US" (default).
+// This helper is safe to call even when V2 flags are OFF — it does not change
+// any V1 runtime behavior; it is only used by V2 procedures.
+
+import { type CountryPackId, DEFAULT_COUNTRY_PACK_ID } from "../shared/countryPacks";
+
+export interface ResolveCountryPackResult {
+  /** The effective country pack to use for generation. */
+  effectiveCountryPackId: CountryPackId;
+  /** Where the effective pack came from. */
+  source: "job_card" | "user" | "default";
+  /** The user's own country pack setting (null if not set). */
+  userCountryPackId: CountryPackId | null;
+  /** The job card's country pack override (null if not set or jobCardId not provided). */
+  jobCardCountryPackId: CountryPackId | null;
+}
+
+/**
+ * Resolve the effective country pack for a given user + optional job card.
+ *
+ * Inheritance order:
+ *   1. job_cards.countryPackId (if jobCardId provided and column is non-null)
+ *   2. users.countryPackId (if non-null)
+ *   3. DEFAULT_COUNTRY_PACK_ID ("US")
+ *
+ * Never throws — falls back to default on any DB error or missing record.
+ */
+export async function resolveCountryPack(params: {
+  userId: number;
+  jobCardId?: number | null;
+}): Promise<ResolveCountryPackResult> {
+  const { userId, jobCardId } = params;
+  let userCountryPackId: CountryPackId | null = null;
+  let jobCardCountryPackId: CountryPackId | null = null;
+
+  try {
+    const db = await getDb();
+    if (!db) {
+      return {
+        effectiveCountryPackId: DEFAULT_COUNTRY_PACK_ID,
+        source: "default",
+        userCountryPackId: null,
+        jobCardCountryPackId: null,
+      };
+    }
+
+    // Fetch user's country pack setting
+    const userRow = await db
+      .select({ countryPackId: users.countryPackId })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    userCountryPackId = (userRow[0]?.countryPackId as CountryPackId | null | undefined) ?? null;
+
+    // Fetch job card's country pack override (if jobCardId provided)
+    if (jobCardId != null) {
+      const jobRow = await db
+        .select({ countryPackId: jobCards.countryPackId })
+        .from(jobCards)
+        .where(and(eq(jobCards.id, jobCardId), eq(jobCards.userId, userId)))
+        .limit(1);
+      jobCardCountryPackId = (jobRow[0]?.countryPackId as CountryPackId | null | undefined) ?? null;
+    }
+  } catch {
+    // On any DB error, fall back to default safely
+    return {
+      effectiveCountryPackId: DEFAULT_COUNTRY_PACK_ID,
+      source: "default",
+      userCountryPackId: null,
+      jobCardCountryPackId: null,
+    };
+  }
+
+  // Apply inheritance rules
+  if (jobCardCountryPackId != null) {
+    return { effectiveCountryPackId: jobCardCountryPackId, source: "job_card", userCountryPackId, jobCardCountryPackId };
+  }
+  if (userCountryPackId != null) {
+    return { effectiveCountryPackId: userCountryPackId, source: "user", userCountryPackId, jobCardCountryPackId };
+  }
+  return { effectiveCountryPackId: DEFAULT_COUNTRY_PACK_ID, source: "default", userCountryPackId, jobCardCountryPackId };
+}
