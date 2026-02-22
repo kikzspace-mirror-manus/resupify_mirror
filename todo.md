@@ -652,3 +652,10 @@
 - [x] Wrap Billing TX History list in fixed-height (380px) scroll container
 - [x] Add "Showing latest N transactions" note
 - [x] Tests: A-J (10 tests) — 850 tests pass total, 0 TypeScript errors
+
+## Phase 10D-1: Auto-purge Operational Tables
+- [x] Add purgeOldOperationalEvents db helper (delete where createdAt < now - 30d)
+- [x] Add purgeOldStripeEvents db helper (delete where createdAt < now - 90d)
+- [x] Add runDailyCleanup function that calls both helpers and logs result
+- [x] Register daily cleanup job on server start (setTimeout 10s + setInterval 24h)
+- [x] Tests: A-K (11 tests) — 861 tests pass total, 0 TypeScript errors

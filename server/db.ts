@@ -1107,3 +1107,37 @@ export async function adminListStripeEvents(filter: {
     .offset(offset);
   return rows;
 }
+
+// ─── Auto-purge helpers (Phase 10D-1) ────────────────────────────────────────
+
+/** Retention windows in milliseconds */
+export const OPERATIONAL_EVENTS_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days
+export const STRIPE_EVENTS_RETENTION_MS       = 90 * 24 * 60 * 60 * 1000;  // 90 days
+
+/**
+ * Delete operational_events rows older than 30 days.
+ * Returns the number of rows deleted (or -1 if DB is unavailable).
+ */
+export async function purgeOldOperationalEvents(): Promise<number> {
+  const db = await getDb();
+  if (!db) return -1;
+  const cutoff = new Date(Date.now() - OPERATIONAL_EVENTS_RETENTION_MS);
+  const result = await db
+    .delete(operationalEvents)
+    .where(lte(operationalEvents.createdAt, cutoff));
+  return (result as any)?.rowsAffected ?? 0;
+}
+
+/**
+ * Delete stripe_events rows older than 90 days.
+ * Returns the number of rows deleted (or -1 if DB is unavailable).
+ */
+export async function purgeOldStripeEvents(): Promise<number> {
+  const db = await getDb();
+  if (!db) return -1;
+  const cutoff = new Date(Date.now() - STRIPE_EVENTS_RETENTION_MS);
+  const result = await db
+    .delete(stripeEvents)
+    .where(lte(stripeEvents.createdAt, cutoff));
+  return (result as any)?.rowsAffected ?? 0;
+}
