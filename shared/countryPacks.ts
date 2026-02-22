@@ -10,10 +10,10 @@
  */
 
 /** Supported country pack identifiers. */
-export type CountryPackId = "VN" | "PH" | "US";
+export type CountryPackId = "GLOBAL" | "VN" | "PH" | "US";
 
 /** All valid country pack IDs as a constant array (useful for validation). */
-export const COUNTRY_PACK_IDS = ["VN", "PH", "US"] as const satisfies readonly CountryPackId[];
+export const COUNTRY_PACK_IDS = ["GLOBAL", "VN", "PH", "US"] as const satisfies readonly CountryPackId[];
 
 /** Per-pack configuration record. */
 export interface CountryPackConfig {
@@ -33,6 +33,11 @@ export interface CountryPackConfig {
 /**
  * Country Pack Registry — read-only configuration for each supported pack.
  *
+ * GLOBAL (default):
+ *   - Safe, universal fallback used when no country pack is set.
+ *   - English-only; translation and bilingual view disabled.
+ *   - Used by all V1 users and any V2 user who has not selected a specific pack.
+ *
  * VN (Vietnam):
  *   - Supports Vietnamese translation and bilingual view.
  *   - Default language mode is "vi".
@@ -42,9 +47,14 @@ export interface CountryPackConfig {
  *
  * US (United States):
  *   - English-only market; translation and bilingual view disabled.
- *   - This is also the V1 default when no country pack is set.
  */
 export const countryPackRegistry: Readonly<Record<CountryPackId, CountryPackConfig>> = {
+  GLOBAL: {
+    defaultLanguageMode: "en",
+    translationEnabled: false,
+    bilingualEnabled: false,
+    templateStyleKey: "global_english",
+  },
   VN: {
     defaultLanguageMode: "vi",
     translationEnabled: true,
@@ -66,4 +76,4 @@ export const countryPackRegistry: Readonly<Record<CountryPackId, CountryPackConf
 } as const;
 
 /** Default country pack ID used when neither user nor job card specifies one. */
-export const DEFAULT_COUNTRY_PACK_ID: CountryPackId = "US";
+export const DEFAULT_COUNTRY_PACK_ID: CountryPackId = "GLOBAL";

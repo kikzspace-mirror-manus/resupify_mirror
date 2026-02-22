@@ -76,15 +76,15 @@ describe("V2 Phase 1B: resolveCountryPack inheritance", () => {
     expect(result.jobCardCountryPackId).toBeNull();
   });
 
-  it("C) defaults to 'US' when both user and job card are null", async () => {
+  it("C) defaults to 'GLOBAL' when both user and job card are null", async () => {
     mockResolveCountryPack.mockResolvedValue({
-      effectiveCountryPackId: "US",
+      effectiveCountryPackId: "GLOBAL",
       source: "default",
       userCountryPackId: null,
       jobCardCountryPackId: null,
     });
     const result = await dbModule.resolveCountryPack({ userId: 1 });
-    expect(result.effectiveCountryPackId).toBe("US");
+    expect(result.effectiveCountryPackId).toBe("GLOBAL");
     expect(result.source).toBe("default");
     expect(result.userCountryPackId).toBeNull();
     expect(result.jobCardCountryPackId).toBeNull();
@@ -114,10 +114,11 @@ describe("V2 Phase 1B: resolveCountryPack inheritance", () => {
     const r2 = await dbModule.resolveCountryPack({ userId: 1 });
     expect(r2.source).toBe("user");
 
-    // default source
-    mockResolveCountryPack.mockResolvedValueOnce({ effectiveCountryPackId: "US", source: "default", userCountryPackId: null, jobCardCountryPackId: null });
+    // default source — now GLOBAL
+    mockResolveCountryPack.mockResolvedValueOnce({ effectiveCountryPackId: "GLOBAL", source: "default", userCountryPackId: null, jobCardCountryPackId: null });
     const r3 = await dbModule.resolveCountryPack({ userId: 1 });
     expect(r3.source).toBe("default");
+    expect(r3.effectiveCountryPackId).toBe("GLOBAL");
   });
 });
 
@@ -143,8 +144,23 @@ describe("V2 Phase 1B: countryPackRegistry", () => {
     }
   });
 
-  it("H2) DEFAULT_COUNTRY_PACK_ID is 'US'", () => {
-    expect(DEFAULT_COUNTRY_PACK_ID).toBe("US");
+  it("H2) DEFAULT_COUNTRY_PACK_ID is 'GLOBAL' (updated in Phase 1B.1)", () => {
+    expect(DEFAULT_COUNTRY_PACK_ID).toBe("GLOBAL");
+  });
+
+  it("H4) GLOBAL pack exists with translationEnabled=false and templateStyleKey='global_english'", () => {
+    expect(countryPackRegistry["GLOBAL"]).toBeDefined();
+    expect(countryPackRegistry["GLOBAL"].translationEnabled).toBe(false);
+    expect(countryPackRegistry["GLOBAL"].bilingualEnabled).toBe(false);
+    expect(countryPackRegistry["GLOBAL"].defaultLanguageMode).toBe("en");
+    expect(countryPackRegistry["GLOBAL"].templateStyleKey).toBe("global_english");
+  });
+
+  it("H5) COUNTRY_PACK_IDS includes GLOBAL, VN, PH, US", () => {
+    expect(COUNTRY_PACK_IDS).toContain("GLOBAL");
+    expect(COUNTRY_PACK_IDS).toContain("VN");
+    expect(COUNTRY_PACK_IDS).toContain("PH");
+    expect(COUNTRY_PACK_IDS).toContain("US");
   });
 
   it("H3) VN has bilingualEnabled=true; PH/US have bilingualEnabled=false", () => {

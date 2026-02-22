@@ -740,3 +740,8 @@
 - [x] Add resolveCountryPack(userId, jobCardId?) helper to server/db.ts
 - [x] Create server/v2Translation.ts: shouldTranslateToVietnamese, translateEnToVi, prepareLocalizedFieldsForApplicationKit
 - [x] Write server/v2-phase1b.test.ts: 25 tests (A-U) — 956 tests pass total, 0 TypeScript errors
+
+## V2 Phase 1B.1: Add GLOBAL Country Pack + Set Default to GLOBAL
+- [x] Add "GLOBAL" to CountryPackId type, COUNTRY_PACK_IDS, and countryPackRegistry in shared/countryPacks.ts
+- [x] Set DEFAULT_COUNTRY_PACK_ID = "GLOBAL" in shared/countryPacks.ts
+- [x] Update v2-phase1b.test.ts: assert default resolves to GLOBAL, inheritance unchanged (H2, H4, H5 + updated C, E) — 958 tests pass, 0 TypeScript errors
