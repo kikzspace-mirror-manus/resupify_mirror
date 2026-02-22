@@ -1,4 +1,5 @@
 import { adminProcedure, router } from "../_core/trpc";
+import { ENV } from "../_core/env";
 import { z } from "zod";
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
@@ -609,5 +610,50 @@ ${buildToneSystemPrompt()}`
     limit: z.number().optional().default(100),
   }).optional()).query(async ({ input }) => {
     return db.getAdminActionLogs(input?.limit ?? 100);
+  }),
+
+  // ─── LLM Status (Admin LLM Status patch) ──────────────────────────
+  // Returns active provider + model. No secrets. Admin-only.
+  llmStatus: router({
+    get: adminProcedure.query(() => ({
+      provider: ENV.LLM_PROVIDER,
+      openaiModel: ENV.LLM_MODEL_OPENAI,
+    })),
+  }),
+  // ─── Stripe Events (Phase 10C-2) ──────────────────────────────────
+  // Read-only, admin-only. Returns stripe_events table rows only.
+  // No joins, no PII, no free text.
+  stripeEvents: router({
+    list: adminProcedure.input(z.object({
+      status: z.enum(["processed", "manual_review", "skipped"]).optional(),
+      eventType: z.string().max(128).optional(),
+      limit: z.number().min(1).max(500).optional().default(100),
+      offset: z.number().min(0).optional().default(0),
+    }).optional()).query(async ({ input }) => {
+      return db.adminListStripeEvents({
+        status: input?.status,
+        eventType: input?.eventType,
+        limit: input?.limit ?? 100,
+        offset: input?.offset ?? 0,
+      });
+    }),
+  }),
+  // ─── Operational Events (Phase 10B-2B) ───────────────────────────
+  // Read-only, admin-only. Returns non-PII operational signals.
+  // No payload, no names, no emails — only hashes + enum fields.
+  operationalEvents: router({
+    list: adminProcedure.input(z.object({
+      endpointGroup: z.enum(["evidence", "outreach", "kit", "url_fetch", "auth"]).optional(),
+      eventType: z.enum(["rate_limited", "provider_error", "validation_error", "unknown"]).optional(),
+      limit: z.number().min(1).max(500).optional().default(100),
+      offset: z.number().min(0).optional().default(0),
+    }).optional()).query(async ({ input }) => {
+      return db.adminListOperationalEvents({
+        endpointGroup: input?.endpointGroup,
+        eventType: input?.eventType,
+        limit: input?.limit ?? 100,
+        offset: input?.offset ?? 0,
+      });
+    }),
   }),
 });

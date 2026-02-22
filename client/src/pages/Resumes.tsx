@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -207,6 +208,7 @@ function CreateResumeDialog({
             <Input
               placeholder="e.g., Software Engineer Resume"
               value={title}
+              maxLength={MAX_LENGTHS.RESUME_TITLE}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
@@ -215,6 +217,7 @@ function CreateResumeDialog({
             <Textarea
               placeholder="Paste your full resume text here..."
               value={content}
+              maxLength={MAX_LENGTHS.RESUME_CONTENT}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-[250px] font-mono text-sm"
             />
@@ -292,12 +295,13 @@ function EditResumeDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input value={title} maxLength={MAX_LENGTHS.RESUME_TITLE} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Content</Label>
             <Textarea
               value={content}
+              maxLength={MAX_LENGTHS.RESUME_CONTENT}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-[250px] font-mono text-sm"
             />

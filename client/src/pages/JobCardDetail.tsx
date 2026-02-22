@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename, buildApplicationKitZipFilename } from "../../../shared/filename";
 import JSZip from "jszip";
@@ -109,7 +110,10 @@ export default function JobCardDetail({ id }: { id: number }) {
   const { data: resumes } = trpc.resumes.list.useQuery();
   const { data: outreachPack } = trpc.outreach.pack.useQuery({ jobCardId: id });
   const { data: contacts } = trpc.contacts.list.useQuery({ jobCardId: id });
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") ?? "overview";
+  });
 
   const updateJob = trpc.jobCards.update.useMutation({
     onSuccess: (_, variables) => {
@@ -471,6 +475,7 @@ function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job
         <CardContent>
           <Textarea
             value={notes}
+            maxLength={MAX_LENGTHS.JOB_NOTES}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add notes about this job..."
             className="min-h-[150px] text-sm"
@@ -699,6 +704,7 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
           )}
           <Textarea
             value={newJdText}
+            maxLength={MAX_LENGTHS.SNAPSHOT_TEXT}
             onChange={(e) => setNewJdText(e.target.value)}
             placeholder="Paste the job description text here, or fetch from a URL above…"
             className="min-h-[120px] text-sm font-mono"
@@ -944,7 +950,12 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
       toast.success(`Evidence scan complete! Score: ${data.score}/100 (${data.itemCount} items)`);
     },
     onError: (error) => {
-      if (error.message.includes("NO_REQUIREMENTS")) {
+      if (error.data?.code === "TOO_MANY_REQUESTS") {
+        const match = error.message.match(/(\d+)s/);
+        const seconds = match ? parseInt(match[1], 10) : 600;
+        const minutes = Math.ceil(seconds / 60);
+        toast.error(`You've run too many scans. Try again in ${minutes} minute${minutes !== 1 ? "s" : ""}.`);
+      } else if (error.message.includes("NO_REQUIREMENTS")) {
         toast.error("Extract requirements first from the JD Snapshot tab.");
       } else {
         toast.error(error.message);
@@ -1322,9 +1333,18 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   const generateKit = trpc.applicationKits.generate.useMutation({
     onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); },
     onError: (error) => {
-      if (error.message.includes("NO_EVIDENCE_RUN")) toast.error("Run Evidence+ATS scan first.");
-      else if (error.message.includes("NO_REQUIREMENTS")) toast.error("Extract requirements from JD Snapshot tab first.");
-      else toast.error(error.message);
+      if (error.data?.code === "TOO_MANY_REQUESTS") {
+        const match = error.message.match(/(\d+)s/);
+        const seconds = match ? parseInt(match[1], 10) : 600;
+        const minutes = Math.ceil(seconds / 60);
+        toast.error(`You've generated too many kits. Try again in ${minutes} minute${minutes !== 1 ? "s" : ""}.`);
+      } else if (error.message.includes("NO_EVIDENCE_RUN")) {
+        toast.error("Run Evidence+ATS scan first.");
+      } else if (error.message.includes("NO_REQUIREMENTS")) {
+        toast.error("Extract requirements from JD Snapshot tab first.");
+      } else {
+        toast.error(error.message);
+      }
     },
   });
   const createTasks = trpc.applicationKits.createTasks.useMutation({
@@ -2005,10 +2025,19 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
       toast.success("Outreach Pack generated!");
     },
     onError: (error) => {
-      const msg = error.message.toLowerCase().includes("insufficient")
-        ? "Insufficient credits. Outreach Pack costs 1 credit. Top up in Billing."
-        : "Couldn't generate the outreach pack. Try again.";
-      setPackError(msg);
+      if (error.data?.code === "TOO_MANY_REQUESTS") {
+        const match = error.message.match(/(\d+)s/);
+        const seconds = match ? parseInt(match[1], 10) : 600;
+        const minutes = Math.ceil(seconds / 60);
+        const msg = `You've sent too many outreach requests. Try again in ${minutes} minute${minutes !== 1 ? "s" : ""}.`;
+        setPackError(msg);
+        toast.error(msg);
+      } else {
+        const msg = error.message.toLowerCase().includes("insufficient")
+          ? "Insufficient credits. Outreach Pack costs 1 credit. Top up in Billing."
+          : "Couldn't generate the outreach pack. Try again.";
+        setPackError(msg);
+      }
     },
   });
 
@@ -2165,9 +2194,9 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           ))}
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Input placeholder="Name *" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="flex-1" />
-              <Input placeholder="Role" value={newContactRole} onChange={(e) => setNewContactRole(e.target.value)} className="flex-1" />
-              <Input placeholder="Email" value={newContactEmail} onChange={(e) => setNewContactEmail(e.target.value)} className="flex-1" />
+              <Input placeholder="Name *" value={newContactName} maxLength={MAX_LENGTHS.CONTACT_NAME} onChange={(e) => setNewContactName(e.target.value)} className="flex-1" />
+              <Input placeholder="Role" value={newContactRole} maxLength={MAX_LENGTHS.CONTACT_ROLE} onChange={(e) => setNewContactRole(e.target.value)} className="flex-1" />
+              <Input placeholder="Email" value={newContactEmail} maxLength={MAX_LENGTHS.CONTACT_EMAIL} onChange={(e) => setNewContactEmail(e.target.value)} className="flex-1" />
             </div>
             <div className="flex gap-2 items-start">
               <div className="flex-1">
@@ -2255,7 +2284,7 @@ function TasksTab({ jobCardId, jobStage, tasks, updateTask, createTask }: { jobC
             createTask.mutate({ jobCardId, title: newTitle });
             setNewTitle("");
           }} className="flex gap-3">
-            <Input placeholder="Add a task..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="flex-1" />
+            <Input placeholder="Add a task..." value={newTitle} maxLength={MAX_LENGTHS.TASK_TITLE} onChange={(e) => setNewTitle(e.target.value)} className="flex-1" />
             <Button type="submit" size="sm"><Plus className="h-4 w-4 mr-1" />Add</Button>
           </form>
         </CardContent>

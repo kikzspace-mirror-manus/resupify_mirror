@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -102,6 +103,7 @@ export default function Profile() {
                 id="school"
                 placeholder="e.g., University of Waterloo"
                 value={school}
+                maxLength={MAX_LENGTHS.PROFILE_SCHOOL}
                 onChange={(e) => setSchool(e.target.value)}
               />
             </div>
@@ -111,6 +113,7 @@ export default function Profile() {
                 id="program"
                 placeholder="e.g., Computer Science"
                 value={program}
+                maxLength={MAX_LENGTHS.PROFILE_PROGRAM}
                 onChange={(e) => setProgram(e.target.value)}
               />
             </div>
@@ -206,6 +209,7 @@ export default function Profile() {
               id="country"
               placeholder="e.g., Canada"
               value={countryOfResidence}
+              maxLength={MAX_LENGTHS.PROFILE_COUNTRY}
               onChange={(e) => setCountryOfResidence(e.target.value)}
               className="w-64"
             />
@@ -251,11 +255,11 @@ export default function Profile() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="phone">Phone (optional)</Label>
-            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" className="w-64" />
+            <Input id="phone" value={phone} maxLength={MAX_LENGTHS.PROFILE_PHONE} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" className="w-64" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="linkedinUrl">LinkedIn URL (optional)</Label>
-            <Input id="linkedinUrl" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/yourname" />
+            <Input id="linkedinUrl" value={linkedinUrl} maxLength={MAX_LENGTHS.PROFILE_LINKEDIN_URL} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/yourname" />
           </div>
           <Button
             size="sm"

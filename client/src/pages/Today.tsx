@@ -17,6 +17,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 
 const taskTypeColors: Record<string, string> = {
   follow_up: "bg-amber-100 text-amber-700",
@@ -99,6 +100,7 @@ export default function Today() {
             <Input
               placeholder="Add a quick task..."
               value={newTaskTitle}
+              maxLength={MAX_LENGTHS.TASK_TITLE}
               onChange={(e) => setNewTaskTitle(e.target.value)}
               className="flex-1"
             />

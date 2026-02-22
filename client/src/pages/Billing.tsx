@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,19 +11,50 @@ import {
   ArrowUp,
   Clock,
   Package,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
+// ─── Pack type (mirrors server CREDIT_PACKS) ─────────────────────────────────
+type PackId = "starter" | "pro" | "power";
+
 export default function Billing() {
+  const [location] = useLocation();
+  const utils = trpc.useUtils();
+
   const { data: credits, isLoading } = trpc.credits.balance.useQuery();
   const { data: ledger } = trpc.credits.ledger.useQuery();
+  const { data: packs } = trpc.stripe.packs.useQuery();
+  const { data: testModeData } = trpc.stripe.isTestMode.useQuery();
+  const isTestMode = testModeData?.isTestMode ?? false;
 
-  const purchase = trpc.credits.purchase.useMutation({
-    onSuccess: () => {
-      toast.success("Credits added!");
+  // Show success / cancelled toast based on ?checkout= query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("checkout");
+    if (status === "success") {
+      toast.success("Payment successful! Your credits have been added.");
+      // Refresh balance after a short delay to allow webhook processing
+      setTimeout(() => utils.credits.balance.invalidate(), 2000);
+      // Clean up the URL without a full reload
+      window.history.replaceState({}, "", "/billing");
+    } else if (status === "cancelled") {
+      toast.info("Checkout was cancelled. No charge was made.");
+      window.history.replaceState({}, "", "/billing");
+    }
+  }, [location]);
+
+  const checkout = trpc.stripe.createCheckoutSession.useMutation({
+    onSuccess: ({ url }) => {
+      toast.info("Redirecting to secure checkout…");
+      window.open(url, "_blank");
     },
-    onError: (error: any) => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
+
+  const handleBuy = (packId: PackId) => {
+    checkout.mutate({ packId, origin: window.location.origin });
+  };
 
   return (
     <div className="space-y-6">
@@ -54,13 +87,9 @@ export default function Billing() {
       <div>
         <h2 className="text-lg font-semibold mb-4">Buy Credits</h2>
         <div className="grid sm:grid-cols-3 gap-4">
-          {[
-            { amount: 5, label: "Starter", desc: "5 Evidence+ATS scans", price: "$4.99" },
-            { amount: 15, label: "Pro", desc: "15 scans + outreach packs", price: "$12.99", popular: true },
-            { amount: 50, label: "Power", desc: "50 scans for heavy users", price: "$34.99" },
-          ].map((pack) => (
+          {(packs ?? []).map((pack) => (
             <Card
-              key={pack.amount}
+              key={pack.packId}
               className={`relative ${pack.popular ? "border-primary shadow-md" : ""}`}
             >
               {pack.popular && (
@@ -71,35 +100,48 @@ export default function Billing() {
               <CardContent className="pt-6 text-center">
                 <Package className="h-8 w-8 mx-auto mb-3 text-primary" />
                 <h3 className="font-semibold text-lg">{pack.label}</h3>
-                <p className="text-3xl font-bold mt-2">{pack.amount}</p>
+                <p className="text-3xl font-bold mt-2">{pack.credits}</p>
                 <p className="text-xs text-muted-foreground mt-1">credits</p>
                 <p className="text-sm text-muted-foreground mt-2">{pack.desc}</p>
-                <p className="text-lg font-semibold mt-3">{pack.price}</p>
+                <p className="text-lg font-semibold mt-3">{pack.priceDisplay}</p>
                 <Button
-                  className="w-full mt-4"
+                  className="w-full mt-4 gap-2"
                   variant={pack.popular ? "default" : "outline"}
-                  onClick={() => {
-                    toast.info("Payment integration coming soon. Credits added for demo.");
-                    purchase.mutate({ amount: pack.amount });
-                  }}
-                  disabled={purchase.isPending}
+                  onClick={() => handleBuy(pack.packId as PackId)}
+                  disabled={checkout.isPending}
                 >
+                  <ExternalLink className="h-4 w-4" />
                   Buy {pack.label}
                 </Button>
               </CardContent>
             </Card>
           ))}
         </div>
+        {isTestMode && (
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Test mode: use card <strong>4242 4242 4242 4242</strong> to simulate a purchase.
+          </p>
+        )}
       </div>
 
       {/* Transaction History */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Transaction History</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Transaction History</CardTitle>
+            {ledger && ledger.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Showing latest {ledger.length} transaction{ledger.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {ledger && ledger.length > 0 ? (
-            <div className="space-y-2">
+            <div
+              className="space-y-2 overflow-y-auto pr-1"
+              style={{ maxHeight: "380px" }}
+            >
               {ledger.map((entry) => (
                 <div
                   key={entry.id}

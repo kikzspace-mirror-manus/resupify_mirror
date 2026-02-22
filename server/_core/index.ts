@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { registerStripeWebhook } from "../stripeWebhook";
+import { registerDailyCleanup } from "../cleanup";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,9 +32,13 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Body size cap: 512 kb is ~20x the largest legitimate payload (25 kb JD/resume).
+  // Oversized requests are rejected before reaching any tRPC handler or credit gate.
+  // Stripe webhook MUST be registered with express.raw() BEFORE express.json()
+  // so that signature verification can access the raw request body.
+  registerStripeWebhook(app);
+  app.use(express.json({ limit: "512kb" }));
+  app.use(express.urlencoded({ limit: "512kb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API
@@ -59,6 +65,7 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    registerDailyCleanup();
   });
 }
 

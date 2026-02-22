@@ -3,7 +3,11 @@
  *
  * Acceptance tests A–G as specified in the patch requirements.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 

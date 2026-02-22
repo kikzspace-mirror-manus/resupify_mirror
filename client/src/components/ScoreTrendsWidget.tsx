@@ -64,15 +64,19 @@ function MiniSparkline({ runs }: { runs: TrendCard["runs"] }) {
   );
 }
 
-// ─── Delta badge ──────────────────────────────────────────────────────
+// ─── Delta badge — only shown when abs(delta) >= 10 ──────────────────────────
+const DELTA_THRESHOLD = 10;
+
+export function computeDelta(runs: Array<{ overallScore: number | null }>): number | null {
+  if (runs.length < 2) return null;
+  const latest = runs[runs.length - 1].overallScore;
+  const prev = runs[runs.length - 2].overallScore;
+  if (latest === null || prev === null) return null;
+  return latest - prev;
+}
+
 function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return null;
-  if (delta === 0)
-    return (
-      <Badge variant="outline" className="text-xs text-muted-foreground px-1.5 py-0">
-        <Minus className="h-2.5 w-2.5 mr-0.5" />0
-      </Badge>
-    );
+  if (delta === null || Math.abs(delta) < DELTA_THRESHOLD) return null;
   if (delta > 0)
     return (
       <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 bg-emerald-50 px-1.5 py-0">
@@ -86,13 +90,17 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   );
 }
 
+// ─── Title clamp helper ───────────────────────────────────────────────
+function clampTitle(title: string, max = 80): string {
+  return title.length > max ? title.slice(0, max) + "\u2026" : title;
+}
+
 // ─── Single card row ──────────────────────────────────────────────────
 function TrendRow({ card }: { card: TrendCard }) {
   const [, setLocation] = useLocation();
   const runs = card.runs;
   const latestScore = runs.length > 0 ? (runs[runs.length - 1].overallScore ?? null) : null;
-  const prevScore = runs.length > 1 ? (runs[runs.length - 2].overallScore ?? null) : null;
-  const delta = latestScore !== null && prevScore !== null ? latestScore - prevScore : null;
+  const delta = computeDelta(runs);
 
   const scoreColor =
     latestScore === null
@@ -103,9 +111,17 @@ function TrendRow({ card }: { card: TrendCard }) {
       ? "text-amber-600"
       : "text-red-600";
 
+  // Left-border highlight when abs(delta) >= DELTA_THRESHOLD
+  const borderClass =
+    delta !== null && delta >= DELTA_THRESHOLD
+      ? "border-l-2 border-emerald-500 pl-2"
+      : delta !== null && delta <= -DELTA_THRESHOLD
+      ? "border-l-2 border-red-500 pl-2"
+      : "border-l-2 border-transparent pl-2";
+
   return (
     <div
-      className="flex items-center gap-3 py-2 px-1 rounded-md hover:bg-accent/50 transition-colors cursor-pointer group"
+      className={`flex items-center gap-3 py-2 px-1 rounded-md hover:bg-accent/50 transition-colors cursor-pointer group ${borderClass}`}
       onClick={() => setLocation(`/jobs/${card.id}`)}
       role="button"
       tabIndex={0}
@@ -113,19 +129,24 @@ function TrendRow({ card }: { card: TrendCard }) {
     >
       {/* Company + role */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate leading-tight">{card.title}</p>
+        <p
+          className="text-sm font-medium leading-tight"
+          style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+        >
+          {clampTitle(card.title)}
+        </p>
         <p className="text-xs text-muted-foreground truncate">
           {card.company ?? "Unknown Company"}
         </p>
       </div>
 
-      {/* Sparkline or "No runs yet" */}
+      {/* Sparkline (only shown when ≥2 runs; 1-run shows score only) */}
       <div className="shrink-0 w-20 flex items-center justify-center">
         {runs.length >= 2 ? (
           <MiniSparkline runs={runs} />
         ) : (
           <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
-            {runs.length === 0 ? "No runs yet" : "1 run"}
+            1 run
           </span>
         )}
       </div>
@@ -143,13 +164,42 @@ function TrendRow({ card }: { card: TrendCard }) {
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </div>
+
+      {/* Run scan shortcut — visible on row hover */}
+      <button
+        className="shrink-0 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hover:underline focus:opacity-100"
+        aria-label={`Run scan for ${card.title}`}
+        data-run-scan-link={`/jobs/${card.id}?tab=evidence`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setLocation(`/jobs/${card.id}?tab=evidence`);
+        }}
+      >
+        Run scan →
+      </button>
     </div>
   );
 }
 
-// ─── Main widget ──────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────
+const TREND_CAP = 8;
+
+// ─── Sort + cap helpers ──────────────────────────────────────────
+function latestRunDate(card: TrendCard): number {
+  if (card.runs.length === 0) return 0;
+  return Math.max(...card.runs.map((r) => new Date(r.createdAt).getTime()));
+}
+
+export function sortAndCapTrends(cards: TrendCard[], cap = TREND_CAP): { visible: TrendCard[]; total: number } {
+  const withRuns = cards.filter((c) => c.runs.length > 0);
+  const sorted = [...withRuns].sort((a, b) => latestRunDate(b) - latestRunDate(a));
+  return { visible: sorted.slice(0, cap), total: withRuns.length };
+}
+
+// ─── Main widget ──────────────────────────────────────────────────
 export function ScoreTrendsWidget() {
   const { data: cards, isLoading } = trpc.evidence.activeTrends.useQuery();
+  const [, setLocation] = useLocation();
 
   return (
     <Card>
@@ -172,19 +222,37 @@ export function ScoreTrendsWidget() {
             <p className="text-sm">No active job cards yet.</p>
             <p className="text-xs mt-1">Add a job card to start tracking ATS scores.</p>
           </div>
-        ) : cards.every((c) => c.runs.length === 0) ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <TrendingUp className="h-8 w-8 mb-2 opacity-30" />
-            <p className="text-sm">Run your first scan to see trends.</p>
-            <p className="text-xs mt-1">Open a job card and run Evidence+ATS.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/50">
-            {cards.map((card) => (
-              <TrendRow key={card.id} card={card} />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const { visible, total } = sortAndCapTrends(cards);
+          if (total === 0) {
+            return (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <TrendingUp className="h-8 w-8 mb-2 opacity-30" />
+                <p className="text-sm">No scans yet. Run your first scan to see trends.</p>
+                <p className="text-xs mt-1">Open a job card and run Evidence+ATS.</p>
+              </div>
+            );
+          }
+          return (
+            <>
+              <div className="divide-y divide-border/50">
+                {visible.map((card) => (
+                  <TrendRow key={card.id} card={card} />
+                ))}
+              </div>
+              {total > TREND_CAP && (
+                <div className="pt-3 text-center">
+                  <button
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => setLocation("/analytics")}
+                  >
+                    View all {total} scanned jobs →
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </CardContent>
     </Card>
   );

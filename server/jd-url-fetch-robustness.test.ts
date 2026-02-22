@@ -13,7 +13,11 @@
  *   I) 429 rate-limit returns gated message
  *   J) Script-heavy page still extracts via fallback
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import axios from "axios";
 
 vi.mock("axios");

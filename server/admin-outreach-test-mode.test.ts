@@ -2,7 +2,11 @@
  * Admin Test Mode Expansion: Outreach Pack Sandbox
  * Acceptance tests A-E
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

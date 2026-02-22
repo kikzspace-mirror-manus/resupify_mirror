@@ -4,10 +4,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
+import { toast } from "sonner";
 import App from "./App";
 import AccountDisabled from "./components/AccountDisabled";
 import { getLoginUrl } from "./const";
 import "./index.css";
+
+/** Message shown when the server rejects a request for being too large (HTTP 413). */
+export const PAYLOAD_TOO_LARGE_MSG = "Your request was too large. Please shorten the text and try again.";
 
 const queryClient = new QueryClient();
 
@@ -96,11 +100,18 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
+      async fetch(input, init) {
+        const response = await globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
         });
+        // HTTP 413 Payload Too Large: show a friendly toast before tRPC parses
+        // the response. The server already rejected the body, so no credits are
+        // spent and no tRPC error object is available — we must intercept here.
+        if (response.status === 413) {
+          toast.error(PAYLOAD_TOO_LARGE_MSG);
+        }
+        return response;
       },
     }),
   ],

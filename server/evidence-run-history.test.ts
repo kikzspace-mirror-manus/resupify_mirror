@@ -9,7 +9,11 @@
  *   E) Delta calculation: correct vs previous run
  *   F) List limited to last 20 runs
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { _enableTestBypass, _disableTestBypass } from "./rateLimiter";
+
+beforeAll(() => _enableTestBypass());
+afterAll(() => _disableTestBypass());
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 

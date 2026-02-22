@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, FlaskConical, Receipt, Package, Activity, TestTube2,
-  ChevronLeft, Shield, ScrollText
+  ChevronLeft, Shield, ScrollText, Zap, CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -16,6 +16,8 @@ const adminNavItems = [
   { path: "/admin/health", label: "Health", icon: Activity },
   { path: "/admin/sandbox", label: "Sandbox", icon: TestTube2 },
   { path: "/admin/audit", label: "Audit Log", icon: ScrollText },
+  { path: "/admin/operational-events", label: "Ops Events", icon: Zap },
+  { path: "/admin/stripe-events", label: "Stripe Events", icon: CreditCard },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

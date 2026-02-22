@@ -1,11 +1,12 @@
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Briefcase, FlaskConical, Coins, AlertTriangle, Activity } from "lucide-react";
+import { Users, Briefcase, FlaskConical, Coins, AlertTriangle, Activity, Cpu } from "lucide-react";
 import { Link } from "wouter";
 
 export default function AdminDashboard() {
   const { data: kpis, isLoading } = trpc.admin.kpis.useQuery();
+  const { data: llmStatus } = trpc.admin.llmStatus.get.useQuery();
 
   const kpiCards = [
     { label: "Total Users", value: kpis?.totalUsers ?? 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50", link: "/admin/users" },
@@ -19,9 +20,19 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">System overview and quick links</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+            <p className="text-muted-foreground">System overview and quick links</p>
+          </div>
+          {llmStatus && (
+            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-muted text-muted-foreground border border-border" title="Active LLM provider and model">
+              <Cpu className="h-3.5 w-3.5" />
+              <span className="font-mono">{llmStatus.provider}</span>
+              <span className="text-muted-foreground/50">/</span>
+              <span className="font-mono">{llmStatus.openaiModel}</span>
+            </div>
+          )}
         </div>
 
         {isLoading ? (

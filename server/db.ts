@@ -16,6 +16,8 @@ import {
   jobCardRequirements, InsertJobCardRequirement,
   applicationKits, InsertApplicationKit,
   jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
+  operationalEvents, InsertOperationalEvent, OperationalEvent,
+  stripeEvents, InsertStripeEvent,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -126,10 +128,18 @@ export async function addCredits(userId: number, amount: number, reason: string,
   });
 }
 
+/** Maximum number of ledger rows returned to the Billing page. */
+export const LEDGER_DISPLAY_CAP = 25;
+
 export async function getCreditLedger(userId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(creditsLedger).where(eq(creditsLedger.userId, userId)).orderBy(desc(creditsLedger.createdAt));
+  return db
+    .select()
+    .from(creditsLedger)
+    .where(eq(creditsLedger.userId, userId))
+    .orderBy(desc(creditsLedger.createdAt))
+    .limit(LEDGER_DISPLAY_CAP);
 }
 
 // ─── Resumes ─────────────────────────────────────────────────────────
@@ -910,4 +920,224 @@ export async function deletePersonalizationSource(id: number, userId: number) {
       eq(jobCardPersonalizationSources.id, id),
       eq(jobCardPersonalizationSources.userId, userId),
     ));
+}
+
+// ─── All Scanned Job Cards (Analytics ATS History) ───────────────────────────
+export async function getAllScannedJobCards(
+  userId: number
+): Promise<
+  Array<{
+    id: number;
+    title: string;
+    company: string | null;
+    stage: string;
+    runs: Array<{ id: number; overallScore: number | null; createdAt: Date }>;
+  }>
+> {
+  const db = await getDb();
+  if (!db) return [];
+  // 1. Fetch all job cards for this user that have at least 1 completed run
+  const cards = await db
+    .select({
+      id: jobCards.id,
+      title: jobCards.title,
+      company: jobCards.company,
+      stage: jobCards.stage,
+    })
+    .from(jobCards)
+    .where(eq(jobCards.userId, userId))
+    .orderBy(desc(jobCards.updatedAt));
+  if (cards.length === 0) return [];
+  const cardIds = cards.map((c) => c.id);
+  // 2. Fetch all completed runs for those cards
+  const runs = await db
+    .select({
+      id: evidenceRuns.id,
+      jobCardId: evidenceRuns.jobCardId,
+      overallScore: evidenceRuns.overallScore,
+      createdAt: evidenceRuns.createdAt,
+    })
+    .from(evidenceRuns)
+    .where(
+      and(
+        inArray(evidenceRuns.jobCardId, cardIds),
+        eq(evidenceRuns.status, "completed")
+      )
+    )
+    .orderBy(asc(evidenceRuns.createdAt));
+  // 3. Group runs by jobCardId
+  const runsByCard = new Map<number, Array<{ id: number; overallScore: number | null; createdAt: Date }>>();
+  for (const run of runs) {
+    if (!run.jobCardId) continue;
+    const arr = runsByCard.get(run.jobCardId) ?? [];
+    arr.push({ id: run.id, overallScore: run.overallScore, createdAt: run.createdAt });
+    runsByCard.set(run.jobCardId, arr);
+  }
+  // 4. Merge and filter to only cards with >=1 run, sort by latest run desc
+  const result = cards
+    .map((card) => ({ ...card, runs: runsByCard.get(card.id) ?? [] }))
+    .filter((card) => card.runs.length > 0)
+    .sort((a, b) => {
+      const aLatest = a.runs[a.runs.length - 1]?.createdAt?.getTime() ?? 0;
+      const bLatest = b.runs[b.runs.length - 1]?.createdAt?.getTime() ?? 0;
+      return bLatest - aLatest;
+    });
+  return result;
+}
+
+// ─── Operational Events ───────────────────────────────────────────────────────
+
+/**
+ * Insert a single operational event. Fire-and-forget — never throws.
+ * Stores only non-PII fields: no payload, no names, no emails.
+ */
+export async function logOperationalEvent(
+  event: InsertOperationalEvent
+): Promise<void> {
+  try {
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(operationalEvents).values(event);
+  } catch {
+    // Silently swallow — logging must never break the request path
+  }
+}
+
+export interface AdminListOperationalEventsFilter {
+  endpointGroup?: OperationalEvent["endpointGroup"];
+  eventType?: OperationalEvent["eventType"];
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * Return up to 500 operational events, newest first.
+ * Supports optional filters by endpointGroup and eventType.
+ */
+export async function adminListOperationalEvents(
+  filter: AdminListOperationalEventsFilter = {}
+): Promise<OperationalEvent[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const { eq, and, desc } = await import("drizzle-orm");
+  const { limit = 100, offset = 0, endpointGroup, eventType } = filter;
+
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (endpointGroup) conditions.push(eq(operationalEvents.endpointGroup, endpointGroup));
+  if (eventType) conditions.push(eq(operationalEvents.eventType, eventType));
+
+  const rows = await db
+    .select()
+    .from(operationalEvents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(operationalEvents.createdAt))
+    .limit(Math.min(limit, 500))
+    .offset(offset);
+
+  return rows;
+}
+
+// ─── Stripe Events (idempotency) ─────────────────────────────────────────────
+
+/**
+ * Check whether a Stripe event has already been processed.
+ * Returns true if the event ID exists in the stripe_events table.
+ */
+export async function stripeEventExists(stripeEventId: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const { eq } = await import("drizzle-orm");
+  const rows = await db
+    .select({ id: stripeEvents.id })
+    .from(stripeEvents)
+    .where(eq(stripeEvents.stripeEventId, stripeEventId))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Record a processed Stripe event for idempotency.
+ * Safe to call inside a try/catch — duplicate inserts are silently ignored.
+ */
+export async function recordStripeEvent(
+  data: Pick<InsertStripeEvent, "stripeEventId" | "eventType" | "userId" | "creditsPurchased" | "status">
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(stripeEvents).values({
+      stripeEventId: data.stripeEventId,
+      eventType: data.eventType,
+      userId: data.userId ?? null,
+      creditsPurchased: data.creditsPurchased ?? null,
+      status: data.status,
+    });
+  } catch (err: any) {
+    // Unique constraint violation = already processed; safe to ignore
+    if (err?.code === "ER_DUP_ENTRY" || err?.message?.includes("Duplicate entry")) return;
+    throw err;
+  }
+}
+
+// ─── Admin: Stripe Events (Phase 10C-2) ──────────────────────────────────────
+/**
+ * List stripe_events for the admin view.
+ * Returns only fields already in the stripe_events table — no joins, no PII.
+ * Supports filtering by status and eventType, with limit/offset pagination.
+ */
+export async function adminListStripeEvents(filter: {
+  status?: "processed" | "manual_review" | "skipped";
+  eventType?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+  const { eq: eqFn, and: andFn, desc: descFn } = await import("drizzle-orm");
+  const { limit = 100, offset = 0, status, eventType } = filter;
+  const conditions: ReturnType<typeof eqFn>[] = [];
+  if (status) conditions.push(eqFn(stripeEvents.status, status));
+  if (eventType) conditions.push(eqFn(stripeEvents.eventType, eventType));
+  const rows = await db
+    .select()
+    .from(stripeEvents)
+    .where(conditions.length > 0 ? andFn(...conditions) : undefined)
+    .orderBy(descFn(stripeEvents.createdAt))
+    .limit(Math.min(limit, 500))
+    .offset(offset);
+  return rows;
+}
+
+// ─── Auto-purge helpers (Phase 10D-1) ────────────────────────────────────────
+
+/** Retention windows in milliseconds */
+export const OPERATIONAL_EVENTS_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days
+export const STRIPE_EVENTS_RETENTION_MS       = 90 * 24 * 60 * 60 * 1000;  // 90 days
+
+/**
+ * Delete operational_events rows older than 30 days.
+ * Returns the number of rows deleted (or -1 if DB is unavailable).
+ */
+export async function purgeOldOperationalEvents(): Promise<number> {
+  const db = await getDb();
+  if (!db) return -1;
+  const cutoff = new Date(Date.now() - OPERATIONAL_EVENTS_RETENTION_MS);
+  const result = await db
+    .delete(operationalEvents)
+    .where(lte(operationalEvents.createdAt, cutoff));
+  return (result as any)?.rowsAffected ?? 0;
+}
+
+/**
+ * Delete stripe_events rows older than 90 days.
+ * Returns the number of rows deleted (or -1 if DB is unavailable).
+ */
+export async function purgeOldStripeEvents(): Promise<number> {
+  const db = await getDb();
+  if (!db) return -1;
+  const cutoff = new Date(Date.now() - STRIPE_EVENTS_RETENTION_MS);
+  const result = await db
+    .delete(stripeEvents)
+    .where(lte(stripeEvents.createdAt, cutoff));
+  return (result as any)?.rowsAffected ?? 0;
 }

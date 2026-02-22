@@ -536,3 +536,143 @@
 - [x] Add Low badge to kanban card tiles
 - [x] Ensure null/undefined priority shows no badge
 - [x] Tests: A-E (17 tests) — 683 tests pass total
+
+## Phase 10A-1: Rate Limiting (Abuse Protection)
+- [x] Audit route structure — identify exact procedure names for each endpoint group
+- [x] Implement in-memory rate limiter utility (server/rateLimiter.ts) — per-user + per-IP, TTL Map
+- [x] Add 429 JSON helper (error/message/retryAfterSeconds + Retry-After header)
+- [x] Wire limiter to Evidence/ATS run endpoint (6/user per 10 min)
+- [x] Wire limiter to Outreach generate endpoint (10/user per 10 min)
+- [x] Wire limiter to Application Kit generate endpoint (8/user per 10 min)
+- [x] Wire limiter to JD URL fetch endpoint (30/IP per 10 min)
+- [x] Wire limiter to Auth endpoints (20/IP per 10 min)
+- [x] Tests: acceptance criteria A-H (25 tests) — 708 tests pass total
+
+## Phase 10A-2: Client-side 429 Handling + No-Debit Tests
+- [x] Audit spend mutation call sites (Evidence, Outreach, Kit) and confirm limiter ordering
+- [x] Add 429 toast to Evidence/ATS run mutation onError
+- [x] Add 429 toast to Outreach generatePack mutation onError
+- [x] Add 429 toast to Application Kit generate mutation onError
+- [x] Tests: 429 triggers for each spend endpoint (error=RATE_LIMITED, retryAfterSeconds, Retry-After header)
+- [x] Tests: no credit debit on 429 (balance unchanged, ledger unchanged)
+- [x] Tests: URL fetch per-IP 429
+- [x] Tests: Auth per-IP 429 — 20 new tests (A-H), 728 total passing
+
+## Phase 10B-1: Input Length Caps
+- [x] Audit all free-text inputs in routers.ts and client forms
+- [x] Create shared/maxLengths.ts with MAX_LENGTHS constants and TOO_LONG_MSG
+- [x] Apply server-side Zod .max() caps: jobCards (create/update), jdSnapshots, evidence.run, outreach, applicationKits, contacts, resumes, tasks, profile, notes
+- [x] Apply client-side maxLength HTML attributes to all forms (JobCards, JobCardDetail, Resumes, Profile, Outreach, Today)
+- [x] Tests: A-H (19 tests) — over-limit payloads fail as BAD_REQUEST (not 500), no credits spent on validation failure
+- [x] All existing tests remain green — 747 tests pass total
+
+## Patch: ATS Score Trends UI Polish
+- [x] Filter ATS Score Trends list to only jobs with ≥1 run
+- [x] Show empty state "No scans yet. Run your first scan to see trends." when 0 qualifying items
+- [x] Clamp displayed title to 80 chars with "…" suffix
+- [x] Add overflow-wrap:anywhere + word-break:break-word to title element
+- [x] Tests: A-D (13 tests) — 760 tests pass total
+
+## Patch: ATS Score Trends — Sort + Cap + View All
+- [x] Sort rows by most-recent scan date descending (latest scan timestamp)
+- [x] Cap list at N=8 rows (local constant TREND_CAP)
+- [x] Show "View all →" link to /analytics when total qualifying rows > N
+- [x] Tests: A-D (13 tests) — 773 tests pass total
+
+## Patch: ATS Score Trends — Run scan shortcut
+- [x] Add "Run scan →" button per TrendRow navigating to /jobs/:id?tab=evidence (hover-visible, opacity transition)
+- [x] Add lazy URL param initializer to JobCardDetail activeTab useState (also fixes jd-snapshot shortcut)
+- [x] Tests: A-F (6 tests) — 779 tests pass total
+
+## Patch: Analytics ATS Score History Section
+- [x] Audit evidence.activeTrends query and Analytics page structure
+- [x] Add getAllScannedJobCards db helper (all stages, no card limit, sorted by latest run desc)
+- [x] Add evidence.allScannedJobs tRPC query (additive, read-only)
+- [x] Add ATS Score History table to /analytics (Job, Last scan, Latest score, Run count, Open job link)
+- [x] Default sort: last scan date desc
+- [x] Expandable row: show all runs (date + score) per job (latest first)
+- [x] Wire real avgScore from scanned jobs into the Avg ATS Score metric card
+- [x] Tests: A-H (8 tests) — 787 tests pass total
+
+## Patch: ATS Score Delta Highlight
+- [x] Add computeDelta helper (latest score - previous score, null if <2 runs) — exported from ScoreTrendsWidget
+- [x] Apply green left border + up-arrow badge when delta >= +10 in ScoreTrendsWidget TrendRow
+- [x] Apply red left border + down-arrow badge when delta <= -10 in ScoreTrendsWidget TrendRow
+- [x] Apply same delta indicator to Analytics ATS table rows (border-l-4 + badge)
+- [x] Tests: A-B (15 tests) — 802 tests pass total
+
+## Phase 10B-2A: HTTP Body Size Cap
+- [x] Audit Express body parser setup in server/_core/index.ts (was 50mb, reduced to 512kb)
+- [x] Apply express.json({ limit: "512kb" }) + urlencoded({ limit: "512kb" }) before tRPC handler
+- [x] Tests: A-B (8 tests) — oversized body returns 413, normal 25kb payloads pass, 810 tests pass total
+
+## Phase 10B-2B: Admin Operational Events
+- [x] Add operational_events table to drizzle/schema.ts (9 columns, no PII, no payload)
+- [x] Run db:push migration (0013_wealthy_hobgoblin.sql)
+- [x] Add logOperationalEvent + adminListOperationalEvents helpers to server/db.ts
+- [x] Add shortHash (16-char SHA-256 truncation) to server/rateLimiter.ts
+- [x] Wire rate_limited event logging into makeRateLimitMiddleware (tRPC) and authRateLimitMiddleware (Express)
+- [x] Add admin.operationalEvents.list tRPC procedure (adminProcedure, filters: endpointGroup + eventType, limit/offset)
+- [x] Build AdminOperationalEvents.tsx page with endpoint/type filters, refresh button, table view
+- [x] Add "Ops Events" nav item to AdminLayout.tsx
+- [x] Register /admin/operational-events route in App.tsx
+- [x] Tests: A-H (8 tests) — 818 tests pass total, 0 TypeScript errors
+
+## Patch: Friendly 413 Toast
+- [x] Intercept HTTP 413 in tRPC client fetch wrapper in main.tsx
+- [x] Show toast.error("Your request was too large. Please shorten the text and try again.")
+- [x] Tests: A-E (8 tests) — 826 tests pass total, 0 TypeScript errors
+
+## Phase 10C-1: Stripe Checkout + Idempotent Webhook Crediting
+- [x] Install stripe npm package
+- [x] Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET secrets
+- [x] Add stripe_events table to drizzle/schema.ts (stripeEventId unique, eventType, userId, processed)
+- [x] Run db:push migration
+- [x] Add stripeEventExists + recordStripeEvent db helpers to server/db.ts
+- [x] Create server/stripe.ts helper (Stripe client + pack definitions)
+- [x] Add stripe.createCheckoutSession tRPC procedure (protectedProcedure)
+- [x] Add /api/stripe/webhook Express route with signature verification
+- [x] Handle checkout.session.completed: addCredits idempotently
+- [x] Handle charge.refunded: record as manual review operational event
+- [x] Wire Billing.tsx Buy buttons to real Stripe Checkout redirect
+- [x] Tests: A-I (9 tests) — 835 tests pass total, 0 TypeScript errors
+
+## Patch: Stripe Copy Guard
+- [x] Add isStripeTestMode to stripe tRPC router (publicProcedure, derived from STRIPE_SECRET_KEY prefix)
+- [x] Guard test-card helper text in Billing.tsx with isStripeTestMode
+- [x] Tests: A-E (5 tests) — 840 tests pass total, 0 TypeScript errors
+
+## Phase 10C-2: Admin Stripe Events + Billing TX History Containment
+- [x] Add adminListStripeEvents db helper to server/db.ts
+- [x] Add admin.stripeEvents.list adminProcedure to server/routers/admin.ts
+- [x] Cap credits.ledger query to latest 25 rows (constant LEDGER_DISPLAY_CAP)
+- [x] Build /admin/stripe-events page (AdminLayout, filters, table)
+- [x] Add Stripe Events nav item to AdminLayout
+- [x] Register /admin/stripe-events route in App.tsx
+- [x] Wrap Billing TX History list in fixed-height (380px) scroll container
+- [x] Add "Showing latest N transactions" note
+- [x] Tests: A-J (10 tests) — 850 tests pass total, 0 TypeScript errors
+
+## Phase 10D-1: Auto-purge Operational Tables
+- [x] Add purgeOldOperationalEvents db helper (delete where createdAt < now - 30d)
+- [x] Add purgeOldStripeEvents db helper (delete where createdAt < now - 90d)
+- [x] Add runDailyCleanup function that calls both helpers and logs result
+- [x] Register daily cleanup job on server start (setTimeout 10s + setInterval 24h)
+- [x] Tests: A-K (11 tests) — 861 tests pass total, 0 TypeScript errors
+
+## Phase 10E-1: OpenAI Provider Behind Flag
+- [x] Add LLM_PROVIDER, OPENAI_API_KEY, LLM_MODEL_OPENAI to ENV
+- [x] Create server/llmProvider.ts (callLLM wrapper, provider routing, non-PII logging)
+- [x] Swap invokeLLM in evidence router to callLLM
+- [x] Swap invokeLLM in outreach router to callLLM
+- [x] Swap invokeLLM in application kit router to callLLM
+- [x] Tests: A-I (9 tests) — 870 tests pass total, 0 TypeScript errors
+
+## Patch: Admin LLM Status
+- [x] Add admin.llmStatus.get adminProcedure (returns provider + openaiModel, no secrets)
+- [x] Display LLM status badge in admin dashboard header
+- [x] Tests: A-H (8 tests) — 878 tests pass total (LLM_PROVIDER=manus), 0 TypeScript errors
+
+## Patch: Test Stability (Force LLM_PROVIDER=manus)
+- [x] Override LLM_PROVIDER=manus and clear OPENAI_API_KEY in vitest setup
+- [x] Tests: A-C (3 tests) — 881 tests pass total, 0 TypeScript errors
