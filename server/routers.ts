@@ -10,6 +10,7 @@ import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
 import { computeSalutation, fixSalutation } from "../shared/outreachHelpers";
+import { buildToneSystemPrompt, sanitizeTone } from "../shared/toneGuardrails";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
@@ -1306,7 +1307,9 @@ export const appRouter = router({
         messages: [
           {
             role: "system",
-            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2. IMPORTANT: Never use bracket placeholders like [Your Phone Number] or [Your LinkedIn Profile URL]. Use only real values provided or omit those lines entirely.`
+            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2. IMPORTANT: Never use bracket placeholders like [Your Phone Number] or [Your LinkedIn Profile URL]. Use only real values provided or omit those lines entirely.
+
+${buildToneSystemPrompt()}`
           },
           {
             role: "user",
@@ -1347,10 +1350,10 @@ export const appRouter = router({
           .replace(/\n{3,}/g, "\n\n") // collapse triple+ newlines left by removed lines
           .trim();
       const parsed = {
-        recruiter_email: fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"),
-        linkedin_dm: fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"),
-        follow_up_1: fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email"),
-        follow_up_2: fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email"),
+        recruiter_email: sanitizeTone(fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"), false),
+        linkedin_dm: sanitizeTone(fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"), false),
+        follow_up_1: sanitizeTone(fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email"), true),
+        follow_up_2: sanitizeTone(fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email"), true),
       };
       const spent = await db.spendCredits(ctx.user.id, 1, "Outreach Pack generation", "outreach_pack");
       if (!spent) throw new Error("Failed to spend credit.");

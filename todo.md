@@ -442,3 +442,11 @@
 - [x] Add disclaimer note on Personalization tab
 - [x] Add OUTREACH_TONE_GUARDRAILS config in shared/toneGuardrails.ts
 - [x] Tests: A-L (492 tests pass)
+
+## Phase 9C3: Enforce Outreach Tone Guardrails
+- [x] Add sanitizeTone(text, isFollowUp) helper in shared/toneGuardrails.ts
+- [x] Add buildToneSystemPrompt() helper that builds the guardrail injection string
+- [x] Inject tone guardrails into production generatePack LLM system prompt
+- [x] Inject tone guardrails into admin sandbox generateOutreachTestMode LLM system prompt
+- [x] Run sanitizeTone post-process on all 4 output fields (both prod + sandbox)
+- [x] Tests: A-D (510 tests pass)

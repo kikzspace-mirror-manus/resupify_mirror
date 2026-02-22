@@ -238,7 +238,8 @@ describe("OUTREACH_TONE_GUARDRAILS config (Phase 9C1 foundation)", () => {
 
   it("L3) preferred_phrases includes key soft phrases", () => {
     const preferred = OUTREACH_TONE_GUARDRAILS.preferred_phrases as readonly string[];
-    expect(preferred).toContain("just checking in");
+    // Note: "just checking in" moved to allowed_not_preferred in Phase 9C3
     expect(preferred).toContain("appreciate your time");
+    expect(preferred).toContain("no pressure at all");
   });
 });
