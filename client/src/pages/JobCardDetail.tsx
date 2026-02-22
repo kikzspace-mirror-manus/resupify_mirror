@@ -66,6 +66,9 @@ import {
   Trash2,
   BookOpen,
   CopyCheck,
+  Mail,
+  Link2,
+  UserCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -1808,6 +1811,51 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   );
 }
 
+// ─── SelectedContactChip ─────────────────────────────────────────────────────
+function SelectedContactChip({ contact, hasContacts }: { contact: any | null; hasContacts: boolean }) {
+  if (!contact) {
+    return (
+      <div className="mb-3 flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+        <UserCircle className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          {hasContacts
+            ? "No contact selected. Select one below to personalise salutation."
+            : "No contact selected (optional). Outreach will use \u2018Dear Hiring Manager\u2019."}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-3 flex items-start gap-2.5 rounded-md border bg-muted/30 px-3 py-2">
+      <UserCircle className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+      <div className="flex-1 min-w-0 space-y-0.5">
+        <p className="text-xs font-medium leading-tight">
+          <span className="text-muted-foreground mr-1">Using:</span>
+          {contact.name}
+        </p>
+        {contact.email && (
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Mail className="h-3 w-3 shrink-0" />
+            {contact.email}
+          </p>
+        )}
+        {contact.linkedinUrl && (
+          <a
+            href={contact.linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Link2 className="h-3 w-3 shrink-0" />
+            {contact.linkedinUrl}
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CopyBlock({ label, content }: { label: string; content: string }) {
   return (
     <div className="p-3 rounded-lg border bg-muted/30">
@@ -1892,6 +1940,8 @@ function OutreachTab({ jobCardId, contacts, outreachPack }: { jobCardId: number;
           </div>
         </CardHeader>
         <CardContent>
+          {/* Selected contact summary chip */}
+          <SelectedContactChip contact={contacts.find((c) => c.id === selectedContactId) ?? null} hasContacts={contacts.length > 0} />
           {outreachPack ? (
             <div className="space-y-3">
               <CopyBlock label="Recruiter Email" content={outreachPack.recruiterEmail} />

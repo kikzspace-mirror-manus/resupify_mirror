@@ -482,3 +482,8 @@
 - [x] Add "Copy All" button to OutreachTab outreach pack card header
 - [x] Show success/failure toast after clipboard write
 - [x] Tests: A-I (9 tests) — 568 tests pass total
+
+## Outreach Tab UX: Selected Contact Summary Chip
+- [x] Build SelectedContactChip component (name, email, LinkedIn URL, empty state)
+- [x] Insert chip above Generate/Regenerate controls in OutreachTab
+- [x] Tests: A-G (8 tests) — 576 tests pass total
