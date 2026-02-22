@@ -118,6 +118,57 @@ export function stripPersonalizationFromFollowUp(text: string): string {
   return sentences.filter((s) => !hasPersonalizationSignal(s)).join("").trim();
 }
 
+// ─── Contact Email ───────────────────────────────────────────────────────────
+
+/** Regex patterns for bracket placeholder variants of recruiter email */
+const RECRUITER_EMAIL_PLACEHOLDERS = [
+  /\[Recruiter Email\]/gi,
+  /\[recruiter email\]/gi,
+  /\[Recruiter's Email\]/gi,
+  /\[recruiter's email\]/gi,
+  /\[Email\]/gi,
+  /^Recruiter Email:\s*.*/gim,
+];
+
+/**
+ * Build the contact email instruction block for the LLM prompt.
+ * Returns empty string when no email is provided.
+ */
+export function buildContactEmailBlock(contactEmail: string | null | undefined): string {
+  if (!contactEmail || !contactEmail.trim()) return "";
+  return [
+    `Contact email: ${contactEmail.trim()}`,
+    `For the recruiter_email field ONLY: add a "To: ${contactEmail.trim()}" line as the very first line, before the Subject line.`,
+    "Do NOT add a To: line to linkedin_dm, follow_up_1, or follow_up_2.",
+    "Never invent or guess an email address. Use only the one provided above.",
+    "Never output bracket placeholders like [Recruiter Email] — omit entirely if no email is provided.",
+  ].join("\n");
+}
+
+/**
+ * Post-process the recruiter_email field:
+ * 1. Strip all [Recruiter Email] bracket placeholders.
+ * 2. If contactEmail is provided and a To: line is missing, prepend it.
+ */
+export function fixContactEmail(text: string, contactEmail?: string | null): string {
+  if (!text) return text;
+  let result = text;
+  // 1. Strip bracket placeholders
+  for (const re of RECRUITER_EMAIL_PLACEHOLDERS) {
+    result = result.replace(re, "");
+  }
+  // Collapse multiple blank lines left by removals
+  result = result.replace(/\n{3,}/g, "\n\n").trim();
+  // 2. If email provided and To: line is missing, prepend it
+  if (contactEmail && contactEmail.trim()) {
+    const email = contactEmail.trim();
+    if (!result.match(/^To:\s/im)) {
+      result = `To: ${email}\n${result}`;
+    }
+  }
+  return result;
+}
+
 /**
  * Post-process guard: replace any "Dear ," or "Dear," patterns left by the LLM
  * with the correct fallback salutation.

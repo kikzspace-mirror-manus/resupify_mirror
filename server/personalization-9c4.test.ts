@@ -325,7 +325,9 @@ describe("outreach.generatePack — personalization injection (Phase 9C4)", () =
     const caller = appRouter.createCaller(makeCtx(makeUser({ role: "user", isAdmin: false })));
     const result = await caller.outreach.generatePack({ jobCardId: 1, contactId: 5 });
 
-    expect(result.recruiter_email).toMatch(/^Dear Sarah,/);
+    // Fix 2/4: contact has email (sarah@acme.com) so To: line is prepended
+    expect(result.recruiter_email).toMatch(/^To: sarah@acme\.com/);
+    expect(result.recruiter_email).toContain("Dear Sarah,");
     expect(result.linkedin_dm).toMatch(/^Hi Sarah,/);
   });
 });

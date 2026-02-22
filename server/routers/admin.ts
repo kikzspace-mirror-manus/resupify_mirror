@@ -3,7 +3,7 @@ import { z } from "zod";
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
-import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp } from "../../shared/outreachHelpers";
+import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail } from "../../shared/outreachHelpers";
 import { buildToneSystemPrompt, sanitizeTone } from "../../shared/toneGuardrails";
 
 export const adminRouter = router({
@@ -510,6 +510,7 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
     generateOutreachTestMode: adminProcedure.input(z.object({
       jobCardId: z.number(),
       contactName: z.string().optional(),
+      contactEmail: z.string().email().optional(),
     })).mutation(async ({ ctx, input }) => {
       const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
       if (!jobCard) throw new Error("Job card not found.");
@@ -517,9 +518,10 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
       const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "COOP");
-      // Resolve contact name for deterministic salutation (Fix 1/4)
+      // Resolve contact name + email for deterministic salutation (Fix 1/4) and To: line (Fix 2/4)
       const emailSalutation = computeSalutation(input.contactName ?? null, "email");
       const linkedinSalutation = computeSalutation(input.contactName ?? null, "linkedin");
+      const contactEmailBlock = buildContactEmailBlock(input.contactEmail ?? null);
       // Build signature lines from real profile fields (same as production, Prompt B1)
       const sigLines: string[] = [];
       if (profile?.phone) sigLines.push(`Phone: ${profile.phone}`);
@@ -544,7 +546,7 @@ ${buildToneSystemPrompt()}`
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}${personalizationBlock ? `\n\n${personalizationBlock}` : ""}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}${contactEmailBlock ? `\n${contactEmailBlock}` : ""}${personalizationBlock ? `\n\n${personalizationBlock}` : ""}`
           }
         ],
         response_format: {
@@ -581,7 +583,7 @@ ${buildToneSystemPrompt()}`
           .replace(/\n{3,}/g, "\n\n")
           .trim();
       const parsed = {
-        recruiter_email: sanitizeTone(fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"), false),
+        recruiter_email: fixContactEmail(sanitizeTone(fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"), false), input.contactEmail ?? null),
         linkedin_dm: sanitizeTone(fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"), false),
         follow_up_1: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email")), true),
         follow_up_2: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email")), true),

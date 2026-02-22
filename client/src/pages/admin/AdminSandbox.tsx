@@ -14,6 +14,7 @@ export default function AdminSandbox() {
   const [evidenceResult, setEvidenceResult] = useState<{ runId: number; score: number; itemCount: number } | null>(null);
   const [outreachResult, setOutreachResult] = useState<any>(null);
   const [testContactName, setTestContactName] = useState("");
+  const [testContactEmail, setTestContactEmail] = useState("");
 
   // Manual IDs for running on existing data
   const [manualJobId, setManualJobId] = useState("");
@@ -227,6 +228,16 @@ export default function AdminSandbox() {
                 className="max-w-sm"
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Contact Email (optional — adds To: line to recruiter email)</label>
+              <Input
+                type="email"
+                placeholder="e.g. erick@company.com (leave blank to omit To: line)"
+                value={testContactEmail}
+                onChange={(e) => setTestContactEmail(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
             {effectiveJobId && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="font-medium">Using personalization:</span>
@@ -244,7 +255,11 @@ export default function AdminSandbox() {
                   toast.error("Please create or specify a job card first.");
                   return;
                 }
-                outreachMut.mutate({ jobCardId: effectiveJobId, contactName: testContactName.trim() || undefined });
+                outreachMut.mutate({
+                  jobCardId: effectiveJobId,
+                  contactName: testContactName.trim() || undefined,
+                  contactEmail: testContactEmail.trim() || undefined,
+                });
               }}
               disabled={outreachMut.isPending || !effectiveJobId}
             >

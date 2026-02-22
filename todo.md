@@ -460,3 +460,11 @@
 - [x] Add post-process guard: personalization appears at most once in email/DM; follow-ups contain none
 - [x] Update Admin Sandbox UI: show "Using personalization: Yes/No (N sources)" note
 - [x] Tests: A-E (530 tests pass)
+
+## Outreach Fix 2/4: Use Selected Contact Email (Remove [Recruiter Email] Placeholders)
+- [x] Add fixContactEmail(text, email?) + buildContactEmailBlock() helpers in shared/outreachHelpers.ts
+- [x] Add contactEmail to generatePack LLM prompt (Option A: To: line instruction)
+- [x] Add contactEmail to generateOutreachTestMode LLM prompt
+- [x] Post-process: strip [Recruiter Email] brackets; prepend To: line if missing and email provided
+- [x] Update Admin Sandbox UI: add optional contact email input field
+- [x] Tests: A-L acceptance criteria — 542 tests pass
