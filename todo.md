@@ -786,3 +786,13 @@
 - [x] Rewrite AdminGrowthDashboard.tsx: Row 1 (Audience+Activation), Row 2 (Quality+Monetization), Row 3 (Timeline chart with recharts), Row 4 (Funnel+Outcomes), collapsible Instrumentation Health
 - [x] recharts already available via pnpm workspace
 - [x] Write acceptance tests T (getDailyMetrics, 4 tests) and U (admin.timeline.daily, 4 tests) — 1008 tests pass, 0 TypeScript errors
+## Phase 9E0: Contact Edit UI (Inline/Dialog)
+- [x] Add Dialog import to JobCardDetail.tsx
+- [x] Add editingContact state + editForm state to OutreachTab
+- [x] Add updateContact trpc.contacts.update mutation with invalidate + toast
+- [x] Add Edit (Pencil) button to each contact row in contacts list
+- [x] Render EditContactDialog modal with pre-filled fields (name, role, email, linkedinUrl, notes)
+- [x] LinkedIn URL validation in edit form (blank ok; if present must start with https://)
+- [x] Email basic format validation in edit form (blank ok)
+- [x] Write acceptance tests A-D in server/contact-edit.test.ts
+- [x] Verify 1020 tests pass (12 new), 0 TypeScript errors

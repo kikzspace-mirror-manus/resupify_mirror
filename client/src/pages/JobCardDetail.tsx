@@ -17,6 +17,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -2013,10 +2020,149 @@ function CopyBlock({ label, content }: { label: string; content: string }) {
 }
 
 // ─── Outreach Tab ────────────────────────────────────────────────────
+// ─── Edit Contact Dialog ─────────────────────────────────────────────────────
+type EditContactForm = {
+  name: string;
+  role: string;
+  email: string;
+  linkedinUrl: string;
+  notes: string;
+  linkedinUrlError: string | null;
+  emailError: string | null;
+};
+
+function EditContactDialog({
+  contact,
+  onClose,
+  onSaved,
+}: {
+  contact: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<EditContactForm>({
+    name: contact.name ?? "",
+    role: contact.contactRole ?? "",
+    email: contact.email ?? "",
+    linkedinUrl: contact.linkedinUrl ?? "",
+    notes: contact.notes ?? "",
+    linkedinUrlError: null,
+    emailError: null,
+  });
+
+  const updateContact = trpc.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success("Contact updated");
+      onSaved();
+      onClose();
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to update contact");
+    },
+  });
+
+  const handleLinkedInChange = (val: string) => {
+    const err = val && !val.startsWith("https://") ? "LinkedIn URL must start with https://" : null;
+    setForm((f) => ({ ...f, linkedinUrl: val, linkedinUrlError: err }));
+  };
+
+  const handleEmailChange = (val: string) => {
+    const err = val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) ? "Enter a valid email address" : null;
+    setForm((f) => ({ ...f, email: val, emailError: err }));
+  };
+
+  const canSave = form.name.trim().length > 0 && !form.linkedinUrlError && !form.emailError && !updateContact.isPending;
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit contact</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1">
+            <Label className="text-xs">Name *</Label>
+            <Input
+              value={form.name}
+              maxLength={MAX_LENGTHS.CONTACT_NAME}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Full name"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Role</Label>
+            <Input
+              value={form.role}
+              maxLength={MAX_LENGTHS.CONTACT_ROLE}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              placeholder="e.g. Recruiter, Hiring Manager"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Email</Label>
+            <Input
+              value={form.email}
+              maxLength={MAX_LENGTHS.CONTACT_EMAIL}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              placeholder="recruiter@company.com"
+              className={form.emailError ? "border-destructive" : ""}
+            />
+            {form.emailError && <p className="text-xs text-destructive">{form.emailError}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">LinkedIn URL</Label>
+            <Input
+              value={form.linkedinUrl}
+              maxLength={MAX_LENGTHS.CONTACT_LINKEDIN_URL}
+              onChange={(e) => handleLinkedInChange(e.target.value)}
+              placeholder="https://linkedin.com/in/…"
+              className={form.linkedinUrlError ? "border-destructive" : ""}
+            />
+            {form.linkedinUrlError && <p className="text-xs text-destructive">{form.linkedinUrlError}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Notes</Label>
+            <Textarea
+              value={form.notes}
+              maxLength={MAX_LENGTHS.CONTACT_NOTES}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="Optional notes about this contact"
+              rows={3}
+              className="resize-none text-sm"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={updateContact.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (!canSave) return;
+              updateContact.mutate({
+                id: contact.id,
+                name: form.name.trim(),
+                role: form.role.trim() || undefined,
+                email: form.email.trim() || undefined,
+                linkedinUrl: form.linkedinUrl.trim() || undefined,
+                notes: form.notes.trim() || undefined,
+              });
+            }}
+            disabled={!canSave}
+          >
+            {updateContact.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Saving…</> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCardId: number; contacts: any[]; outreachPack: any; onSwitchTab?: (tab: string) => void }) {
   const utils = trpc.useUtils();
   const [packError, setPackError] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | undefined>(undefined);
+  const [editingContact, setEditingContact] = useState<any | null>(null);
   const generatePack = trpc.outreach.generatePack.useMutation({
     onSuccess: () => {
       setPackError(null);
@@ -2179,17 +2325,39 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           <CardTitle className="text-sm font-semibold">Contacts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {editingContact && (
+            <EditContactDialog
+              contact={editingContact}
+              onClose={() => setEditingContact(null)}
+              onSaved={() => utils.contacts.list.invalidate({ jobCardId })}
+            />
+          )}
           {contacts.map((contact) => (
-            <div key={contact.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === contact.id ? "border-primary bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => setSelectedContactId(selectedContactId === contact.id ? undefined : contact.id)}>
+            <div
+              key={contact.id}
+              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === contact.id ? "border-primary bg-primary/5" : "hover:bg-muted/30"}`}
+              onClick={() => setSelectedContactId(selectedContactId === contact.id ? undefined : contact.id)}
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{contact.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {contact.contactRole ?? ""} {contact.email ? `· ${contact.email}` : ""}
                 </p>
               </div>
-              {selectedContactId === contact.id && (
-                <span className="text-xs text-primary font-medium">Selected for outreach</span>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {selectedContactId === contact.id && (
+                  <span className="text-xs text-primary font-medium mr-1">Selected</span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Edit contact"
+                  onClick={(e) => { e.stopPropagation(); setEditingContact(contact); }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           ))}
           <div className="space-y-2">
