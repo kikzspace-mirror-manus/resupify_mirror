@@ -8,6 +8,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
+import { extractFromJson } from "@shared/jdJsonExtractors";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../shared/outreachHelpers";
 import { buildToneSystemPrompt, sanitizeTone } from "../shared/toneGuardrails";
@@ -641,7 +642,20 @@ export const appRouter = router({
           throw new Error("Couldn't extract text from this page. Please paste the JD instead.");
         }
       }
-      // Guard: still too short after both layers
+      // Layer C: JSON fallback (ld+json, __NEXT_DATA__, window state blobs)
+      // Only attempted when both Readability and container extraction are too short.
+      if (extractedText.length < MIN_TEXT_LENGTH) {
+        try {
+          const jsonResult = extractFromJson(html, MIN_TEXT_LENGTH);
+          if (jsonResult.text.length >= MIN_TEXT_LENGTH) {
+            extractedText = jsonResult.text;
+            console.log(`[jdFetch] JSON fallback used: ${jsonResult.method}`);
+          }
+        } catch {
+          // JSON extraction failed — fall through to "too short" guard
+        }
+      }
+      // Guard: still too short after all layers
       if (extractedText.length < MIN_TEXT_LENGTH) {
         throw new Error("Fetched text too short to be a job description. Please paste the JD manually.");
       }

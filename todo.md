@@ -504,3 +504,11 @@
 - [x] Update Create Job Card modal fetchFromUrl call to catch expected errors inline (already had onError → setFetchJdError)
 - [x] Update JD Snapshot tab fetchFromUrl call to catch expected errors inline (already had onError → setFetchError)
 - [x] Tests: 16 tests (A-G) — 617 tests pass total
+
+## Phase 9D1: JD URL Fetch Reliability (JSON Fallback)
+- [x] Add extractLdJson(html) helper: parse ld+json JobPosting blocks
+- [x] Add extractNextData(html) helper: parse __NEXT_DATA__ JSON
+- [x] Add extractWindowState(html) helper: parse window.__INITIAL_STATE__ / __APOLLO_STATE__ / dataLayer
+- [x] Add stripHtmlToText(html) normalizer: strip tags, preserve line breaks, deduplicate paragraphs
+- [x] Insert Layer C (JSON fallback) between Layer B and the "too short" guard in fetchFromUrl
+- [x] Tests: A-E per acceptance criteria
