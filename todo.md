@@ -572,3 +572,9 @@
 - [x] Clamp displayed title to 80 chars with "…" suffix
 - [x] Add overflow-wrap:anywhere + word-break:break-word to title element
 - [x] Tests: A-D (13 tests) — 760 tests pass total
+
+## Patch: ATS Score Trends — Sort + Cap + View All
+- [x] Sort rows by most-recent scan date descending (latest scan timestamp)
+- [x] Cap list at N=8 rows (local constant TREND_CAP)
+- [x] Show "View all →" link to /analytics when total qualifying rows > N
+- [x] Tests: A-D (13 tests) — 773 tests pass total

@@ -157,9 +157,25 @@ function TrendRow({ card }: { card: TrendCard }) {
   );
 }
 
-// ─── Main widget ──────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────
+const TREND_CAP = 8;
+
+// ─── Sort + cap helpers ──────────────────────────────────────────
+function latestRunDate(card: TrendCard): number {
+  if (card.runs.length === 0) return 0;
+  return Math.max(...card.runs.map((r) => new Date(r.createdAt).getTime()));
+}
+
+export function sortAndCapTrends(cards: TrendCard[], cap = TREND_CAP): { visible: TrendCard[]; total: number } {
+  const withRuns = cards.filter((c) => c.runs.length > 0);
+  const sorted = [...withRuns].sort((a, b) => latestRunDate(b) - latestRunDate(a));
+  return { visible: sorted.slice(0, cap), total: withRuns.length };
+}
+
+// ─── Main widget ──────────────────────────────────────────────────
 export function ScoreTrendsWidget() {
   const { data: cards, isLoading } = trpc.evidence.activeTrends.useQuery();
+  const [, setLocation] = useLocation();
 
   return (
     <Card>
@@ -183,8 +199,8 @@ export function ScoreTrendsWidget() {
             <p className="text-xs mt-1">Add a job card to start tracking ATS scores.</p>
           </div>
         ) : (() => {
-          const withRuns = cards.filter((c) => c.runs.length > 0);
-          if (withRuns.length === 0) {
+          const { visible, total } = sortAndCapTrends(cards);
+          if (total === 0) {
             return (
               <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                 <TrendingUp className="h-8 w-8 mb-2 opacity-30" />
@@ -194,11 +210,23 @@ export function ScoreTrendsWidget() {
             );
           }
           return (
-            <div className="divide-y divide-border/50">
-              {withRuns.map((card) => (
-                <TrendRow key={card.id} card={card} />
-              ))}
-            </div>
+            <>
+              <div className="divide-y divide-border/50">
+                {visible.map((card) => (
+                  <TrendRow key={card.id} card={card} />
+                ))}
+              </div>
+              {total > TREND_CAP && (
+                <div className="pt-3 text-center">
+                  <button
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => setLocation("/analytics")}
+                  >
+                    View all {total} scanned jobs →
+                  </button>
+                </div>
+              )}
+            </>
           );
         })()}
       </CardContent>
