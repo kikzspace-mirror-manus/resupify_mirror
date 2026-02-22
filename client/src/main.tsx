@@ -25,6 +25,31 @@ function setAccountDisabled() {
   _forceRerender?.();
 }
 
+/**
+ * Expected JD fetch errors: user-actionable failures that should show inline
+ * only — never trigger the global console.error overlay.
+ */
+const EXPECTED_FETCH_SUBSTRINGS = [
+  "too short to be a job description",
+  "blocks automated fetch",
+  "gated or login-protected",
+  "Couldn't extract text",
+  "Couldn't fetch text",
+  "Couldn't reach this URL",
+  "Request timed out",
+  "URL does not point to a web page",
+  "Page is too large to fetch",
+  "Invalid URL",
+  "Please paste the JD",
+  "Please paste the JD instead",
+] as const;
+
+function isExpectedFetchError(error: unknown): boolean {
+  if (!(error instanceof TRPCClientError)) return false;
+  const msg = error.message ?? "";
+  return EXPECTED_FETCH_SUBSTRINGS.some((s) => msg.includes(s));
+}
+
 const handleApiError = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
@@ -58,7 +83,11 @@ queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
     handleApiError(error);
-    console.error("[API Mutation Error]", error);
+    // Suppress console.error for expected JD fetch errors — they show inline
+    // and must not trigger the Manus debug overlay.
+    if (!isExpectedFetchError(error)) {
+      console.error("[API Mutation Error]", error);
+    }
   }
 });
 

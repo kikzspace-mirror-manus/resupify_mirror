@@ -498,3 +498,9 @@
 - [x] Add newContactLinkedInUrl state + input + https:// validation to OutreachTab Add Contact form
 - [x] Pass linkedinUrl to createContact mutation
 - [x] Tests: A-J (10 tests) — 601 tests pass total
+
+## Prompt B2: Suppress JD Fetch "Console Error" Popup for Expected Failures
+- [x] Create isExpectedFetchError helper (too short, blocked, invalid URL)
+- [x] Update Create Job Card modal fetchFromUrl call to catch expected errors inline (already had onError → setFetchJdError)
+- [x] Update JD Snapshot tab fetchFromUrl call to catch expected errors inline (already had onError → setFetchError)
+- [x] Tests: 16 tests (A-G) — 617 tests pass total
