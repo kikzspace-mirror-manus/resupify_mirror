@@ -659,3 +659,11 @@
 - [x] Add runDailyCleanup function that calls both helpers and logs result
 - [x] Register daily cleanup job on server start (setTimeout 10s + setInterval 24h)
 - [x] Tests: A-K (11 tests) — 861 tests pass total, 0 TypeScript errors
+
+## Phase 10E-1: OpenAI Provider Behind Flag
+- [x] Add LLM_PROVIDER, OPENAI_API_KEY, LLM_MODEL_OPENAI to ENV
+- [x] Create server/llmProvider.ts (callLLM wrapper, provider routing, non-PII logging)
+- [x] Swap invokeLLM in evidence router to callLLM
+- [x] Swap invokeLLM in outreach router to callLLM
+- [x] Swap invokeLLM in application kit router to callLLM
+- [x] Tests: A-I (9 tests) — 870 tests pass total, 0 TypeScript errors

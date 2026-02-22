@@ -8,6 +8,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
+import { callLLM } from "./llmProvider";
 import { extractFromJson } from "@shared/jdJsonExtractors";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../shared/outreachHelpers";
@@ -408,7 +409,7 @@ export const appRouter = router({
         ? rawText.substring(0, MAX_JD_LENGTH)
         : rawText;
 
-      const llmResponse = await invokeLLM({
+      const llmResponse = await callLLM({
         messages: [
           {
             role: "system",
@@ -705,7 +706,7 @@ export const appRouter = router({
       const snippet = input.text.substring(0, 4_000); // Use first 4k chars for speed
       let llmResult: any;
       try {
-        llmResult = await invokeLLM({
+        llmResult = await callLLM({
           messages: [
             {
               role: "system",
@@ -849,7 +850,7 @@ export const appRouter = router({
       const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
       const topSources = personalizationSources.slice(0, 3);
       const personalizationBlock = buildPersonalizationBlock(topSources);
-      const llmResult = await invokeLLM({
+      const llmResult = await callLLM({
           messages: [
             {
               role: "system",
@@ -1146,7 +1147,7 @@ export const appRouter = router({
           if (!runId) { results.push({ jobCardId, runId: null, error: "Failed to create run" }); continue; }
 
           const pack = getRegionPack(regionCode, trackCode);
-          const llmResult = await invokeLLM({
+          const llmResult = await callLLM({
             messages: [
               { role: "system", content: `You are an ATS analyzer for ${pack.label}. Analyze JD vs resume. Return JSON with overall_score (0-100), summary, and top_3_changes (array of 3 strings with the most impactful changes).` },
               { role: "user", content: `JD:\n${jdSnapshot.snapshotText}\n\nRESUME:\n${resume.content}` }
@@ -1366,7 +1367,7 @@ export const appRouter = router({
       const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
       const topSources = personalizationSources.slice(0, 3);
       const personalizationBlock = buildPersonalizationBlock(topSources);
-      const llmResult = await invokeLLM({
+      const llmResult = await callLLM({
         messages: [
           {
             role: "system",
@@ -1535,7 +1536,7 @@ ${buildToneSystemPrompt()}`
         `${i + 1}. [${item.status.toUpperCase()}] ${item.jdRequirement} — ${item.fix}`
       ).join("\n");
 
-      const llmResult = await invokeLLM({
+      const llmResult = await callLLM({
         messages: [
           {
             role: "system",

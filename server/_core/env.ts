@@ -9,4 +9,8 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "",
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  // LLM provider routing (Phase 10E-1)
+  LLM_PROVIDER: (process.env.LLM_PROVIDER ?? "manus") as "manus" | "openai",
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
+  LLM_MODEL_OPENAI: process.env.LLM_MODEL_OPENAI ?? "gpt-4.1",
 };
