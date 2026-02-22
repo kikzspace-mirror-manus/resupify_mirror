@@ -646,9 +646,64 @@ export const appRouter = router({
       const text = extractedText.length > MAX_TEXT ? extractedText.substring(0, MAX_TEXT) : extractedText;
       return { text, fetchedAt: new Date().toISOString() };
     }),
-  }),
 
-  // ─── Evidence Scan ─────────────────────────────────────────────────
+    // Phase 9B: Auto-fill Job Title + Company from fetched JD text
+    extractFields: protectedProcedure.input(z.object({
+      text: z.string().max(20_000),
+      urlHostname: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const snippet = input.text.substring(0, 4_000); // Use first 4k chars for speed
+      let llmResult: any;
+      try {
+        llmResult = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: "You are a structured data extractor. Extract job posting fields from the provided text. Return ONLY valid JSON matching the schema. If a field is unclear or not present, return an empty string for that field. Never invent company names.",
+            },
+            {
+              role: "user",
+              content: `Extract the job title, company name, location, and job type from this job posting text.\n\nURL hostname (hint): ${input.urlHostname ?? "unknown"}\n\nJob posting text:\n${snippet}`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "job_fields",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  job_title: { type: "string", description: "The exact job title as posted (e.g., 'Senior Software Engineer'). Empty string if unclear." },
+                  company_name: { type: "string", description: "The company name (e.g., 'Acme Corp'). Empty string if unclear or not mentioned." },
+                  location: { type: "string", description: "Job location (e.g., 'Toronto, ON' or 'Remote'). Empty string if not mentioned." },
+                  job_type: { type: "string", description: "Employment type (e.g., 'Full-time', 'Contract', 'Part-time'). Empty string if not mentioned." },
+                },
+                required: ["job_title", "company_name", "location", "job_type"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+      } catch {
+        // LLM failure: return empty fields (non-blocking)
+        return { job_title: "", company_name: "", location: "", job_type: "" };
+      }
+      try {
+        const content = llmResult?.choices?.[0]?.message?.content ?? "{}";
+        const parsed = typeof content === "string" ? JSON.parse(content) : content;
+        return {
+          job_title: (parsed.job_title ?? "").trim(),
+          company_name: (parsed.company_name ?? "").trim(),
+          location: (parsed.location ?? "").trim(),
+          job_type: (parsed.job_type ?? "").trim(),
+        };
+      } catch {
+        return { job_title: "", company_name: "", location: "", job_type: "" };
+      }
+    }),
+  }),
+  // ─── Evidence Scan ──────────────────────────────────────────────────
   evidence: router({
     runs: protectedProcedure.input(z.object({ jobCardId: z.number() })).query(async ({ input }) => {
       return db.getEvidenceRuns(input.jobCardId);

@@ -381,3 +381,11 @@
 - [x] Return friendly GATED_MESSAGE for gated pages
 - [x] All existing guardrails preserved (https-only, 2 MB, 15s timeout, binary block, MIN_CHARS)
 - [x] Tests: A-J (13 tests) — Greenhouse HTML, container fallback, 403 gated, captcha keyword, https-only, binary, too-short, 404, no credits, browser headers, maxRedirects, 429, script-heavy fallback
+
+## Phase 9B: Auto-Fill Job Title + Company After URL Fetch
+- [x] Add jdSnapshots.extractFields tRPC protectedProcedure (LLM, strict JSON schema: job_title, company_name, location, job_type)
+- [x] Non-destructive: only fill empty fields (title, company, location) via functional setState closures
+- [x] Wire into Create Job Card modal fetchFromUrl onSuccess: call extractFields, show "Auto-filling…" spinner
+- [x] On success: fill empty fields, show "Auto-filled from JD (edit anytime)." note in green
+- [x] On extraction failure: silently ignore (no toast, no blocking)
+- [x] Tests: A-J (10 tests) — structured fields, non-destructive contract, empty fields, no credits, LLM failure, strict schema, whitespace trim, urlHostname hint, malformed JSON

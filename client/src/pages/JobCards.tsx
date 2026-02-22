@@ -550,15 +550,37 @@ function CreateJobDialog({
   // Phase 9A: URL fetch state
   const [fetchJdError, setFetchJdError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Phase 9B: auto-fill state
+  const [autoFilling, setAutoFilling] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
   const isValidHttpsUrl = (u: string) => {
     try { const p = new URL(u); return p.protocol === "https:"; } catch { return false; }
   };
+  const extractFields = trpc.jdSnapshots.extractFields.useMutation();
   const fetchFromUrl = trpc.jdSnapshots.fetchFromUrl.useMutation({
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setJdText(data.text);
       setFetchedAt(new Date(data.fetchedAt).toLocaleTimeString());
       setFetchJdError(null);
       toast.success("JD text fetched! Review and click Create Job Card.");
+      // Phase 9B: async auto-fill (non-destructive — only fills empty fields)
+      setAutoFilling(true);
+      setAutoFilled(false);
+      try {
+        let hostname = "";
+        try { hostname = new URL(url).hostname; } catch {}
+        const fields = await extractFields.mutateAsync({ text: data.text, urlHostname: hostname });
+        let filled = false;
+        // Read current values via closure — only fill if still empty
+        setTitle((prev) => { if (!prev.trim() && fields.job_title) { filled = true; return fields.job_title; } return prev; });
+        setCompany((prev) => { if (!prev.trim() && fields.company_name) { filled = true; return fields.company_name; } return prev; });
+        setLocation((prev) => { if (!prev.trim() && fields.location) { filled = true; return fields.location; } return prev; });
+        if (filled) setAutoFilled(true);
+      } catch {
+        // silently ignore extraction failures
+      } finally {
+        setAutoFilling(false);
+      }
     },
     onError: (err) => {
       setFetchJdError(err.message);
@@ -612,12 +634,23 @@ function CreateJobDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Job Title *</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="title">Job Title *</Label>
+              {autoFilling && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Auto-filling…
+                </span>
+              )}
+              {!autoFilling && autoFilled && (
+                <span className="text-xs text-emerald-600">Auto-filled from JD (edit anytime).</span>
+              )}
+            </div>
             <Input
               id="title"
               placeholder="e.g., Software Developer Intern"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); setAutoFilled(false); }}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
