@@ -362,3 +362,13 @@
 - [x] Single snapshot: show "No prior version to compare." (diff controls hidden)
 - [x] Cap diff at 20k chars with "Diff truncated for performance" amber note
 - [x] Tests: A-G (11 tests) — single snap guard, two-snap diff, added right-only, removed left-only, no credits, truncation, summary counts, identical, completely different, column length parity
+
+## Phase 9A Fix: Fetch from URL in Create Job Card Modal
+- [x] Read Create Job Card modal structure
+- [x] Add fetchJdError/fetchedAt state to modal
+- [x] Add fetchFromUrl mutation (reuse existing jdSnapshots.fetchFromUrl — no backend changes)
+- [x] Add "Fetch JD" button next to Job URL field (enabled only for valid https URLs, Enter key also triggers)
+- [x] On success: fill Job Description textarea, show "Fetched at {time}" note in green, clear error
+- [x] On error: show inline error below URL field (same error messages as JD Snapshot tab)
+- [x] URL change clears previous fetch state (error + fetchedAt)
+- [x] Tests: A-H (8 tests) — valid https, http disabled, non-url, procedure returns text+fetchedAt, short text error, no credits, non-https rejected, binary content-type rejected

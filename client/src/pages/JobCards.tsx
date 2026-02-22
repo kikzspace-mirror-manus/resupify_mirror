@@ -32,6 +32,7 @@ import {
   Search,
   Bell,
   ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -546,7 +547,23 @@ function CreateJobDialog({
   const [jdText, setJdText] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [season, setSeason] = useState<string>("");
-
+  // Phase 9A: URL fetch state
+  const [fetchJdError, setFetchJdError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const isValidHttpsUrl = (u: string) => {
+    try { const p = new URL(u); return p.protocol === "https:"; } catch { return false; }
+  };
+  const fetchFromUrl = trpc.jdSnapshots.fetchFromUrl.useMutation({
+    onSuccess: (data) => {
+      setJdText(data.text);
+      setFetchedAt(new Date(data.fetchedAt).toLocaleTimeString());
+      setFetchJdError(null);
+      toast.success("JD text fetched! Review and click Create Job Card.");
+    },
+    onError: (err) => {
+      setFetchJdError(err.message);
+    },
+  });
   const createJob = trpc.jobCards.create.useMutation({
     onSuccess: () => {
       toast.success("Job card created!");
@@ -625,12 +642,42 @@ function CreateJobDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="url">Job URL</Label>
-            <Input
-              id="url"
-              placeholder="https://..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="url"
+                placeholder="https://..."
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setFetchJdError(null);
+                  setFetchedAt(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && isValidHttpsUrl(url)) {
+                    e.preventDefault();
+                    fetchFromUrl.mutate({ url });
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending}
+                onClick={() => fetchFromUrl.mutate({ url })}
+                className="shrink-0"
+              >
+                {fetchFromUrl.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Fetch JD"
+                )}
+              </Button>
+            </div>
+            {fetchJdError && (
+              <p className="text-xs text-destructive">{fetchJdError}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -667,14 +714,20 @@ function CreateJobDialog({
             </Label>
             <Textarea
               id="jdText"
-              placeholder="Paste the full job description here to create a JD Snapshot..."
+              placeholder="Paste the full job description here, or use Fetch JD above to auto-fill..."
               value={jdText}
               onChange={(e) => setJdText(e.target.value)}
               className="min-h-[120px] text-sm"
             />
-            <p className="text-xs text-muted-foreground">
-              This will be saved as an immutable JD Snapshot.
-            </p>
+            {fetchedAt ? (
+              <p className="text-xs text-emerald-600">
+                Fetched at {fetchedAt} — review and click Create Job Card.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                This will be saved as an immutable JD Snapshot.
+              </p>
+            )}
           </div>
           <Button
             type="submit"
