@@ -578,3 +578,8 @@
 - [x] Cap list at N=8 rows (local constant TREND_CAP)
 - [x] Show "View all →" link to /analytics when total qualifying rows > N
 - [x] Tests: A-D (13 tests) — 773 tests pass total
+
+## Patch: ATS Score Trends — Run scan shortcut
+- [x] Add "Run scan →" button per TrendRow navigating to /jobs/:id?tab=evidence (hover-visible, opacity transition)
+- [x] Add lazy URL param initializer to JobCardDetail activeTab useState (also fixes jd-snapshot shortcut)
+- [x] Tests: A-F (6 tests) — 779 tests pass total

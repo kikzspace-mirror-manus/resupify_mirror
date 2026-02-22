@@ -153,6 +153,19 @@ function TrendRow({ card }: { card: TrendCard }) {
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </div>
+
+      {/* Run scan shortcut — visible on row hover */}
+      <button
+        className="shrink-0 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap hover:underline focus:opacity-100"
+        aria-label={`Run scan for ${card.title}`}
+        data-run-scan-link={`/jobs/${card.id}?tab=evidence`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setLocation(`/jobs/${card.id}?tab=evidence`);
+        }}
+      >
+        Run scan →
+      </button>
     </div>
   );
 }

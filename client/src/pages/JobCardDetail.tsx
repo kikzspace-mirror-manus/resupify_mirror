@@ -110,7 +110,10 @@ export default function JobCardDetail({ id }: { id: number }) {
   const { data: resumes } = trpc.resumes.list.useQuery();
   const { data: outreachPack } = trpc.outreach.pack.useQuery({ jobCardId: id });
   const { data: contacts } = trpc.contacts.list.useQuery({ jobCardId: id });
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") ?? "overview";
+  });
 
   const updateJob = trpc.jobCards.update.useMutation({
     onSuccess: (_, variables) => {
