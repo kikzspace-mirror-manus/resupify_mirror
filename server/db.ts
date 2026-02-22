@@ -1143,11 +1143,44 @@ export async function purgeOldStripeEvents(): Promise<number> {
 }
 
 // ─── Early Access (Phase 10F-1) ──────────────────────────────────────────────
-/** Grant or revoke early access for a user by userId. */
-export async function adminSetEarlyAccess(userId: number, enabled: boolean): Promise<void> {
+/** Grant or revoke early access for a user by userId.
+ *  When transitioning to enabled=true for the first time, awards 10 starter credits
+ *  (idempotent: earlyAccessGrantUsed flag prevents double-grants on re-enable).
+ *  Returns { creditsGranted: boolean } so callers can surface the right confirmation.
+ */
+export async function adminSetEarlyAccess(
+  userId: number,
+  enabled: boolean,
+): Promise<{ creditsGranted: boolean }> {
   const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ earlyAccessEnabled: enabled }).where(eq(users.id, userId));
+  if (!db) return { creditsGranted: false };
+
+  if (enabled) {
+    // Fetch current grant state to decide whether to award starter credits.
+    const rows = await db
+      .select({ earlyAccessGrantUsed: users.earlyAccessGrantUsed })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const alreadyGranted = rows[0]?.earlyAccessGrantUsed ?? false;
+
+    if (!alreadyGranted) {
+      // First-time grant: award credits and mark the flag atomically.
+      await addCredits(userId, 10, "early_access_grant", "early_access");
+      await db
+        .update(users)
+        .set({ earlyAccessEnabled: true, earlyAccessGrantUsed: true })
+        .where(eq(users.id, userId));
+      return { creditsGranted: true };
+    }
+    // Already granted before — just re-enable access, no extra credits.
+    await db.update(users).set({ earlyAccessEnabled: true }).where(eq(users.id, userId));
+    return { creditsGranted: false };
+  }
+
+  // Revoking access: only flip the flag, never touch credits.
+  await db.update(users).set({ earlyAccessEnabled: false }).where(eq(users.id, userId));
+  return { creditsGranted: false };
 }
 
 /** Look up a user by email (for admin early-access toggle UI). */
@@ -1155,7 +1188,7 @@ export async function adminGetUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return null;
   const result = await db
-    .select({ id: users.id, name: users.name, email: users.email, role: users.role, earlyAccessEnabled: users.earlyAccessEnabled })
+    .select({ id: users.id, name: users.name, email: users.email, role: users.role, earlyAccessEnabled: users.earlyAccessEnabled, earlyAccessGrantUsed: users.earlyAccessGrantUsed })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);

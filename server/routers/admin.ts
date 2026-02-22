@@ -668,9 +668,9 @@ ${buildToneSystemPrompt()}`
       userId: z.number().int().positive(),
       enabled: z.boolean(),
     })).mutation(async ({ input, ctx }) => {
-      await db.adminSetEarlyAccess(input.userId, input.enabled);
+      const { creditsGranted } = await db.adminSetEarlyAccess(input.userId, input.enabled);
       await db.logAdminAction(ctx.user.id, input.enabled ? "early_access_granted" : "early_access_revoked", input.userId);
-      return { success: true, userId: input.userId, enabled: input.enabled };
+      return { success: true, userId: input.userId, enabled: input.enabled, creditsGranted };
     }),
   }),
 });

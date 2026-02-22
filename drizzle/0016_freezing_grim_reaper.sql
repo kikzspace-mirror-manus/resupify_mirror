@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `earlyAccessGrantUsed` boolean DEFAULT false NOT NULL;

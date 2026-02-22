@@ -20,7 +20,14 @@ export default function AdminEarlyAccess() {
   const utils = trpc.useUtils();
   const setAccess = trpc.admin.earlyAccess.setAccess.useMutation({
     onSuccess: (result) => {
-      toast.success(result.enabled ? "Early access granted." : "Early access revoked.");
+      if (result.enabled) {
+        const msg = result.creditsGranted
+          ? "Access granted — 10 starter credits added."
+          : "Access granted (credits already awarded previously).";
+        toast.success(msg);
+      } else {
+        toast.success("Early access revoked.");
+      }
       utils.admin.earlyAccess.lookupByEmail.invalidate({ email: searchEmail! });
     },
     onError: (err) => {
@@ -98,6 +105,11 @@ export default function AdminEarlyAccess() {
                       >
                         {user.earlyAccessEnabled ? "Access granted" : "On waitlist"}
                       </Badge>
+                      {user.earlyAccessGrantUsed && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          Credits awarded
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">

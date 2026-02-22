@@ -706,3 +706,12 @@
 - [x] Update Waitlist.tsx: logged-out state (Sign in / Sign up, no account implication)
 - [x] Update Waitlist.tsx: logged-in gated state (keep current waitlist message + Sign out)
 - [x] Tests: A-F (6 tests) — 899 tests pass total, 0 TypeScript errors
+
+## Patch: Early Access Credit Grant
+- [x] Add earlyAccessGrantUsed boolean (default false) to users table
+- [x] Run db:push migration (0016_freezing_grim_reaper.sql)
+- [x] Wire one-time +10 credit grant into admin.earlyAccess.setAccess (false→true, earlyAccessGrantUsed=false only)
+- [x] Mark earlyAccessGrantUsed=true after grant
+- [x] Update AdminEarlyAccess.tsx: show "Access granted — 10 starter credits added." or "Access granted (credits already awarded previously)."
+- [x] Write acceptance tests (first grant, idempotent, revoke+re-grant, non-admin blocked)
+- [x] Tests: A-J (10 tests) — 909 tests pass total, 0 TypeScript errors

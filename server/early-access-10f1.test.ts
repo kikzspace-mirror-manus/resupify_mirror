@@ -72,7 +72,7 @@ beforeEach(() => {
     updatedAt: new Date(),
     lastSignedIn: new Date(),
   } as any);
-  mockSetEarlyAccess.mockResolvedValue(undefined);
+  mockSetEarlyAccess.mockResolvedValue({ creditsGranted: false });
   mockLogAdminAction.mockResolvedValue(undefined);
 });
 
@@ -144,10 +144,10 @@ describe("Phase 10F-1: Early Access Gating", () => {
   });
 
   // H) Return shape
-  it("H) admin.earlyAccess.setAccess — returns { success, userId, enabled }", async () => {
+  it("H) admin.earlyAccess.setAccess — returns { success, userId, enabled, creditsGranted }", async () => {
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.admin.earlyAccess.setAccess({ userId: 99, enabled: true });
-    expect(Object.keys(result).sort()).toEqual(["enabled", "success", "userId"].sort());
+    expect(Object.keys(result).sort()).toEqual(["creditsGranted", "enabled", "success", "userId"].sort());
   });
 
   // I) adminSetEarlyAccess called with correct args
