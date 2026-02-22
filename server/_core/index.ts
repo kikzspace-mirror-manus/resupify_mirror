@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { registerStripeWebhook } from "../stripeWebhook";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -32,6 +33,9 @@ async function startServer() {
   const server = createServer(app);
   // Body size cap: 512 kb is ~20x the largest legitimate payload (25 kb JD/resume).
   // Oversized requests are rejected before reaching any tRPC handler or credit gate.
+  // Stripe webhook MUST be registered with express.raw() BEFORE express.json()
+  // so that signature verification can access the raw request body.
+  registerStripeWebhook(app);
   app.use(express.json({ limit: "512kb" }));
   app.use(express.urlencoded({ limit: "512kb", extended: true }));
   // OAuth callback under /api/oauth/callback

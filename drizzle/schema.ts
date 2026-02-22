@@ -328,3 +328,19 @@ export const operationalEvents = mysqlTable("operational_events", {
 
 export type OperationalEvent = typeof operationalEvents.$inferSelect;
 export type InsertOperationalEvent = typeof operationalEvents.$inferInsert;
+
+// ─── Stripe Events (idempotency log) ────────────────────────────────────────
+// Stores only the Stripe event ID, type, and fulfillment metadata.
+// No payment amounts, card details, or PII beyond the internal userId.
+// The unique constraint on stripeEventId prevents double-crediting on retries.
+export const stripeEvents = mysqlTable("stripe_events", {
+  id: int("id").autoincrement().primaryKey(),
+  stripeEventId: varchar("stripeEventId", { length: 128 }).notNull().unique(),
+  eventType: varchar("eventType", { length: 128 }).notNull(),
+  userId: int("userId"),                          // null for events we can't map
+  creditsPurchased: int("creditsPurchased"),       // credits granted (positive)
+  status: mysqlEnum("status", ["processed", "manual_review", "skipped"]).notNull().default("processed"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type StripeEvent = typeof stripeEvents.$inferSelect;
+export type InsertStripeEvent = typeof stripeEvents.$inferInsert;

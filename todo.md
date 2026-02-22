@@ -622,3 +622,17 @@
 - [x] Intercept HTTP 413 in tRPC client fetch wrapper in main.tsx
 - [x] Show toast.error("Your request was too large. Please shorten the text and try again.")
 - [x] Tests: A-E (8 tests) — 826 tests pass total, 0 TypeScript errors
+
+## Phase 10C-1: Stripe Checkout + Idempotent Webhook Crediting
+- [x] Install stripe npm package
+- [x] Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET secrets
+- [x] Add stripe_events table to drizzle/schema.ts (stripeEventId unique, eventType, userId, processed)
+- [x] Run db:push migration
+- [x] Add stripeEventExists + recordStripeEvent db helpers to server/db.ts
+- [x] Create server/stripe.ts helper (Stripe client + pack definitions)
+- [x] Add stripe.createCheckoutSession tRPC procedure (protectedProcedure)
+- [x] Add /api/stripe/webhook Express route with signature verification
+- [x] Handle checkout.session.completed: addCredits idempotently
+- [x] Handle charge.refunded: record as manual review operational event
+- [x] Wire Billing.tsx Buy buttons to real Stripe Checkout redirect
+- [x] Tests: A-I (9 tests) — 835 tests pass total, 0 TypeScript errors

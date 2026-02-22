@@ -16,6 +16,7 @@ import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
+import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
 import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit } from "./rateLimiter";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 
@@ -86,6 +87,25 @@ async function ensureFollowUps(userId: number, jobCardId: number, appliedAt: Dat
 export const appRouter = router({
   system: systemRouter,
   admin: adminRouter,
+
+  // ─── Stripe Checkout ──────────────────────────────────────────────
+  stripe: router({
+    createCheckoutSession: protectedProcedure
+      .input(z.object({
+        packId: z.enum(["starter", "pro", "power"]),
+        origin: z.string().url(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const url = await createCheckoutSession({
+          packId: input.packId as PackId,
+          userId: ctx.user.id,
+          userEmail: ctx.user.email,
+          origin: input.origin,
+        });
+        return { url };
+      }),
+    packs: publicProcedure.query(() => CREDIT_PACKS),
+  }),
 
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),

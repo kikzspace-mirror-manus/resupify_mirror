@@ -17,6 +17,7 @@ import {
   applicationKits, InsertApplicationKit,
   jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
   operationalEvents, InsertOperationalEvent, OperationalEvent,
+  stripeEvents, InsertStripeEvent,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1026,4 +1027,46 @@ export async function adminListOperationalEvents(
     .offset(offset);
 
   return rows;
+}
+
+// ─── Stripe Events (idempotency) ─────────────────────────────────────────────
+
+/**
+ * Check whether a Stripe event has already been processed.
+ * Returns true if the event ID exists in the stripe_events table.
+ */
+export async function stripeEventExists(stripeEventId: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const { eq } = await import("drizzle-orm");
+  const rows = await db
+    .select({ id: stripeEvents.id })
+    .from(stripeEvents)
+    .where(eq(stripeEvents.stripeEventId, stripeEventId))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Record a processed Stripe event for idempotency.
+ * Safe to call inside a try/catch — duplicate inserts are silently ignored.
+ */
+export async function recordStripeEvent(
+  data: Pick<InsertStripeEvent, "stripeEventId" | "eventType" | "userId" | "creditsPurchased" | "status">
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(stripeEvents).values({
+      stripeEventId: data.stripeEventId,
+      eventType: data.eventType,
+      userId: data.userId ?? null,
+      creditsPurchased: data.creditsPurchased ?? null,
+      status: data.status,
+    });
+  } catch (err: any) {
+    // Unique constraint violation = already processed; safe to ignore
+    if (err?.code === "ER_DUP_ENTRY" || err?.message?.includes("Duplicate entry")) return;
+    throw err;
+  }
 }

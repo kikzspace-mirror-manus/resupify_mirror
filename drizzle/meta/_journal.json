@@ -99,6 +99,13 @@
       "when": 1771775205035,
       "tag": "0013_wealthy_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1771776663875,
+      "tag": "0014_narrow_lockheed",
+      "breakpoints": true
     }
   ]
 }
