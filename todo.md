@@ -527,3 +527,12 @@
 - [x] Add inline eligibility nudge to Job Card Overview tab (JD eligibility triggers + unknown profile)
 - [x] Add inline contact tip nudges to Outreach tab (no contact selected, missing email/LinkedIn)
 - [x] Tests: A-F (23 tests) — 666 tests pass total
+
+## V1 Audit Polish: Priority Badge Consistency
+- [x] Audit current priority badge rendering in list rows and kanban tiles
+- [x] Add Medium badge (neutral style) to list rows
+- [x] Add Low badge (subtle style) to list rows
+- [x] Add Medium badge to kanban card tiles
+- [x] Add Low badge to kanban card tiles
+- [x] Ensure null/undefined priority shows no badge
+- [x] Tests: A-E (17 tests) — 683 tests pass total

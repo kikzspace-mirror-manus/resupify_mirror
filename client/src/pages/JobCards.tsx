@@ -339,9 +339,13 @@ export default function JobCards() {
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{job.title}</p>
                     {job.priority === "high" && (
-                      <Badge variant="destructive" className="text-xs">
-                        High
-                      </Badge>
+                      <Badge variant="destructive" className="text-xs">High</Badge>
+                    )}
+                    {job.priority === "medium" && (
+                      <Badge variant="secondary" className="text-xs">Medium</Badge>
+                    )}
+                    {job.priority === "low" && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">Low</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -507,9 +511,13 @@ function KanbanCard({
         {job.company ?? "—"}
       </p>
       {job.priority === "high" && (
-        <Badge variant="destructive" className="text-xs mt-2">
-          High Priority
-        </Badge>
+        <Badge variant="destructive" className="text-xs mt-2">High</Badge>
+      )}
+      {job.priority === "medium" && (
+        <Badge variant="secondary" className="text-xs mt-2">Medium</Badge>
+      )}
+      {job.priority === "low" && (
+        <Badge variant="outline" className="text-xs mt-2 text-muted-foreground">Low</Badge>
       )}
       {(() => {
         const ep = getEligibilityBadgeProps(job.eligibilityPrecheckStatus);
