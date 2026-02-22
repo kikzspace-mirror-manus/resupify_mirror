@@ -725,3 +725,12 @@
 - [x] Wire Waitlist.tsx: call mutation on logged-in gated branch (once, useEffect)
 - [x] Update admin ops events filter: added waitlist/waitlist_joined to AdminOperationalEvents.tsx and admin.ts router
 - [x] Write acceptance tests (A-J, 10 tests) — 919 tests pass total, 0 TypeScript errors
+
+## V2 Phase 1A: DB Fields + Feature Flags (Additive Only, No UI)
+- [x] Add countryPackId (enum VN/PH/US, nullable) to users table
+- [x] Add languageMode (enum en/vi/bilingual, default "en") to users table
+- [x] Add countryPackId (enum VN/PH/US, nullable) to job_cards table
+- [x] Add canonicalLanguage, canonicalText, localizedLanguage, localizedText, translationMeta to application_kits table
+- [x] Run db:push migration (0018_silky_zombie.sql)
+- [x] Add feature flag module (shared/featureFlags.ts): v2CountryPacksEnabled, v2VnTranslationEnabled, v2BilingualViewEnabled — all OFF by default
+- [x] Write acceptance tests (A-L, 12 tests) — 931 tests pass total, 0 TypeScript errors

@@ -13,6 +13,11 @@ export const users = mysqlTable("users", {
   disabled: boolean("disabled").default(false).notNull(),
   earlyAccessEnabled: boolean("earlyAccessEnabled").default(false).notNull(),
   earlyAccessGrantUsed: boolean("earlyAccessGrantUsed").default(false).notNull(),
+  // ── V2 Phase 1A: Country Pack + Language Mode (flags OFF by default) ──────
+  // countryPackId: which country pack the user has selected (null = inherit default)
+  countryPackId: mysqlEnum("countryPackId", ["VN", "PH", "US"]),
+  // languageMode: output language preference (default "en" = V1 behavior unchanged)
+  languageMode: mysqlEnum("languageMode", ["en", "vi", "bilingual"]).default("en").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -111,6 +116,8 @@ export const jobCards = mysqlTable("job_cards", {
   eligibilityPrecheckStatus: mysqlEnum("eligibilityPrecheckStatus", ["none", "recommended", "conflict"]).default("none"),
   eligibilityPrecheckRulesJson: text("eligibilityPrecheckRulesJson"), // JSON array of { ruleId, title }
   eligibilityPrecheckUpdatedAt: timestamp("eligibilityPrecheckUpdatedAt"),
+  // ── V2 Phase 1A: Country Pack override per job card (null = inherit user.countryPackId) ──
+  countryPackId: mysqlEnum("countryPackId", ["VN", "PH", "US"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -293,6 +300,17 @@ export const applicationKits = mysqlTable("application_kits", {
   topChangesJson: text("topChangesJson"),   // JSON: [{requirement_text, status, fix}]
   bulletRewritesJson: text("bulletRewritesJson"), // JSON: [{requirement_text, status, fix, rewrite_a, rewrite_b, needs_confirmation}]
   coverLetterText: text("coverLetterText"),
+  // ── V2 Phase 1A: Translation / localization fields (not written by V1 paths) ──
+  // canonicalLanguage: the language of the primary generated text (default "en")
+  canonicalLanguage: varchar("canonicalLanguage", { length: 16 }).notNull().default("en"),
+  // canonicalText: full serialized text of the generated asset in canonical language
+  canonicalText: text("canonicalText"),
+  // localizedLanguage: target language for translation (e.g., "vi")
+  localizedLanguage: varchar("localizedLanguage", { length: 16 }),
+  // localizedText: translated version of canonicalText
+  localizedText: text("localizedText"),
+  // translationMeta: JSON object { provider, timestamp, version }
+  translationMeta: json("translationMeta"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
