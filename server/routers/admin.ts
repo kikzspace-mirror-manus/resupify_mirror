@@ -643,8 +643,8 @@ ${buildToneSystemPrompt()}`
   // No payload, no names, no emails — only hashes + enum fields.
   operationalEvents: router({
     list: adminProcedure.input(z.object({
-      endpointGroup: z.enum(["evidence", "outreach", "kit", "url_fetch", "auth"]).optional(),
-      eventType: z.enum(["rate_limited", "provider_error", "validation_error", "unknown"]).optional(),
+      endpointGroup: z.enum(["evidence", "outreach", "kit", "url_fetch", "auth", "waitlist"]).optional(),
+      eventType: z.enum(["rate_limited", "provider_error", "validation_error", "unknown", "waitlist_joined"]).optional(),
       limit: z.number().min(1).max(500).optional().default(100),
       offset: z.number().min(0).optional().default(0),
     }).optional()).query(async ({ input }) => {

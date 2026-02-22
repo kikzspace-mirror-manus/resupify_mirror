@@ -1,0 +1,2 @@
+ALTER TABLE `operational_events` MODIFY COLUMN `endpointGroup` enum('evidence','outreach','kit','url_fetch','auth','waitlist') NOT NULL;--> statement-breakpoint
+ALTER TABLE `operational_events` MODIFY COLUMN `eventType` enum('rate_limited','provider_error','validation_error','unknown','waitlist_joined') NOT NULL;

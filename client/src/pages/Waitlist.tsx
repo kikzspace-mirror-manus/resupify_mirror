@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Clock, LogIn, UserPlus, LogOut } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 function getSignupUrl() {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
@@ -21,11 +23,21 @@ function getSignupUrl() {
 
 export default function Waitlist() {
   const { user, loading, logout } = useAuth();
+  const joinedMutation = trpc.waitlist.joined.useMutation();
 
   const handleLogout = async () => {
     await logout();
     window.location.href = getLoginUrl();
   };
+
+  // Log a non-PII operational event when a logged-in gated user lands here.
+  // The server deduplicates to at most once per user per 24 hours.
+  useEffect(() => {
+    if (!loading && user) {
+      joinedMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, !!user]);
 
   // While auth state is resolving, show a neutral loading state
   if (loading) {

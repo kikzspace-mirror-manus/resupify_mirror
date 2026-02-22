@@ -18,7 +18,7 @@ import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
-import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit } from "./rateLimiter";
+import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, shortHash } from "./rateLimiter";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 
 function addBusinessDays(date: Date, days: number): Date {
@@ -1682,6 +1682,26 @@ ${buildToneSystemPrompt()}`
   }),
 
   // ─── Personalization Sources ───────────────────────────────────────────────
+  // ─── Waitlist Event Logging ──────────────────────────────────────────────────
+  waitlist: router({
+    // Called by Waitlist.tsx when a logged-in gated user lands on /waitlist.
+    // Records a non-PII operational event (once per user per 24h).
+    joined: protectedProcedure.mutation(async ({ ctx }) => {
+      const userIdHash = shortHash(String(ctx.user.id));
+      const alreadyLogged = await db.waitlistEventRecentlyLogged(userIdHash);
+      if (!alreadyLogged) {
+        await db.logOperationalEvent({
+          requestId: nanoid(),
+          endpointGroup: "waitlist",
+          eventType: "waitlist_joined",
+          statusCode: 200,
+          userIdHash,
+        });
+      }
+      return { logged: !alreadyLogged };
+    }),
+  }),
+
   personalization: router({
     list: protectedProcedure.input(z.object({
       jobCardId: z.number(),

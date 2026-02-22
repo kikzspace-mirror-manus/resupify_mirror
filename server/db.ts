@@ -1037,6 +1037,31 @@ export async function adminListOperationalEvents(
   return rows;
 }
 
+// ─── Waitlist Event Dedupe ──────────────────────────────────────────────────
+/**
+ * Returns true if a waitlist_joined operational event for this userIdHash
+ * was already recorded within the last 24 hours.
+ * Used to prevent spam logging on repeated page visits.
+ */
+export async function waitlistEventRecentlyLogged(userIdHash: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ id: operationalEvents.id })
+    .from(operationalEvents)
+    .where(
+      and(
+        eq(operationalEvents.endpointGroup, "waitlist"),
+        eq(operationalEvents.eventType, "waitlist_joined"),
+        eq(operationalEvents.userIdHash, userIdHash),
+        gte(operationalEvents.createdAt, cutoff),
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 // ─── Stripe Events (idempotency) ─────────────────────────────────────────────
 
 /**

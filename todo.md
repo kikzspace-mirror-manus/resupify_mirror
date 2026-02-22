@@ -715,3 +715,13 @@
 - [x] Update AdminEarlyAccess.tsx: show "Access granted — 10 starter credits added." or "Access granted (credits already awarded previously)."
 - [x] Write acceptance tests (first grant, idempotent, revoke+re-grant, non-admin blocked)
 - [x] Tests: A-J (10 tests) — 909 tests pass total, 0 TypeScript errors
+
+## Patch: Waitlist Notify-Owner via Ops Event
+- [x] Add "waitlist" to endpointGroup enum in drizzle/schema.ts
+- [x] Add "waitlist_joined" to eventType enum in drizzle/schema.ts
+- [x] Run db:push migration (0017_wooden_landau.sql)
+- [x] Add 24h dedupe helper (waitlistEventRecentlyLogged) in server/db.ts
+- [x] Add waitlist.joined protectedProcedure in server/routers.ts
+- [x] Wire Waitlist.tsx: call mutation on logged-in gated branch (once, useEffect)
+- [x] Update admin ops events filter: added waitlist/waitlist_joined to AdminOperationalEvents.tsx and admin.ts router
+- [x] Write acceptance tests (A-J, 10 tests) — 919 tests pass total, 0 TypeScript errors
