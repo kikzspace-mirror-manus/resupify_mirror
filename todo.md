@@ -593,3 +593,10 @@
 - [x] Expandable row: show all runs (date + score) per job (latest first)
 - [x] Wire real avgScore from scanned jobs into the Avg ATS Score metric card
 - [x] Tests: A-H (8 tests) — 787 tests pass total
+
+## Patch: ATS Score Delta Highlight
+- [x] Add computeDelta helper (latest score - previous score, null if <2 runs) — exported from ScoreTrendsWidget
+- [x] Apply green left border + up-arrow badge when delta >= +10 in ScoreTrendsWidget TrendRow
+- [x] Apply red left border + down-arrow badge when delta <= -10 in ScoreTrendsWidget TrendRow
+- [x] Apply same delta indicator to Analytics ATS table rows (border-l-4 + badge)
+- [x] Tests: A-B (15 tests) — 802 tests pass total

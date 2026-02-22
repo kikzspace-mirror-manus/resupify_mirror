@@ -64,15 +64,19 @@ function MiniSparkline({ runs }: { runs: TrendCard["runs"] }) {
   );
 }
 
-// ─── Delta badge ──────────────────────────────────────────────────────
+// ─── Delta badge — only shown when abs(delta) >= 10 ──────────────────────────
+const DELTA_THRESHOLD = 10;
+
+export function computeDelta(runs: Array<{ overallScore: number | null }>): number | null {
+  if (runs.length < 2) return null;
+  const latest = runs[runs.length - 1].overallScore;
+  const prev = runs[runs.length - 2].overallScore;
+  if (latest === null || prev === null) return null;
+  return latest - prev;
+}
+
 function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return null;
-  if (delta === 0)
-    return (
-      <Badge variant="outline" className="text-xs text-muted-foreground px-1.5 py-0">
-        <Minus className="h-2.5 w-2.5 mr-0.5" />0
-      </Badge>
-    );
+  if (delta === null || Math.abs(delta) < DELTA_THRESHOLD) return null;
   if (delta > 0)
     return (
       <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 bg-emerald-50 px-1.5 py-0">
@@ -96,8 +100,7 @@ function TrendRow({ card }: { card: TrendCard }) {
   const [, setLocation] = useLocation();
   const runs = card.runs;
   const latestScore = runs.length > 0 ? (runs[runs.length - 1].overallScore ?? null) : null;
-  const prevScore = runs.length > 1 ? (runs[runs.length - 2].overallScore ?? null) : null;
-  const delta = latestScore !== null && prevScore !== null ? latestScore - prevScore : null;
+  const delta = computeDelta(runs);
 
   const scoreColor =
     latestScore === null
@@ -108,9 +111,17 @@ function TrendRow({ card }: { card: TrendCard }) {
       ? "text-amber-600"
       : "text-red-600";
 
+  // Left-border highlight when abs(delta) >= DELTA_THRESHOLD
+  const borderClass =
+    delta !== null && delta >= DELTA_THRESHOLD
+      ? "border-l-2 border-emerald-500 pl-2"
+      : delta !== null && delta <= -DELTA_THRESHOLD
+      ? "border-l-2 border-red-500 pl-2"
+      : "border-l-2 border-transparent pl-2";
+
   return (
     <div
-      className="flex items-center gap-3 py-2 px-1 rounded-md hover:bg-accent/50 transition-colors cursor-pointer group"
+      className={`flex items-center gap-3 py-2 px-1 rounded-md hover:bg-accent/50 transition-colors cursor-pointer group ${borderClass}`}
       onClick={() => setLocation(`/jobs/${card.id}`)}
       role="button"
       tabIndex={0}

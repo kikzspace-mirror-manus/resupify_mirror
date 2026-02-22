@@ -7,17 +7,18 @@ import {
   BarChart3,
   Briefcase,
   Target,
-  CheckCircle2,
   TrendingUp,
+  TrendingDown,
   Calendar,
-  ArrowUpRight,
-  ArrowDownRight,
   ChevronDown,
   ChevronRight,
   ExternalLink,
 } from "lucide-react";
 import { STAGE_LABELS } from "../../../shared/regionPacks";
 import { useLocation } from "wouter";
+import { computeDelta } from "@/components/ScoreTrendsWidget";
+
+const DELTA_THRESHOLD = 10;
 
 const stageColors: Record<string, string> = {
   bookmarked: "bg-slate-400",
@@ -227,11 +228,18 @@ export default function Analytics() {
                 const titleDisplay = job.title.length > 60
                   ? job.title.slice(0, 60) + "…"
                   : job.title;
+                const delta = computeDelta(job.runs);
+                const rowBorderClass =
+                  delta !== null && delta >= DELTA_THRESHOLD
+                    ? "border-l-4 border-emerald-500"
+                    : delta !== null && delta <= -DELTA_THRESHOLD
+                    ? "border-l-4 border-red-500"
+                    : "border-l-4 border-transparent";
                 return (
                   <div key={job.id}>
                     {/* Row */}
                     <div
-                      className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 items-center hover:bg-muted/20 cursor-pointer transition-colors"
+                      className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 items-center hover:bg-muted/20 cursor-pointer transition-colors ${rowBorderClass}`}
                       onClick={() => toggleRow(job.id)}
                     >
                       {/* Job title + company */}
@@ -252,9 +260,24 @@ export default function Analytics() {
                           ? new Date(latestRun.createdAt).toLocaleDateString()
                           : "—"}
                       </span>
-                      {/* Latest score */}
-                      <span className={`text-sm tabular-nums ${scoreColor(latestRun?.overallScore ?? null)}`}>
-                        {latestRun?.overallScore != null ? `${latestRun.overallScore}` : "—"}
+                      {/* Latest score + delta badge */}
+                      <span className="flex items-center gap-1">
+                        <span className={`text-sm tabular-nums ${scoreColor(latestRun?.overallScore ?? null)}`}>
+                          {latestRun?.overallScore != null ? `${latestRun.overallScore}` : "—"}
+                        </span>
+                        {delta !== null && Math.abs(delta) >= DELTA_THRESHOLD && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1 py-0 ${
+                              delta > 0
+                                ? "text-emerald-600 border-emerald-300 bg-emerald-50"
+                                : "text-red-600 border-red-300 bg-red-50"
+                            }`}
+                          >
+                            {delta > 0 ? <TrendingUp className="h-2.5 w-2.5 mr-0.5" /> : <TrendingDown className="h-2.5 w-2.5 mr-0.5" />}
+                            {delta > 0 ? `+${delta}` : `${delta}`}
+                          </Badge>
+                        )}
                       </span>
                       {/* Run count */}
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
