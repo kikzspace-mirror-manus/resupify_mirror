@@ -25,6 +25,10 @@ export default function Profile() {
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(false);
 
+  // Contact info fields
+  const [phone, setPhone] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+
   // Work authorization fields
   const [workStatus, setWorkStatus] = useState<"citizen_pr" | "temporary_resident" | "unknown">("unknown");
   const [workStatusDetail, setWorkStatusDetail] = useState<string>("");
@@ -38,6 +42,8 @@ export default function Profile() {
       setProgram(profile.program ?? "");
       setGraduationDate(profile.graduationDate ?? "");
       setCurrentlyEnrolled(profile.currentlyEnrolled ?? false);
+      setPhone((profile as any).phone ?? "");
+      setLinkedinUrl((profile as any).linkedinUrl ?? "");
       setWorkStatus((profile.workStatus as any) ?? "unknown");
       setWorkStatusDetail((profile.workStatusDetail as any) ?? "");
       setNeedsSponsorship((profile.needsSponsorship as any) ?? "unknown");
@@ -232,6 +238,31 @@ export default function Profile() {
             size="sm"
           >
             {updateWorkStatus.isPending ? "Saving..." : "Save Work Status"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Contact Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Contact Info</CardTitle>
+          <CardDescription>Used in Outreach Pack signatures. Leave blank to omit from generated messages.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone (optional)</Label>
+            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" className="w-64" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="linkedinUrl">LinkedIn URL (optional)</Label>
+            <Input id="linkedinUrl" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/yourname" />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => upsertProfile.mutate({ phone: phone || null, linkedinUrl: linkedinUrl || null })}
+            disabled={upsertProfile.isPending}
+          >
+            {upsertProfile.isPending ? "Saving..." : "Save Contact Info"}
           </Button>
         </CardContent>
       </Card>

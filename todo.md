@@ -406,3 +406,12 @@
 - [x] Replaced with inline IIFE using same formatter as dropdown: "{Company} — {Job Title} ({score}%) · {MMM D}"
 - [x] Run id preserved as tooltip (title attribute on span)
 - [x] 431 tests pass (no regressions)
+
+## Prompt B1: Outreach Signature — No Placeholders
+- [x] Read outreach.generatePack procedure and LLM prompt template
+- [x] Add phone + linkedinUrl columns to userProfiles schema (migration 0010)
+- [x] Expose phone/linkedinUrl in profile.upsert mutation
+- [x] Add Contact Info card to Profile page (phone + linkedin URL inputs)
+- [x] Inject real phone/linkedin into generatePack LLM prompt signatureBlock (omit lines if missing)
+- [x] Post-process: stripBrackets removes all bracket placeholder variants
+- [x] Tests: A-K (11 tests) — all bracket variants stripped, real content preserved, signatureBlock with/without phone/linkedin, triple newline collapse

@@ -104,6 +104,8 @@ export const appRouter = router({
       graduationDate: z.string().optional(),
       currentlyEnrolled: z.boolean().optional(),
       onboardingComplete: z.boolean().optional(),
+      phone: z.string().max(64).nullable().optional(),
+      linkedinUrl: z.string().max(512).nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
       await db.upsertProfile(ctx.user.id, input);
       return { success: true };
@@ -1283,15 +1285,21 @@ export const appRouter = router({
       const profile = await db.getProfile(ctx.user.id);
       const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "NEW_GRAD");
 
+      // Build signature lines from real profile fields; omit if missing
+      const sigLines: string[] = [];
+      if (profile?.phone) sigLines.push(`Phone: ${profile.phone}`);
+      if (profile?.linkedinUrl) sigLines.push(`LinkedIn: ${profile.linkedinUrl}`);
+      const signatureBlock = sigLines.length > 0 ? `\nSignature lines to include:\n${sigLines.join("\n")}` : "\nDo NOT include any phone or LinkedIn placeholder lines in the signature.";
+
       const llmResult = await invokeLLM({
         messages: [
           {
             role: "system",
-            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2.`
+            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2. IMPORTANT: Never use bracket placeholders like [Your Phone Number] or [Your LinkedIn Profile URL]. Use only real values provided or omit those lines entirely.`
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}`
           }
         ],
         response_format: {
@@ -1315,7 +1323,24 @@ export const appRouter = router({
       });
 
       const content = llmResult.choices[0]?.message?.content;
-      const parsed = JSON.parse(typeof content === "string" ? content : "{}");
+      const rawParsed = JSON.parse(typeof content === "string" ? content : "{}");
+      // Strip any remaining bracket placeholders the LLM may have included
+      const stripBrackets = (text: string) =>
+        text
+          .replace(/\[Your Phone Number\]/gi, "")
+          .replace(/\[Your LinkedIn Profile URL\]/gi, "")
+          .replace(/\[Your LinkedIn URL\]/gi, "")
+          .replace(/\[LinkedIn Profile\]/gi, "")
+          .replace(/\[Phone\]/gi, "")
+          .replace(/\[[^\]]{1,60}\]/g, "") // catch any other short bracket placeholders
+          .replace(/\n{3,}/g, "\n\n") // collapse triple+ newlines left by removed lines
+          .trim();
+      const parsed = {
+        recruiter_email: stripBrackets(rawParsed.recruiter_email ?? ""),
+        linkedin_dm: stripBrackets(rawParsed.linkedin_dm ?? ""),
+        follow_up_1: stripBrackets(rawParsed.follow_up_1 ?? ""),
+        follow_up_2: stripBrackets(rawParsed.follow_up_2 ?? ""),
+      };
 
       const spent = await db.spendCredits(ctx.user.id, 1, "Outreach Pack generation", "outreach_pack");
       if (!spent) throw new Error("Failed to spend credit.");

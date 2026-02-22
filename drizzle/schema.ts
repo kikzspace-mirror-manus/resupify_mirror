@@ -35,11 +35,12 @@ export const userProfiles = mysqlTable("user_profiles", {
   needsSponsorship: mysqlEnum("needsSponsorship", ["true", "false", "unknown"]).default("unknown"),
   countryOfResidence: varchar("countryOfResidence", { length: 128 }),
   willingToRelocate: boolean("willingToRelocate"),
+  phone: varchar("phone", { length: 64 }),
+  linkedinUrl: text("linkedinUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
-export type UserProfile = typeof userProfiles.$inferSelect;
+export type UserProfile = typeof userProfiles.$inferSelect;;
 export type InsertUserProfile = typeof userProfiles.$inferInsert;
 
 // ─── Credits ─────────────────────────────────────────────────────────
