@@ -745,6 +745,9 @@ export const appRouter = router({
     activeTrends: protectedProcedure.query(async ({ ctx }) => {
       return db.getActiveScoredJobCards(ctx.user.id, 10, 10);
     }),
+    allScannedJobs: protectedProcedure.query(async ({ ctx }) => {
+      return db.getAllScannedJobCards(ctx.user.id);
+    }),
     run: protectedProcedure.use(evidenceRateLimit).input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),

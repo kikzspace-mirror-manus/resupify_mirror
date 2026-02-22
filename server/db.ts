@@ -911,3 +911,66 @@ export async function deletePersonalizationSource(id: number, userId: number) {
       eq(jobCardPersonalizationSources.userId, userId),
     ));
 }
+
+// ─── All Scanned Job Cards (Analytics ATS History) ───────────────────────────
+export async function getAllScannedJobCards(
+  userId: number
+): Promise<
+  Array<{
+    id: number;
+    title: string;
+    company: string | null;
+    stage: string;
+    runs: Array<{ id: number; overallScore: number | null; createdAt: Date }>;
+  }>
+> {
+  const db = await getDb();
+  if (!db) return [];
+  // 1. Fetch all job cards for this user that have at least 1 completed run
+  const cards = await db
+    .select({
+      id: jobCards.id,
+      title: jobCards.title,
+      company: jobCards.company,
+      stage: jobCards.stage,
+    })
+    .from(jobCards)
+    .where(eq(jobCards.userId, userId))
+    .orderBy(desc(jobCards.updatedAt));
+  if (cards.length === 0) return [];
+  const cardIds = cards.map((c) => c.id);
+  // 2. Fetch all completed runs for those cards
+  const runs = await db
+    .select({
+      id: evidenceRuns.id,
+      jobCardId: evidenceRuns.jobCardId,
+      overallScore: evidenceRuns.overallScore,
+      createdAt: evidenceRuns.createdAt,
+    })
+    .from(evidenceRuns)
+    .where(
+      and(
+        inArray(evidenceRuns.jobCardId, cardIds),
+        eq(evidenceRuns.status, "completed")
+      )
+    )
+    .orderBy(asc(evidenceRuns.createdAt));
+  // 3. Group runs by jobCardId
+  const runsByCard = new Map<number, Array<{ id: number; overallScore: number | null; createdAt: Date }>>();
+  for (const run of runs) {
+    if (!run.jobCardId) continue;
+    const arr = runsByCard.get(run.jobCardId) ?? [];
+    arr.push({ id: run.id, overallScore: run.overallScore, createdAt: run.createdAt });
+    runsByCard.set(run.jobCardId, arr);
+  }
+  // 4. Merge and filter to only cards with >=1 run, sort by latest run desc
+  const result = cards
+    .map((card) => ({ ...card, runs: runsByCard.get(card.id) ?? [] }))
+    .filter((card) => card.runs.length > 0)
+    .sort((a, b) => {
+      const aLatest = a.runs[a.runs.length - 1]?.createdAt?.getTime() ?? 0;
+      const bLatest = b.runs[b.runs.length - 1]?.createdAt?.getTime() ?? 0;
+      return bLatest - aLatest;
+    });
+  return result;
+}

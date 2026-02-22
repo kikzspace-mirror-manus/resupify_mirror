@@ -583,3 +583,13 @@
 - [x] Add "Run scan →" button per TrendRow navigating to /jobs/:id?tab=evidence (hover-visible, opacity transition)
 - [x] Add lazy URL param initializer to JobCardDetail activeTab useState (also fixes jd-snapshot shortcut)
 - [x] Tests: A-F (6 tests) — 779 tests pass total
+
+## Patch: Analytics ATS Score History Section
+- [x] Audit evidence.activeTrends query and Analytics page structure
+- [x] Add getAllScannedJobCards db helper (all stages, no card limit, sorted by latest run desc)
+- [x] Add evidence.allScannedJobs tRPC query (additive, read-only)
+- [x] Add ATS Score History table to /analytics (Job, Last scan, Latest score, Run count, Open job link)
+- [x] Default sort: last scan date desc
+- [x] Expandable row: show all runs (date + score) per job (latest first)
+- [x] Wire real avgScore from scanned jobs into the Avg ATS Score metric card
+- [x] Tests: A-H (8 tests) — 787 tests pass total
