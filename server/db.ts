@@ -128,10 +128,18 @@ export async function addCredits(userId: number, amount: number, reason: string,
   });
 }
 
+/** Maximum number of ledger rows returned to the Billing page. */
+export const LEDGER_DISPLAY_CAP = 25;
+
 export async function getCreditLedger(userId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(creditsLedger).where(eq(creditsLedger.userId, userId)).orderBy(desc(creditsLedger.createdAt));
+  return db
+    .select()
+    .from(creditsLedger)
+    .where(eq(creditsLedger.userId, userId))
+    .orderBy(desc(creditsLedger.createdAt))
+    .limit(LEDGER_DISPLAY_CAP);
 }
 
 // ─── Resumes ─────────────────────────────────────────────────────────
@@ -1069,4 +1077,33 @@ export async function recordStripeEvent(
     if (err?.code === "ER_DUP_ENTRY" || err?.message?.includes("Duplicate entry")) return;
     throw err;
   }
+}
+
+// ─── Admin: Stripe Events (Phase 10C-2) ──────────────────────────────────────
+/**
+ * List stripe_events for the admin view.
+ * Returns only fields already in the stripe_events table — no joins, no PII.
+ * Supports filtering by status and eventType, with limit/offset pagination.
+ */
+export async function adminListStripeEvents(filter: {
+  status?: "processed" | "manual_review" | "skipped";
+  eventType?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+  const { eq: eqFn, and: andFn, desc: descFn } = await import("drizzle-orm");
+  const { limit = 100, offset = 0, status, eventType } = filter;
+  const conditions: ReturnType<typeof eqFn>[] = [];
+  if (status) conditions.push(eqFn(stripeEvents.status, status));
+  if (eventType) conditions.push(eqFn(stripeEvents.eventType, eventType));
+  const rows = await db
+    .select()
+    .from(stripeEvents)
+    .where(conditions.length > 0 ? andFn(...conditions) : undefined)
+    .orderBy(descFn(stripeEvents.createdAt))
+    .limit(Math.min(limit, 500))
+    .offset(offset);
+  return rows;
 }

@@ -641,3 +641,14 @@
 - [x] Add isStripeTestMode to stripe tRPC router (publicProcedure, derived from STRIPE_SECRET_KEY prefix)
 - [x] Guard test-card helper text in Billing.tsx with isStripeTestMode
 - [x] Tests: A-E (5 tests) — 840 tests pass total, 0 TypeScript errors
+
+## Phase 10C-2: Admin Stripe Events + Billing TX History Containment
+- [x] Add adminListStripeEvents db helper to server/db.ts
+- [x] Add admin.stripeEvents.list adminProcedure to server/routers/admin.ts
+- [x] Cap credits.ledger query to latest 25 rows (constant LEDGER_DISPLAY_CAP)
+- [x] Build /admin/stripe-events page (AdminLayout, filters, table)
+- [x] Add Stripe Events nav item to AdminLayout
+- [x] Register /admin/stripe-events route in App.tsx
+- [x] Wrap Billing TX History list in fixed-height (380px) scroll container
+- [x] Add "Showing latest N transactions" note
+- [x] Tests: A-J (10 tests) — 850 tests pass total, 0 TypeScript errors

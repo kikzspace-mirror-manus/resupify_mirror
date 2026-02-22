@@ -611,6 +611,24 @@ ${buildToneSystemPrompt()}`
     return db.getAdminActionLogs(input?.limit ?? 100);
   }),
 
+  // ─── Stripe Events (Phase 10C-2) ──────────────────────────────────
+  // Read-only, admin-only. Returns stripe_events table rows only.
+  // No joins, no PII, no free text.
+  stripeEvents: router({
+    list: adminProcedure.input(z.object({
+      status: z.enum(["processed", "manual_review", "skipped"]).optional(),
+      eventType: z.string().max(128).optional(),
+      limit: z.number().min(1).max(500).optional().default(100),
+      offset: z.number().min(0).optional().default(0),
+    }).optional()).query(async ({ input }) => {
+      return db.adminListStripeEvents({
+        status: input?.status,
+        eventType: input?.eventType,
+        limit: input?.limit ?? 100,
+        offset: input?.offset ?? 0,
+      });
+    }),
+  }),
   // ─── Operational Events (Phase 10B-2B) ───────────────────────────
   // Read-only, admin-only. Returns non-PII operational signals.
   // No payload, no names, no emails — only hashes + enum fields.

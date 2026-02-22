@@ -127,11 +127,21 @@ export default function Billing() {
       {/* Transaction History */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Transaction History</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Transaction History</CardTitle>
+            {ledger && ledger.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Showing latest {ledger.length} transaction{ledger.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {ledger && ledger.length > 0 ? (
-            <div className="space-y-2">
+            <div
+              className="space-y-2 overflow-y-auto pr-1"
+              style={{ maxHeight: "380px" }}
+            >
               {ledger.map((entry) => (
                 <div
                   key={entry.id}
