@@ -3,7 +3,7 @@ import { z } from "zod";
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
-import { computeSalutation, fixSalutation } from "../../shared/outreachHelpers";
+import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp } from "../../shared/outreachHelpers";
 import { buildToneSystemPrompt, sanitizeTone } from "../../shared/toneGuardrails";
 
 export const adminRouter = router({
@@ -120,7 +120,11 @@ export const adminRouter = router({
       await db.logAdminAction(ctx.user.id, "admin_test_evidence_run", undefined, { jobCardId: input.jobCardId, resumeId: input.resumeId, runId });
 
       try {
-        const llmResult = await invokeLLM({
+        // Fetch personalization sources (up to 3 most recent) for this job card
+      const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+      const topSources = personalizationSources.slice(0, 3);
+      const personalizationBlock = buildPersonalizationBlock(topSources);
+      const llmResult = await invokeLLM({
           messages: [
             {
               role: "system",
@@ -526,6 +530,10 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
       // Admin test mode: delta=0
       await db.adminLogTestRun(ctx.user.id, "Sandbox Outreach Pack generation", "outreach_pack");
       await db.logAdminAction(ctx.user.id, "sandbox_outreach_pack", undefined, { jobCardId: input.jobCardId });
+      // Fetch personalization sources (up to 3 most recent) for this job card
+      const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+      const topSources = personalizationSources.slice(0, 3);
+      const personalizationBlock = buildPersonalizationBlock(topSources);
       const llmResult = await invokeLLM({
         messages: [
           {
@@ -536,7 +544,7 @@ ${buildToneSystemPrompt()}`
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}${personalizationBlock ? `\n\n${personalizationBlock}` : ""}`
           }
         ],
         response_format: {
@@ -575,8 +583,8 @@ ${buildToneSystemPrompt()}`
       const parsed = {
         recruiter_email: sanitizeTone(fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"), false),
         linkedin_dm: sanitizeTone(fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"), false),
-        follow_up_1: sanitizeTone(fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email"), true),
-        follow_up_2: sanitizeTone(fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email"), true),
+        follow_up_1: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email")), true),
+        follow_up_2: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email")), true),
       };
 
       const packId = await db.createOutreachPack({

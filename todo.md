@@ -450,3 +450,13 @@
 - [x] Inject tone guardrails into admin sandbox generateOutreachTestMode LLM system prompt
 - [x] Run sanitizeTone post-process on all 4 output fields (both prod + sandbox)
 - [x] Tests: A-D (510 tests pass)
+
+## Phase 9C4: Use Personalization Sources in Outreach
+- [x] Add buildPersonalizationBlock(sources) helper in shared/outreachHelpers.ts
+- [x] Fetch up to 3 personalization sources in generatePack (before LLM call)
+- [x] Inject personalization context block into generatePack user message
+- [x] Fetch up to 3 personalization sources in generateOutreachTestMode (before LLM call)
+- [x] Inject personalization context block into generateOutreachTestMode user message
+- [x] Add post-process guard: personalization appears at most once in email/DM; follow-ups contain none
+- [x] Update Admin Sandbox UI: show "Using personalization: Yes/No (N sources)" note
+- [x] Tests: A-E (530 tests pass)

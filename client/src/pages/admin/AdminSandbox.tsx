@@ -53,6 +53,12 @@ export default function AdminSandbox() {
 
   const effectiveJobId = manualJobId ? parseInt(manualJobId) : sampleJobId;
   const effectiveResumeId = manualResumeId ? parseInt(manualResumeId) : sampleResumeId;
+  // Personalization sources count for the current job card
+  const { data: personalizationSources } = trpc.personalization.list.useQuery(
+    { jobCardId: effectiveJobId! },
+    { enabled: !!effectiveJobId }
+  );
+  const personalizationCount = personalizationSources?.length ?? 0;
 
   return (
     <AdminLayout>
@@ -221,6 +227,16 @@ export default function AdminSandbox() {
                 className="max-w-sm"
               />
             </div>
+            {effectiveJobId && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium">Using personalization:</span>
+                {personalizationCount > 0 ? (
+                  <span className="text-green-600 font-medium">Yes ({personalizationCount} source{personalizationCount !== 1 ? "s" : ""})</span>
+                ) : (
+                  <span className="text-muted-foreground">No (0 sources saved for this job card)</span>
+                )}
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={() => {

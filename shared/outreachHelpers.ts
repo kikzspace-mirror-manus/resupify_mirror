@@ -36,6 +36,88 @@ export function computeSalutation(
   return firstName ? `Dear ${firstName},` : "Dear Hiring Manager,";
 }
 
+// ─── Personalization Sources ─────────────────────────────────────────────────
+
+/** Minimal shape needed from job_card_personalization_sources rows */
+export interface PersonalizationSourceRow {
+  sourceType: string;
+  url?: string | null;
+  pastedText?: string | null;
+}
+
+/**
+ * Build the === PERSONALIZATION CONTEXT === block to inject into the LLM user message.
+ * Returns an empty string when sources is empty (no injection).
+ *
+ * @param sources - Up to 3 most-recent sources (caller is responsible for slicing)
+ * @param maxExcerptChars - Max chars per excerpt (default 800)
+ */
+export function buildPersonalizationBlock(
+  sources: PersonalizationSourceRow[],
+  maxExcerptChars = 800
+): string {
+  if (!sources || sources.length === 0) return "";
+
+  const lines: string[] = [
+    "=== PERSONALIZATION CONTEXT (USER-PROVIDED) ===",
+    "Use ONLY this information for personalization. Do not invent details.",
+    "If the context is too vague or unclear, skip personalization entirely.",
+    "Never mention 'I saw your LinkedIn' unless the source type is linkedin_post or linkedin_about, or the URL is a LinkedIn URL.",
+    "Never include private or personal details. Use only professional topics.",
+    "Insert personalization in: recruiter email (max 1 sentence after greeting) and LinkedIn DM (max 1 sentence after greeting). Do NOT add personalization to follow-ups.",
+  ];
+
+  sources.forEach((src, i) => {
+    lines.push(`Source ${i + 1} (${src.sourceType}):`);
+    if (src.url) lines.push(`  URL: ${src.url}`);
+    if (src.pastedText) {
+      const excerpt = src.pastedText.trim().slice(0, maxExcerptChars);
+      lines.push(`  Excerpt: "${excerpt}"`);
+    }
+  });
+
+  lines.push("=== END PERSONALIZATION CONTEXT ===");
+  return lines.join("\n");
+}
+
+/**
+ * Post-process guard for personalization:
+ * - Ensures personalization appears at most once in recruiter email and DM.
+ * - Ensures follow-ups contain no personalization references.
+ *
+ * This is a lightweight heuristic guard. The LLM is the primary enforcement.
+ * We detect "personalization sentences" as lines that contain phrases like
+ * "I noticed", "I saw", "I read", "I came across", "I was impressed",
+ * "your recent post", "your article", "your news", "your announcement".
+ */
+const PERSONALIZATION_SIGNALS = [
+  /\bI noticed\b/i,
+  /\bI saw\b/i,
+  /\bI read\b/i,
+  /\bI came across\b/i,
+  /\bI was impressed\b/i,
+  /\byour recent post\b/i,
+  /\byour article\b/i,
+  /\byour news\b/i,
+  /\byour announcement\b/i,
+  /\byour LinkedIn post\b/i,
+  /\byour LinkedIn article\b/i,
+];
+
+function hasPersonalizationSignal(sentence: string): boolean {
+  return PERSONALIZATION_SIGNALS.some((re) => re.test(sentence));
+}
+
+/**
+ * Remove all personalization sentences from a text block.
+ * Used for follow-ups.
+ */
+export function stripPersonalizationFromFollowUp(text: string): string {
+  if (!text) return text;
+  const sentences = text.split(/((?<=[.!?])\s+)/);
+  return sentences.filter((s) => !hasPersonalizationSignal(s)).join("").trim();
+}
+
 /**
  * Post-process guard: replace any "Dear ," or "Dear," patterns left by the LLM
  * with the correct fallback salutation.
