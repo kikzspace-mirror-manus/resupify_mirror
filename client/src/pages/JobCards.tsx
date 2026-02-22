@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,8 @@ import {
   ExternalLink,
   Search,
   Bell,
+  ShieldAlert,
+  Loader2,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -65,6 +68,29 @@ const stageColors: Record<string, string> = {
  * - Due within 2 days: amber
  * - Otherwise: green/muted
  */
+/**
+ * Returns badge props for the eligibility pre-check status.
+ */
+function getEligibilityBadgeProps(status: string | null | undefined): {
+  label: string;
+  className: string;
+  title: string;
+} | null {
+  if (!status || status === "none") return null;
+  if (status === "conflict") {
+    return {
+      label: "Eligibility risk",
+      className: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700",
+      title: "Based on the job description. Complete your profile or run a scan for details.",
+    };
+  }
+  return {
+    label: "Eligibility",
+    className: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700",
+    title: "Based on the job description. Complete your profile or run a scan for details.",
+  };
+}
+
 function getFollowupBadgeProps(nextFollowupDueAt: Date | null | undefined): {
   label: string;
   className: string;
@@ -113,6 +139,13 @@ export default function JobCards() {
   );
 
   const { data: jobs, isLoading } = trpc.jobCards.list.useQuery({});
+
+  // Profile nudge banner (shared with Dashboard/Today)
+  const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery();
+  const workStatus = (profile as any)?.workStatus ?? null;
+  const { showNudge, handleDismiss: handleDismissNudge } = useProfileNudge(
+    profileLoading ? "loading" : workStatus
+  );
 
   // Stage update mutation used by drag-and-drop
   const updateStage = trpc.jobCards.update.useMutation({
@@ -182,6 +215,8 @@ export default function JobCards() {
 
   return (
     <div className="space-y-4">
+      {/* Profile completeness nudge — shown only when work_status is unknown */}
+      {showNudge && <ProfileNudgeBanner onDismiss={handleDismissNudge} />}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Job Cards</h1>
@@ -304,9 +339,13 @@ export default function JobCards() {
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{job.title}</p>
                     {job.priority === "high" && (
-                      <Badge variant="destructive" className="text-xs">
-                        High
-                      </Badge>
+                      <Badge variant="destructive" className="text-xs">High</Badge>
+                    )}
+                    {job.priority === "medium" && (
+                      <Badge variant="secondary" className="text-xs">Medium</Badge>
+                    )}
+                    {job.priority === "low" && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">Low</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -331,6 +370,22 @@ export default function JobCards() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  {(() => {
+                    const ep = getEligibilityBadgeProps((job as any).eligibilityPrecheckStatus);
+                    return ep ? (
+                      <Badge
+                        className={`text-xs border ${ep.className} cursor-pointer`}
+                        title={ep.title}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocation(`/jobs/${job.id}`);
+                        }}
+                      >
+                        <ShieldAlert className="h-3 w-3 mr-1" />
+                        {ep.label}
+                      </Badge>
+                    ) : null;
+                  })()}
                   {(() => {
                     const fp = getFollowupBadgeProps((job as any).nextFollowupDueAt);
                     return fp ? (
@@ -393,7 +448,7 @@ function KanbanColumn({
   onCardClick,
 }: {
   stage: string;
-  jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null }>;
+  jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null }>;
   onCardClick: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
@@ -430,7 +485,7 @@ function KanbanCard({
   job,
   onCardClick,
 }: {
-  job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null };
+  job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null };
   onCardClick: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -456,10 +511,27 @@ function KanbanCard({
         {job.company ?? "—"}
       </p>
       {job.priority === "high" && (
-        <Badge variant="destructive" className="text-xs mt-2">
-          High Priority
-        </Badge>
+        <Badge variant="destructive" className="text-xs mt-2">High</Badge>
       )}
+      {job.priority === "medium" && (
+        <Badge variant="secondary" className="text-xs mt-2">Medium</Badge>
+      )}
+      {job.priority === "low" && (
+        <Badge variant="outline" className="text-xs mt-2 text-muted-foreground">Low</Badge>
+      )}
+      {(() => {
+        const ep = getEligibilityBadgeProps(job.eligibilityPrecheckStatus);
+        return ep ? (
+          <div
+            className={`flex items-center gap-1 text-xs mt-2 px-2 py-0.5 rounded-full border w-fit cursor-pointer ${ep.className}`}
+            title={ep.title}
+            onClick={(e) => { e.stopPropagation(); onCardClick(job.id); }}
+          >
+            <ShieldAlert className="h-3 w-3" />
+            <span>{ep.label}</span>
+          </div>
+        ) : null;
+      })()}
       {(() => {
         const fp = getFollowupBadgeProps(job.nextFollowupDueAt);
         return fp ? (
@@ -493,7 +565,45 @@ function CreateJobDialog({
   const [jdText, setJdText] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [season, setSeason] = useState<string>("");
-
+  // Phase 9A: URL fetch state
+  const [fetchJdError, setFetchJdError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Phase 9B: auto-fill state
+  const [autoFilling, setAutoFilling] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
+  const isValidHttpsUrl = (u: string) => {
+    try { const p = new URL(u); return p.protocol === "https:"; } catch { return false; }
+  };
+  const extractFields = trpc.jdSnapshots.extractFields.useMutation();
+  const fetchFromUrl = trpc.jdSnapshots.fetchFromUrl.useMutation({
+    onSuccess: async (data) => {
+      setJdText(data.text);
+      setFetchedAt(new Date(data.fetchedAt).toLocaleTimeString());
+      setFetchJdError(null);
+      toast.success("JD text fetched! Review and click Create Job Card.");
+      // Phase 9B: async auto-fill (non-destructive — only fills empty fields)
+      setAutoFilling(true);
+      setAutoFilled(false);
+      try {
+        let hostname = "";
+        try { hostname = new URL(url).hostname; } catch {}
+        const fields = await extractFields.mutateAsync({ text: data.text, urlHostname: hostname });
+        let filled = false;
+        // Read current values via closure — only fill if still empty
+        setTitle((prev) => { if (!prev.trim() && fields.job_title) { filled = true; return fields.job_title; } return prev; });
+        setCompany((prev) => { if (!prev.trim() && fields.company_name) { filled = true; return fields.company_name; } return prev; });
+        setLocation((prev) => { if (!prev.trim() && fields.location) { filled = true; return fields.location; } return prev; });
+        if (filled) setAutoFilled(true);
+      } catch {
+        // silently ignore extraction failures
+      } finally {
+        setAutoFilling(false);
+      }
+    },
+    onError: (err) => {
+      setFetchJdError(err.message);
+    },
+  });
   const createJob = trpc.jobCards.create.useMutation({
     onSuccess: () => {
       toast.success("Job card created!");
@@ -542,12 +652,23 @@ function CreateJobDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Job Title *</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="title">Job Title *</Label>
+              {autoFilling && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Auto-filling…
+                </span>
+              )}
+              {!autoFilling && autoFilled && (
+                <span className="text-xs text-emerald-600">Auto-filled from JD (edit anytime).</span>
+              )}
+            </div>
             <Input
               id="title"
               placeholder="e.g., Software Developer Intern"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); setAutoFilled(false); }}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -572,12 +693,42 @@ function CreateJobDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="url">Job URL</Label>
-            <Input
-              id="url"
-              placeholder="https://..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="url"
+                placeholder="https://..."
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setFetchJdError(null);
+                  setFetchedAt(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && isValidHttpsUrl(url)) {
+                    e.preventDefault();
+                    fetchFromUrl.mutate({ url });
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending}
+                onClick={() => fetchFromUrl.mutate({ url })}
+                className="shrink-0"
+              >
+                {fetchFromUrl.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Fetch JD"
+                )}
+              </Button>
+            </div>
+            {fetchJdError && (
+              <p className="text-xs text-destructive">{fetchJdError}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -614,14 +765,20 @@ function CreateJobDialog({
             </Label>
             <Textarea
               id="jdText"
-              placeholder="Paste the full job description here to create a JD Snapshot..."
+              placeholder="Paste the full job description here, or use Fetch JD above to auto-fill..."
               value={jdText}
               onChange={(e) => setJdText(e.target.value)}
               className="min-h-[120px] text-sm"
             />
-            <p className="text-xs text-muted-foreground">
-              This will be saved as an immutable JD Snapshot.
-            </p>
+            {fetchedAt ? (
+              <p className="text-xs text-emerald-600">
+                Fetched at {fetchedAt} — review and click Create Job Card.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                This will be saved as an immutable JD Snapshot.
+              </p>
+            )}
           </div>
           <Button
             type="submit"

@@ -158,8 +158,9 @@ describe("outreach.generatePack", () => {
 
     expect(result.recruiter_email).toBe("Email body");
     expect(result.linkedin_dm).toBe("LinkedIn body");
-    expect(result.follow_up_1).toBe("Follow-up 1 body");
-    expect(result.follow_up_2).toBe("Follow-up 2 body");
+    // sanitizeTone appends no-pressure fallback to follow-ups lacking the required clauses
+    expect(result.follow_up_1).toContain("Follow-up 1 body");
+    expect(result.follow_up_2).toContain("Follow-up 2 body");
   });
 
   it("F) credit charge uses correct reason string (no breaking change)", async () => {

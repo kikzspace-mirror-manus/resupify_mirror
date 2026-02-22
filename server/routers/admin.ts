@@ -3,6 +3,8 @@ import { z } from "zod";
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
+import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../../shared/outreachHelpers";
+import { buildToneSystemPrompt, sanitizeTone } from "../../shared/toneGuardrails";
 
 export const adminRouter = router({
   // ─── Dashboard KPIs ──────────────────────────────────────────────
@@ -118,7 +120,11 @@ export const adminRouter = router({
       await db.logAdminAction(ctx.user.id, "admin_test_evidence_run", undefined, { jobCardId: input.jobCardId, resumeId: input.resumeId, runId });
 
       try {
-        const llmResult = await invokeLLM({
+        // Fetch personalization sources (up to 3 most recent) for this job card
+      const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+      const topSources = personalizationSources.slice(0, 3);
+      const personalizationBlock = buildPersonalizationBlock(topSources);
+      const llmResult = await invokeLLM({
           messages: [
             {
               role: "system",
@@ -503,6 +509,9 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
 
     generateOutreachTestMode: adminProcedure.input(z.object({
       jobCardId: z.number(),
+      contactName: z.string().optional(),
+      contactEmail: z.string().email().optional(),
+      contactLinkedInUrl: z.string().url().optional(),
     })).mutation(async ({ ctx, input }) => {
       const jobCard = await db.getJobCardById(input.jobCardId, ctx.user.id);
       if (!jobCard) throw new Error("Job card not found.");
@@ -510,20 +519,36 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
       const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "COOP");
-
+      // Resolve contact name, email, and LinkedIn URL for deterministic salutation (Fix 1/4), To: line (Fix 2/4), and LinkedIn: line (Fix 3/4)
+      const emailSalutation = computeSalutation(input.contactName ?? null, "email");
+      const linkedinSalutation = computeSalutation(input.contactName ?? null, "linkedin");
+      const contactEmailBlock = buildContactEmailBlock(input.contactEmail ?? null);
+      const linkedInBlock = buildLinkedInBlock(input.contactLinkedInUrl ?? null);
+      // Build signature lines from real profile fields (same as production, Prompt B1)
+      const sigLines: string[] = [];
+      if (profile?.phone) sigLines.push(`Phone: ${profile.phone}`);
+      if (profile?.linkedinUrl) sigLines.push(`LinkedIn: ${profile.linkedinUrl}`);
+      const signatureBlock = sigLines.length > 0
+        ? `\nSignature lines to include:\n${sigLines.join("\n")}`
+        : "\nDo NOT include any phone or LinkedIn placeholder lines in the signature.";
       // Admin test mode: delta=0
       await db.adminLogTestRun(ctx.user.id, "Sandbox Outreach Pack generation", "outreach_pack");
       await db.logAdminAction(ctx.user.id, "sandbox_outreach_pack", undefined, { jobCardId: input.jobCardId });
-
+      // Fetch personalization sources (up to 3 most recent) for this job card
+      const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+      const topSources = personalizationSources.slice(0, 3);
+      const personalizationBlock = buildPersonalizationBlock(topSources);
       const llmResult = await invokeLLM({
         messages: [
           {
             role: "system",
-            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2.`
+            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2. IMPORTANT: Never use bracket placeholders like [Your Phone Number] or [Your LinkedIn Profile URL]. Use only real values provided or omit those lines entirely.
+
+${buildToneSystemPrompt()}`
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}${contactEmailBlock ? `\n${contactEmailBlock}` : ""}${linkedInBlock ? `\n${linkedInBlock}` : ""}${personalizationBlock ? `\n\n${personalizationBlock}` : ""}`
           }
         ],
         response_format: {
@@ -547,7 +572,24 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
       });
 
       const content = llmResult.choices[0]?.message?.content;
-      const parsed = JSON.parse(typeof content === "string" ? content : "{}");
+      const rawParsed = JSON.parse(typeof content === "string" ? content : "{}");
+      // Strip bracket placeholders and fix salutation (parity with production)
+      const stripBrackets = (text: string) =>
+        text
+          .replace(/\[Your Phone Number\]/gi, "")
+          .replace(/\[Your LinkedIn Profile URL\]/gi, "")
+          .replace(/\[Your LinkedIn URL\]/gi, "")
+          .replace(/\[LinkedIn Profile\]/gi, "")
+          .replace(/\[Phone\]/gi, "")
+          .replace(/\[[^\]]{1,60}\]/g, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      const parsed = {
+        recruiter_email: fixContactEmail(sanitizeTone(fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"), false), input.contactEmail ?? null),
+        linkedin_dm: fixLinkedInUrl(sanitizeTone(fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"), false), input.contactLinkedInUrl ?? null),
+        follow_up_1: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email")), true),
+        follow_up_2: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email")), true),
+      };
 
       const packId = await db.createOutreachPack({
         userId: ctx.user.id,

@@ -239,3 +239,300 @@
 - [x] Filter scoreHistory query by selectedResumeId
 - [x] Empty state when selected resume has 0 runs (different message when dropdown visible)
 - [x] Tests: A-G+A2+B2+C2+D2 (11 tests) — one resume hidden, multiple shown, orphaned run IDs, dedup, empty state messages, default selection, title mapping
+
+## Patch 8B: Work Authorization Eligibility (Citizen/PR vs Temp Resident)
+- [x] Add work_status, work_status_detail, needs_sponsorship, country_of_residence, willing_to_relocate fields to userProfiles table
+- [x] Push schema migration (0008)
+- [x] Update Region Pack schema: add eligibility_checks array with rule objects (trigger_phrases, condition, penalty, message)
+- [x] Add CA_COOP and CA_NEW_GRAD eligibility rules (4 rules: Citizen/PR, no sponsorship, unknown status, location)
+- [x] Add eligibility detection logic to evidence.run mutation (scan job_card_requirements or JD text for triggers)
+- [x] Apply role_fit penalties via pack rules and persist eligibility flags in scoreBreakdownJson
+- [x] Build Eligibility banner/section in JobCardDetail Overview tab (show triggered rules + guidance)
+- [x] Add work status profile fields to user profile UI (Profile page at /profile)
+- [x] Tests: 10 tests passing (218 total)
+
+## Patch 8B Part 2: Work Auth Eligibility Detection + UI + Role Fit Penalties
+- [x] Add evaluateWorkAuthRules() helper: scan JD text for trigger phrases, evaluate conditions against profile, return triggered rules
+- [x] Integrate evaluateWorkAuthRules into evidence.run mutation after role_fit score computed
+- [x] Apply penalties to role_fit_score (clamp 0-100) and persist workAuthorizationFlags in scoreBreakdownJson
+- [x] Show compact "Work authorization" flag list in Evidence tab score breakdown area (EligibilityBanner in Overview)
+- [x] Add Eligibility section/card to JobCardDetail Overview tab (triggered rules + guidance + Update work status link)
+- [x] Add work status fields to user settings/profile page (work_status, work_status_detail, needs_sponsorship, country_of_residence, willing_to_relocate)
+- [x] Add profile.updateWorkStatus tRPC mutation
+- [x] Tests: 1-8 (10 tests) — citizen/PR no penalty, temp resident penalty, sponsorship penalty, unknown soft penalty, no trigger no penalty, role_fit clamped to 0, scoreBreakdownJson structure, updateWorkStatus mutation
+
+## Patch 8C1: Eligibility Pre-Check on Job Card Creation (Soft Badge)
+- [x] Add eligibilityPrecheckStatus enum (none|recommended|conflict), eligibilityPrecheckRulesJson (text nullable), eligibilityPrecheckUpdatedAt to jobCards table
+- [x] Push schema migration (0009)
+- [x] Add runEligibilityPrecheck(jdText, profile, pack) pure helper: returns { status, triggeredRules }
+- [x] Wire into jdSnapshots.save: after snapshot saved, run precheck and update job card
+- [x] Wire into jobCards.create: if JD text provided, run precheck after card created
+- [x] eligibilityPrecheckStatus returned via existing jobCards.list/get (Drizzle returns all columns)
+- [x] Render "Eligibility" badge (amber) and "Eligibility risk" badge (red) on list view rows
+- [x] Render same badges on Kanban card tiles
+- [x] Badge tooltip: "Based on the job description. Complete your profile or run a scan for details."
+- [x] Badge click: navigate to job card detail page
+- [x] Tests: A-F+EC (18 tests) — conflict, recommended, none, case-insensitive, multiple rules, null profile, pure function, no credits, no block on failure
+
+## Patch 8C2: Dashboard Profile Completeness Nudge
+- [x] Add ProfileNudgeBanner component (dismissible, localStorage persistence 30 days)
+- [x] Show banner on Dashboard only when work_status is unknown/null
+- [x] Primary CTA: "Complete profile" → /profile
+- [x] Secondary: "Dismiss" with X icon (keyboard accessible)
+- [x] localStorage key: profileNudgeDismissed with timestamp, 30-day expiry
+- [x] Tests: A-D+EC (14 tests) — unknown shows, set hides, dismiss persists, 30-day expiry, expired re-shows, invalid storage, empty string treated as unknown
+
+## Patch 8C3: Eligibility Pre-Check on JD URL Import (Parity)
+- [x] Confirmed: no separate URL import/scrape flow exists — url field is metadata only
+- [x] Both JD entry paths (jobCards.create + jdSnapshots.create) already have precheck wired (8C1)
+- [x] Tests: A-D (11 tests) — conflict detection, no-trigger none, null profile recommended, citizen_pr no conflict, pure function shape, empty rules
+
+## Patch 8C4: Profile Completeness Nudge on Today Page
+- [x] Extract ProfileNudgeBanner to shared component (client/src/components/ProfileNudgeBanner.tsx)
+- [x] Update Dashboard to import from shared component (useProfileNudge hook)
+- [x] Add ProfileNudgeBanner to Today page (same condition + localStorage key)
+- [x] Tests: A-D+EC (15 tests) — unknown shows, dismiss shared key, known status hides, NUDGE_KEY constant, TTL expiry
+
+## Patch 8D: Bullet Rewrites Export (.txt "Resume Patch")
+- [x] Add buildResumePatchFilename(name, company, date?) to shared/filename.ts
+- [x] buildResumePatchText logic inline in the onClick handler (no separate helper needed)
+- [x] Add "Download .txt" button to ApplicationKitTab bullet rewrites section (card header right side)
+- [x] Button renders only when bulletRewrites.length > 0 (conditional render guard)
+- [x] Tests: A-E (19 tests) — conditional render, filename convention (7), content structure (4), needs_confirmation, cover letter regression (4)
+
+## Patch 8E: Top Changes Export (.txt Action Checklist)
+- [x] Add buildTopChangesFilename(name, company, date?) to shared/filename.ts
+- [x] Add "Download .txt" button to ApplicationKitTab Top Changes card header (left of Create Tasks button)
+- [x] Button renders only when topChanges.length > 0 (conditional render guard)
+- [x] Tests: A-D (19 tests) — render guard, filename convention (8), content structure (4), no regressions to cover letter + resume patch (5)
+
+## Patch 8F: Download Kit (.zip) — Bundle All Three Exports
+- [x] Install JSZip (pnpm add jszip + @types/jszip)
+- [x] Add buildApplicationKitZipFilename(name, company, date?) to shared/filename.ts
+- [x] Add "Download Kit (.zip)" button to ApplicationKitTab header (left of Generate/Regenerate)
+- [x] Button renders when existingKit AND any of: coverLetterText, bulletRewrites, topChanges exist
+- [x] Zip contains only files with content; filenames use existing builders
+- [x] Tests: A-D (16 tests) — filename convention (8), zip label+separators (2), regression (4), fallbacks (2)
+
+## Patch 8G: Dashboard Score Trends (Multi-Card Mini Sparklines)
+- [x] Add getActiveScoredJobCards db helper: fetch active job cards + last 10 evidence run scores in one query (no N+1)
+- [x] Add evidence.activeTrends tRPC protectedProcedure
+- [x] Build ScoreTrendsWidget component (mini sparklines per card, latest score, delta badge)
+- [x] Add ScoreTrendsWidget to Dashboard below stats cards, above Today's Tasks grid
+- [x] Empty state: "Run your first scan to see trends" when no cards have runs
+- [x] "No runs yet" row state for cards without runs
+- [x] Tests: A-H (8 tests) — activeTrends returns cards, series ordering, latest score+delta, no N+1, empty state, zero-run cards, grouping logic, trim logic
+
+## Patch 8H: Application Kit Regeneration Guard
+- [x] Read ApplicationKitTab to understand generate/regenerate button state
+- [x] Add AlertDialog (shadcn) with "Replace existing kit?" title, body text, Replace kit/Cancel buttons
+- [x] Wire guard: no kit → generate immediately; kit exists → open dialog first (showConfirmDialog state)
+- [x] Cancel closes dialog, no generation call
+- [x] Confirm proceeds with existing generate mutation, disables button during loading
+- [x] Keyboard accessible: ESC closes, focus trap (Radix AlertDialog built-in)
+- [x] Tests: A-G (7 tests) — no kit immediate, kit exists dialog, cancel no-op, confirm generate, state transitions, composite key, dialog content spec
+
+## Patch 8I: JD URL Fetch (Auto-Populate JD Snapshot from a Link)
+- [x] Read JD Snapshot tab UI and existing jdSnapshots router
+- [x] Install @mozilla/readability + jsdom for server-side HTML extraction
+- [x] Add jdSnapshots.fetchFromUrl tRPC protectedProcedure with guardrails (https-only, 2MB size limit, 15s timeout, content-type block, 403/404/429 handling)
+- [x] Extract readable text from HTML (Readability first, fallback to script/style strip + whitespace collapse)
+- [x] Add URL input + "Fetch from URL" button to JD Snapshot tab UI (Enter key also triggers)
+- [x] On success: populate JD paste textarea with fetched text, show "Fetched at {time}" note, clear URL input
+- [x] Error states: timeout, blocked/403, too short (<200 chars), non-https, 404, binary content-type
+- [x] Tests: A-J (15 tests) — valid fetch, axios call args, eligibility precheck, all error cases, no-credits, truncation, guardrail unit tests
+
+## Patch 8J: Evidence Run History Panel (Past Runs in Evidence Tab)
+- [x] Read Evidence Map tab and existing evidence router
+- [x] Add collapsible "Past Runs" section to Evidence Map tab (default collapsed, chevron rotates on open)
+- [x] List items: run date/time, overall score, color-coded (green/amber/red), delta vs previous (TrendingUp/Down/Minus icon), resume name
+- [x] Clicking a run sets it as the active run (Option A: read-only view of that run's EvidenceItems + score breakdown)
+- [x] Active run highlighted with left border + "Viewing" badge
+- [x] Limit to last 20 runs (slice logic)
+- [x] Empty state: "No past runs yet."
+- [x] Tests: A-G (11 tests) — descending order, run fields, items per run, empty state, no credits, delta logic, 20-run limit, non-completed status
+
+## Patch 8K: JD Snapshot Diff View (Side-by-Side Changes Between Versions)
+- [x] Read JdSnapshotTab structure and snapshot data shape
+- [x] Implement line-based LCS diff helper (pure function: computeLineDiff) in SnapshotDiffView.tsx
+- [x] Build SnapshotDiffView component: two-column layout, green additions (right), red removals (left), summary badge bar
+- [x] Add Snapshot History section to JdSnapshotTab (last 10 versions, date/time, version badge, sourceUrl link)
+- [x] From/To version selectors + "View diff" lazy render trigger + "Hide diff" toggle
+- [x] Auto-select oldest→newest if user clicks View diff without selecting versions
+- [x] Single snapshot: show "No prior version to compare." (diff controls hidden)
+- [x] Cap diff at 20k chars with "Diff truncated for performance" amber note
+- [x] Tests: A-G (11 tests) — single snap guard, two-snap diff, added right-only, removed left-only, no credits, truncation, summary counts, identical, completely different, column length parity
+
+## Phase 9A Fix: Fetch from URL in Create Job Card Modal
+- [x] Read Create Job Card modal structure
+- [x] Add fetchJdError/fetchedAt state to modal
+- [x] Add fetchFromUrl mutation (reuse existing jdSnapshots.fetchFromUrl — no backend changes)
+- [x] Add "Fetch JD" button next to Job URL field (enabled only for valid https URLs, Enter key also triggers)
+- [x] On success: fill Job Description textarea, show "Fetched at {time}" note in green, clear error
+- [x] On error: show inline error below URL field (same error messages as JD Snapshot tab)
+- [x] URL change clears previous fetch state (error + fetchedAt)
+- [x] Tests: A-H (8 tests) — valid https, http disabled, non-url, procedure returns text+fetchedAt, short text error, no credits, non-https rejected, binary content-type rejected
+
+## Phase 9A: URL Fetch Robustness (Board-Agnostic + Graceful Failures)
+- [x] Read current fetchFromUrl procedure
+- [x] Add Chrome-like browser headers (User-Agent, Accept, Accept-Encoding gzip/br, Cache-Control, Sec-Fetch-*) + maxRedirects: 5
+- [x] Upgrade fallback extractor: remove noise tags (script/style/noscript/svg/iframe/nav/footer/header), prefer content containers (main/article/[role=main]/.job-description/.jobDescription/.description/.content/.posting/#job-description etc.)
+- [x] Add gated/blocked detection: 401/403/429 HTTP + keyword check (captcha/access denied/enable javascript/sign in to view/login required) on thin pages
+- [x] Return friendly GATED_MESSAGE for gated pages
+- [x] All existing guardrails preserved (https-only, 2 MB, 15s timeout, binary block, MIN_CHARS)
+- [x] Tests: A-J (13 tests) — Greenhouse HTML, container fallback, 403 gated, captcha keyword, https-only, binary, too-short, 404, no credits, browser headers, maxRedirects, 429, script-heavy fallback
+
+## Phase 9B: Auto-Fill Job Title + Company After URL Fetch
+- [x] Add jdSnapshots.extractFields tRPC protectedProcedure (LLM, strict JSON schema: job_title, company_name, location, job_type)
+- [x] Non-destructive: only fill empty fields (title, company, location) via functional setState closures
+- [x] Wire into Create Job Card modal fetchFromUrl onSuccess: call extractFields, show "Auto-filling…" spinner
+- [x] On success: fill empty fields, show "Auto-filled from JD (edit anytime)." note in green
+- [x] On extraction failure: silently ignore (no toast, no blocking)
+- [x] Tests: A-J (10 tests) — structured fields, non-destructive contract, empty fields, no credits, LLM failure, strict schema, whitespace trim, urlHostname hint, malformed JSON
+
+## Prompt A: Evidence Map + Application Kit Collapse + Run Label (UI Only)
+- [x] Evidence Map: bold "JD:" label and JD requirement text in each EvidenceItem card (font-semibold + text-foreground)
+- [x] Evidence Map: group items into collapsible sections (Skills open, Responsibilities/Soft Skills/Eligibility collapsed)
+- [x] Evidence Map: show item counts in section headers (e.g. "Skills (8)")
+- [x] Application Kit: make Top Changes section collapsible (open by default)
+- [x] Application Kit: make Bullet Rewrites section collapsible (collapsed by default)
+- [x] Application Kit: make Cover Letter Draft section collapsible (collapsed by default)
+- [x] Evidence Run dropdown: replace "Run #..." with "{Company} — {Job Title} ({score}%) · {MMM D}" label
+- [x] Evidence Run dropdown: keep run id as tooltip (title attribute on span)
+- [x] Tests: 13 tests — openCategories, toggleCategory, sort order, kitSections, toggleKitSection, run label format, fallback, em dash, company-only, no run id in label
+
+## Micro Fix: Evidence Run Label Consistency
+- [x] Found the under-tone "Run #..." summary line in ApplicationKitTab header (line 1380)
+- [x] Replaced with inline IIFE using same formatter as dropdown: "{Company} — {Job Title} ({score}%) · {MMM D}"
+- [x] Run id preserved as tooltip (title attribute on span)
+- [x] 431 tests pass (no regressions)
+
+## Prompt B1: Outreach Signature — No Placeholders
+- [x] Read outreach.generatePack procedure and LLM prompt template
+- [x] Add phone + linkedinUrl columns to userProfiles schema (migration 0010)
+- [x] Expose phone/linkedinUrl in profile.upsert mutation
+- [x] Add Contact Info card to Profile page (phone + linkedin URL inputs)
+- [x] Inject real phone/linkedin into generatePack LLM prompt signatureBlock (omit lines if missing)
+- [x] Post-process: stripBrackets removes all bracket placeholder variants
+- [x] Tests: A-K (11 tests) — all bracket variants stripped, real content preserved, signatureBlock with/without phone/linkedin, triple newline collapse
+
+## Admin Test Mode Expansion: Outreach Pack Sandbox
+- [x] Read Admin Sandbox panel and outreach.generatePack procedure
+- [x] Confirmed existing generateOutreachTestMode is adminProcedure-gated (is_admin check)
+- [x] Upgraded sandbox procedure: inject phone/linkedin (Prompt B1 parity) + stripBrackets
+- [x] Procedure uses ctx.user.id only (no user_id override)
+- [x] Added Regenerate (Test Mode) button (RefreshCw icon) to AdminSandbox UI after result is shown
+- [x] Production outreach.generatePack unchanged (still credit-gated for all users including admin)
+- [x] Tests: A-F (10 tests) — production charges credits, admin not exempt in production, delta=0 in sandbox, FORBIDDEN for non-admin, audit log, credits-cannot-go-negative, no user_id override
+
+## Outreach Fix 1/4: Salutation Fallback (No "Dear ,")
+- [x] Read generatePack and generateOutreachTestMode prompt builders
+- [x] Add computeSalutation/fixSalutation/extractFirstName helpers in shared/outreachHelpers.ts
+- [x] Inject salutation into both production and sandbox LLM prompts (Option A)
+- [x] Add post-process guard: replace any remaining "Dear ," / "Dear," with "Dear Hiring Manager,"
+- [x] Tests: A-J (476 tests pass)
+
+## Phase 9C1: Personalization Sources + Tone Guardrails
+- [x] Add job_card_personalization_sources table to drizzle/schema.ts
+- [x] Push schema migration (pnpm db:push — migration 0011)
+- [x] Add db helpers: getPersonalizationSources, upsertPersonalizationSource, deletePersonalizationSource
+- [x] Add personalization tRPC router: list, upsert, delete
+- [x] Build Personalization tab in JobCardDetail.tsx (add source form, list with badges, edit/delete)
+- [x] Validation: min 50 chars pasted_text unless URL provided; max 5000 chars; max 5 sources
+- [x] Add disclaimer note on Personalization tab
+- [x] Add OUTREACH_TONE_GUARDRAILS config in shared/toneGuardrails.ts
+- [x] Tests: A-L (492 tests pass)
+
+## Phase 9C3: Enforce Outreach Tone Guardrails
+- [x] Add sanitizeTone(text, isFollowUp) helper in shared/toneGuardrails.ts
+- [x] Add buildToneSystemPrompt() helper that builds the guardrail injection string
+- [x] Inject tone guardrails into production generatePack LLM system prompt
+- [x] Inject tone guardrails into admin sandbox generateOutreachTestMode LLM system prompt
+- [x] Run sanitizeTone post-process on all 4 output fields (both prod + sandbox)
+- [x] Tests: A-D (510 tests pass)
+
+## Phase 9C4: Use Personalization Sources in Outreach
+- [x] Add buildPersonalizationBlock(sources) helper in shared/outreachHelpers.ts
+- [x] Fetch up to 3 personalization sources in generatePack (before LLM call)
+- [x] Inject personalization context block into generatePack user message
+- [x] Fetch up to 3 personalization sources in generateOutreachTestMode (before LLM call)
+- [x] Inject personalization context block into generateOutreachTestMode user message
+- [x] Add post-process guard: personalization appears at most once in email/DM; follow-ups contain none
+- [x] Update Admin Sandbox UI: show "Using personalization: Yes/No (N sources)" note
+- [x] Tests: A-E (530 tests pass)
+
+## Outreach Fix 2/4: Use Selected Contact Email (Remove [Recruiter Email] Placeholders)
+- [x] Add fixContactEmail(text, email?) + buildContactEmailBlock() helpers in shared/outreachHelpers.ts
+- [x] Add contactEmail to generatePack LLM prompt (Option A: To: line instruction)
+- [x] Add contactEmail to generateOutreachTestMode LLM prompt
+- [x] Post-process: strip [Recruiter Email] brackets; prepend To: line if missing and email provided
+- [x] Update Admin Sandbox UI: add optional contact email input field
+- [x] Tests: A-L acceptance criteria — 542 tests pass
+
+## Outreach Fix 3/4: LinkedIn URL Injection (Remove [LinkedIn Profile URL] Placeholders)
+- [x] Add fixLinkedInUrl(text, linkedinUrl?) + buildLinkedInBlock() helpers in shared/outreachHelpers.ts
+- [x] Add linkedinUrl to generatePack LLM prompt (Option A: LinkedIn: line instruction)
+- [x] Add linkedinUrl to generateOutreachTestMode LLM prompt
+- [x] Post-process: strip [LinkedIn Profile URL] brackets; prepend LinkedIn: line if missing and URL provided
+- [x] Update Admin Sandbox UI: add optional LinkedIn URL input field
+- [x] Tests: A-O (15 tests) — 557 tests pass total
+
+## Outreach Fix 4/4: "Copy All" Button
+- [x] Create buildOutreachCopyAllText(pack) helper in client/src/lib/outreachCopyAll.ts
+- [x] Add "Copy All" button to OutreachTab outreach pack card header
+- [x] Show success/failure toast after clipboard write
+- [x] Tests: A-I (9 tests) — 568 tests pass total
+
+## Outreach Tab UX: Selected Contact Summary Chip
+- [x] Build SelectedContactChip component (name, email, LinkedIn URL, empty state)
+- [x] Insert chip above Generate/Regenerate controls in OutreachTab
+- [x] Tests: A-G (8 tests) — 576 tests pass total
+
+## Phase 9C5: Outreach Tab Personalization Context Card
+- [x] Build PersonalizationContextCard component (count, list up to 3, empty state, CTA)
+- [x] Insert card above generate controls in OutreachTab (below SelectedContactChip)
+- [x] Wire "Edit sources" / "Add sources" CTA to switch to Personalization tab (controlled Tabs state)
+- [x] Tests: A-H (14 tests) — 590 tests pass total
+
+## Phase 9C6: Add Contact Form — LinkedIn URL Field
+- [x] Add newContactLinkedInUrl state + input + https:// validation to OutreachTab Add Contact form
+- [x] Pass linkedinUrl to createContact mutation
+- [x] Tests: A-J (10 tests) — 601 tests pass total
+
+## Prompt B2: Suppress JD Fetch "Console Error" Popup for Expected Failures
+- [x] Create isExpectedFetchError helper (too short, blocked, invalid URL)
+- [x] Update Create Job Card modal fetchFromUrl call to catch expected errors inline (already had onError → setFetchJdError)
+- [x] Update JD Snapshot tab fetchFromUrl call to catch expected errors inline (already had onError → setFetchError)
+- [x] Tests: 16 tests (A-G) — 617 tests pass total
+
+## Phase 9D1: JD URL Fetch Reliability (JSON Fallback)
+- [x] Add extractLdJson(html) helper: parse ld+json JobPosting blocks
+- [x] Add extractNextData(html) helper: parse __NEXT_DATA__ JSON
+- [x] Add extractWindowState(html) helper: parse window.__INITIAL_STATE__ / __APOLLO_STATE__ / dataLayer
+- [x] Add stripHtmlToText(html) normalizer: strip tags, preserve line breaks, deduplicate paragraphs
+- [x] Insert Layer C (JSON fallback) between Layer B and the "too short" guard in fetchFromUrl
+- [x] Tests: A-E per acceptance criteria
+
+## Phase 9D2: Onboarding 2.0 (Skippable + Nudges)
+- [x] Remove trap redirect in Dashboard.tsx (useEffect that sends to /onboarding if !onboardingComplete)
+- [x] Add onboarding_skipped_at field to userProfiles schema (minimal, nullable timestamp)
+- [x] Push schema migration (pnpm db:push)
+- [x] Add profile.skip tRPC mutation (sets onboardingSkippedAt = now, onboardingComplete = false)
+- [x] Update Onboarding.tsx Step 1: rename "Co-op" → "Student / Co-op", "New Grad" → "Early-career / General"
+- [x] Add "Skip for now" button to all 3 onboarding steps
+- [x] Step 2 (Education): make optional for Early-career / General track (show "optional" label)
+- [x] Step 3: replace resume upload with Work Authorization step (work_status, needs_sponsorship)
+- [x] Add first-login redirect: if brand new user (no profile row) route to /onboarding once; otherwise never force
+- [x] Add ProfileNudgeBanner to JobCards page (same shared component + localStorage key)
+- [x] Add inline eligibility nudge to Job Card Overview tab (JD eligibility triggers + unknown profile)
+- [x] Add inline contact tip nudges to Outreach tab (no contact selected, missing email/LinkedIn)
+- [x] Tests: A-F (23 tests) — 666 tests pass total
+
+## V1 Audit Polish: Priority Badge Consistency
+- [x] Audit current priority badge rendering in list rows and kanban tiles
+- [x] Add Medium badge (neutral style) to list rows
+- [x] Add Low badge (subtle style) to list rows
+- [x] Add Medium badge to kanban card tiles
+- [x] Add Low badge to kanban card tiles
+- [x] Ensure null/undefined priority shows no badge
+- [x] Tests: A-E (17 tests) — 683 tests pass total

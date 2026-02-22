@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, lte, gte, sql, isNull, or } from "drizzle-orm";
+import { eq, and, desc, asc, lte, gte, sql, isNull, or, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -15,6 +15,7 @@ import {
   adminActionLogs, InsertAdminActionLog,
   jobCardRequirements, InsertJobCardRequirement,
   applicationKits, InsertApplicationKit,
+  jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -371,6 +372,12 @@ export async function deleteContact(id: number, userId: number) {
   const db = await getDb();
   if (!db) return;
   await db.delete(contacts).where(and(eq(contacts.id, id), eq(contacts.userId, userId)));
+}
+export async function getContactById(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(contacts).where(and(eq(contacts.id, id), eq(contacts.userId, userId))).limit(1);
+  return rows[0] ?? null;
 }
 
 // ─── Outreach ────────────────────────────────────────────────────────
@@ -758,4 +765,149 @@ export async function getScoreHistory(
     .orderBy(asc(evidenceRuns.createdAt))
     .limit(limit);
   return query;
+}
+
+// ─── Dashboard Score Trends (Patch 8G) ───────────────────────────────
+/**
+ * Returns up to `cardLimit` active job cards (bookmarked/applying/applied/interviewing)
+ * for a user, each with up to `runsPerCard` most-recent completed evidence run scores.
+ * Single query per table — no N+1.
+ */
+export async function getActiveScoredJobCards(
+  userId: number,
+  cardLimit = 10,
+  runsPerCard = 10
+): Promise<
+  Array<{
+    id: number;
+    title: string;
+    company: string | null;
+    stage: string;
+    updatedAt: Date;
+    runs: Array<{ id: number; overallScore: number | null; createdAt: Date }>;
+  }>
+> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const ACTIVE_STAGES = ["bookmarked", "applying", "applied", "interviewing"] as const;
+
+  // 1. Fetch active job cards (most recently updated first, limit cardLimit)
+  const cards = await db
+    .select({
+      id: jobCards.id,
+      title: jobCards.title,
+      company: jobCards.company,
+      stage: jobCards.stage,
+      updatedAt: jobCards.updatedAt,
+    })
+    .from(jobCards)
+    .where(
+      and(
+        eq(jobCards.userId, userId),
+        sql`${jobCards.stage} IN ('bookmarked','applying','applied','interviewing')`
+      )
+    )
+    .orderBy(desc(jobCards.updatedAt))
+    .limit(cardLimit);
+
+  if (cards.length === 0) return [];
+
+  const cardIds = cards.map((c) => c.id);
+
+  // 2. Fetch all completed runs for those cards in one query (most recent first)
+  const runs = await db
+    .select({
+      id: evidenceRuns.id,
+      jobCardId: evidenceRuns.jobCardId,
+      overallScore: evidenceRuns.overallScore,
+      createdAt: evidenceRuns.createdAt,
+    })
+    .from(evidenceRuns)
+    .where(
+      and(
+        inArray(evidenceRuns.jobCardId, cardIds),
+        eq(evidenceRuns.status, "completed")
+      )
+    )
+    .orderBy(asc(evidenceRuns.createdAt));
+
+  // 3. Group runs by jobCardId, keep last runsPerCard
+  const runsByCard = new Map<number, Array<{ id: number; overallScore: number | null; createdAt: Date }>>();
+  for (const run of runs) {
+    if (!run.jobCardId) continue;
+    const arr = runsByCard.get(run.jobCardId) ?? [];
+    arr.push({ id: run.id, overallScore: run.overallScore, createdAt: run.createdAt });
+    runsByCard.set(run.jobCardId, arr);
+  }
+  // Trim to last runsPerCard (already asc, so slice from end)
+  for (const [cardId, arr] of Array.from(runsByCard.entries())) {
+    if (arr.length > runsPerCard) {
+      runsByCard.set(cardId, arr.slice(arr.length - runsPerCard));
+    }
+  }
+
+  // 4. Merge
+  return cards.map((card) => ({
+    ...card,
+    runs: runsByCard.get(card.id) ?? [],
+  }));
+}
+
+// ─── Personalization Sources ─────────────────────────────────────────────────
+export async function getPersonalizationSources(jobCardId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(jobCardPersonalizationSources)
+    .where(and(
+      eq(jobCardPersonalizationSources.jobCardId, jobCardId),
+      eq(jobCardPersonalizationSources.userId, userId),
+    ))
+    .orderBy(asc(jobCardPersonalizationSources.capturedAt));
+}
+
+export async function upsertPersonalizationSource(
+  data: InsertJobCardPersonalizationSource & { id?: number }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  if (data.id) {
+    await db
+      .update(jobCardPersonalizationSources)
+      .set({
+        sourceType: data.sourceType,
+        url: data.url ?? null,
+        pastedText: data.pastedText ?? null,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(jobCardPersonalizationSources.id, data.id),
+        eq(jobCardPersonalizationSources.userId, data.userId),
+      ));
+    return data.id;
+  } else {
+    const [result] = await db
+      .insert(jobCardPersonalizationSources)
+      .values({
+        jobCardId: data.jobCardId,
+        userId: data.userId,
+        sourceType: data.sourceType,
+        url: data.url ?? null,
+        pastedText: data.pastedText ?? null,
+      });
+    return (result as any).insertId as number;
+  }
+}
+
+export async function deletePersonalizationSource(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(jobCardPersonalizationSources)
+    .where(and(
+      eq(jobCardPersonalizationSources.id, id),
+      eq(jobCardPersonalizationSources.userId, userId),
+    ));
 }

@@ -30,11 +30,18 @@ export const userProfiles = mysqlTable("user_profiles", {
   graduationDate: varchar("graduationDate", { length: 32 }),
   currentlyEnrolled: boolean("currentlyEnrolled").default(false),
   onboardingComplete: boolean("onboardingComplete").default(false),
+  onboardingSkippedAt: timestamp("onboardingSkippedAt"),
+  workStatus: mysqlEnum("workStatus", ["citizen_pr", "temporary_resident", "unknown"]).default("unknown"),
+  workStatusDetail: mysqlEnum("workStatusDetail", ["open_work_permit", "employer_specific_permit", "student_work_authorization", "other"]),
+  needsSponsorship: mysqlEnum("needsSponsorship", ["true", "false", "unknown"]).default("unknown"),
+  countryOfResidence: varchar("countryOfResidence", { length: 128 }),
+  willingToRelocate: boolean("willingToRelocate"),
+  phone: varchar("phone", { length: 64 }),
+  linkedinUrl: text("linkedinUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
-export type UserProfile = typeof userProfiles.$inferSelect;
+export type UserProfile = typeof userProfiles.$inferSelect;;
 export type InsertUserProfile = typeof userProfiles.$inferInsert;
 
 // ─── Credits ─────────────────────────────────────────────────────────
@@ -99,6 +106,9 @@ export const jobCards = mysqlTable("job_cards", {
   dueDate: timestamp("dueDate"),
   salary: varchar("salary", { length: 128 }),
   jobType: varchar("jobType", { length: 64 }), // full-time, part-time, contract, internship
+  eligibilityPrecheckStatus: mysqlEnum("eligibilityPrecheckStatus", ["none", "recommended", "conflict"]).default("none"),
+  eligibilityPrecheckRulesJson: text("eligibilityPrecheckRulesJson"), // JSON array of { ruleId, title }
+  eligibilityPrecheckUpdatedAt: timestamp("eligibilityPrecheckUpdatedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -286,3 +296,16 @@ export const applicationKits = mysqlTable("application_kits", {
 
 export type ApplicationKit = typeof applicationKits.$inferSelect;
 export type InsertApplicationKit = typeof applicationKits.$inferInsert;
+// ─── Job Card Personalization Sources ───────────────────────────────
+export const jobCardPersonalizationSources = mysqlTable("job_card_personalization_sources", {
+  id: int("id").autoincrement().primaryKey(),
+  jobCardId: int("jobCardId").notNull(),
+  userId: int("userId").notNull(),
+  sourceType: mysqlEnum("sourceType", ["linkedin_post", "linkedin_about", "company_news", "other"]).notNull().default("other"),
+  url: varchar("url", { length: 2048 }),
+  pastedText: text("pastedText"),
+  capturedAt: timestamp("capturedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().onUpdateNow(),
+});
+export type JobCardPersonalizationSource = typeof jobCardPersonalizationSources.$inferSelect;
+export type InsertJobCardPersonalizationSource = typeof jobCardPersonalizationSources.$inferInsert;

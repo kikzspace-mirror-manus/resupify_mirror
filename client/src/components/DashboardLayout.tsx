@@ -34,6 +34,7 @@ import {
   CalendarCheck,
   Zap,
   Shield,
+  UserCircle,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -50,6 +51,7 @@ const menuItems = [
   { icon: Users, label: "Outreach", path: "/outreach" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
+  { icon: UserCircle, label: "Profile", path: "/profile" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -67,12 +69,28 @@ export default function DashboardLayout({
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // Fetch profile to detect brand-new users (no profile row at all)
+  const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery(
+    undefined,
+    { enabled: !!user && !loading }
+  );
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
-  if (loading) {
+  // First-login redirect: only if profile has never been created (null) AND
+  // user has neither completed nor skipped onboarding.
+  // This fires at most once — after skip/complete, profile exists.
+  useEffect(() => {
+    if (!loading && !profileLoading && user && profile === null) {
+      setLocation("/onboarding");
+    }
+  }, [loading, profileLoading, user, profile, setLocation]);
+
+  if (loading || (user && profileLoading && profile === undefined)) {
     return <DashboardLayoutSkeleton />;
   }
 

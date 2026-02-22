@@ -1,14 +1,21 @@
 import { COOKIE_NAME } from "@shared/const";
+import axios from "axios";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
+import { extractFromJson } from "@shared/jdJsonExtractors";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
+import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../shared/outreachHelpers";
+import { buildToneSystemPrompt, sanitizeTone } from "../shared/toneGuardrails";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
+import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -100,8 +107,24 @@ export const appRouter = router({
       graduationDate: z.string().optional(),
       currentlyEnrolled: z.boolean().optional(),
       onboardingComplete: z.boolean().optional(),
+      phone: z.string().max(64).nullable().optional(),
+      linkedinUrl: z.string().max(512).nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
       await db.upsertProfile(ctx.user.id, input);
+      return { success: true };
+    }),
+    skip: protectedProcedure.mutation(async ({ ctx }) => {
+      await db.upsertProfile(ctx.user.id, { onboardingSkippedAt: new Date() } as any);
+      return { success: true };
+    }),
+    updateWorkStatus: protectedProcedure.input(z.object({
+      workStatus: z.enum(["citizen_pr", "temporary_resident", "unknown"]).optional(),
+      workStatusDetail: z.enum(["open_work_permit", "employer_specific_permit", "student_work_authorization", "other"]).nullable().optional(),
+      needsSponsorship: z.enum(["true", "false", "unknown"]).optional(),
+      countryOfResidence: z.string().nullable().optional(),
+      willingToRelocate: z.boolean().nullable().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.upsertProfile(ctx.user.id, input as any);
       return { success: true };
     }),
   }),
@@ -214,6 +237,29 @@ export const appRouter = router({
       } as any);
       if (id && jdText) {
         await db.createJdSnapshot({ jobCardId: id, snapshotText: jdText, sourceUrl: input.url ?? null });
+        // Eligibility pre-check: lightweight scan, no credits, no LLM
+        try {
+          const profile = await db.getProfile(ctx.user.id);
+          const pack = profile?.regionCode && profile?.trackCode
+            ? getRegionPack(profile.regionCode, profile.trackCode)
+            : null;
+          const rules = (pack?.workAuthRules ?? []).map((r) => ({
+            id: r.id,
+            label: r.label,
+            triggerPhrases: r.triggerPhrases,
+            condition: r.condition,
+          }));
+          const precheck = runEligibilityPrecheck(jdText, profile, rules);
+          if (precheck.status !== "none") {
+            await db.updateJobCard(id, ctx.user.id, {
+              eligibilityPrecheckStatus: precheck.status,
+              eligibilityPrecheckRulesJson: JSON.stringify(precheck.triggeredRules),
+              eligibilityPrecheckUpdatedAt: new Date(),
+            } as any);
+          }
+        } catch {
+          // Pre-check failure must never block card creation
+        }
       }
       return { id };
     }),
@@ -283,12 +329,35 @@ export const appRouter = router({
       jobCardId: z.number(),
       snapshotText: z.string().min(1),
       sourceUrl: z.string().optional(),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
       const id = await db.createJdSnapshot({
         jobCardId: input.jobCardId,
         snapshotText: input.snapshotText,
         sourceUrl: input.sourceUrl ?? null,
       });
+      // Eligibility pre-check on snapshot save
+      try {
+        const profile = await db.getProfile(ctx.user.id);
+        const pack = profile?.regionCode && profile?.trackCode
+          ? getRegionPack(profile.regionCode, profile.trackCode)
+          : null;
+        const rules = (pack?.workAuthRules ?? []).map((r) => ({
+          id: r.id,
+          label: r.label,
+          triggerPhrases: r.triggerPhrases,
+          condition: r.condition,
+        }));
+        const precheck = runEligibilityPrecheck(input.snapshotText, profile, rules);
+        await db.updateJobCard(input.jobCardId, ctx.user.id, {
+          eligibilityPrecheckStatus: precheck.status,
+          eligibilityPrecheckRulesJson: precheck.triggeredRules.length > 0
+            ? JSON.stringify(precheck.triggeredRules)
+            : null,
+          eligibilityPrecheckUpdatedAt: new Date(),
+        } as any);
+      } catch {
+        // Pre-check failure must never block snapshot creation
+      }
       return { id };
     }),
     // ─── Real LLM extraction (replaces stub) ──────────────────────────
@@ -425,9 +494,238 @@ export const appRouter = router({
     })).query(async ({ input }) => {
       return db.getRequirements(input.jobCardId);
     }),
-  }),
+    // ─── Patch 8I: Fetch JD text from a URL ─────────────────────────
+    fetchFromUrl: protectedProcedure.input(z.object({
+      url: z.string().url(),
+    })).mutation(async ({ input }) => {
+      const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+      const TIMEOUT_MS = 15_000;
+      const MIN_TEXT_LENGTH = 200;
+      const BLOCKED_CONTENT_TYPES = ["application/pdf", "application/octet-stream", "image/", "video/", "audio/"];
+      // Gated/blocked page detection keywords
+      const GATED_KEYWORDS = [
+        "enable javascript",
+        "access denied",
+        "captcha",
+        "are you a robot",
+        "verify you are human",
+        "blocked",
+        "sign in to view",
+        "please sign in",
+        "log in to view",
+        "login required",
+      ];
+      const GATED_MESSAGE = "This site blocks automated fetch (common with LinkedIn/Indeed/Workday in some cases). Please paste the JD text instead.";
+      // Guard: https-only
+      const parsed = new URL(input.url);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error("Only http(s) URLs are supported.");
+      }
+      let html: string;
+      try {
+        const response = await axios.get<string>(input.url, {
+          timeout: TIMEOUT_MS,
+          maxContentLength: MAX_BYTES,
+          maxBodyLength: MAX_BYTES,
+          responseType: "text",
+          maxRedirects: 5,
+          headers: {
+            // Realistic Chrome-like browser headers for better board compatibility
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Upgrade-Insecure-Requests": "1",
+          },
+          validateStatus: (status) => status < 500,
+        });
+        // Guard: blocked/anti-bot HTTP status codes
+        if (response.status === 403 || response.status === 401 || response.status === 429) {
+          throw new Error(GATED_MESSAGE);
+        }
+        if (response.status === 404) {
+          throw new Error("Job posting not found (404). Please check the URL.");
+        }
+        if (response.status >= 400) {
+          throw new Error(`Couldn't fetch this URL (HTTP ${response.status}). Please paste the JD instead.`);
+        }
+        // Guard: binary content types
+        const contentType = (response.headers["content-type"] ?? "").toLowerCase();
+        if (BLOCKED_CONTENT_TYPES.some((t) => contentType.includes(t))) {
+          throw new Error("URL does not point to a web page. Please paste the JD instead.");
+        }
+        html = response.data as string;
+      } catch (err: any) {
+        if (axios.isAxiosError(err)) {
+          if (err.code === "ECONNABORTED" || err.code === "ETIMEDOUT") {
+            throw new Error("Request timed out. Please paste the JD instead.");
+          }
+          if (err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
+            throw new Error("Couldn't reach this URL. Please check the address and try again.");
+          }
+          if (err.message.includes("maxContentLength")) {
+            throw new Error("Page is too large to fetch. Please paste the JD instead.");
+          }
+        }
+        // Re-throw user-facing errors as-is
+        if (err instanceof Error && !axios.isAxiosError(err)) throw err;
+        throw new Error("Couldn't fetch text from this URL. Please paste the JD instead.");
+      }
+      // Guard: gated/blocked page by content keywords (only flag if page is suspiciously thin)
+      const htmlLower = html.toLowerCase();
+      const textPreview = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (GATED_KEYWORDS.some((kw) => htmlLower.includes(kw)) && textPreview.length < 2000) {
+        throw new Error(GATED_MESSAGE);
+      }
+      // ── Extraction pipeline ──────────────────────────────────────────────
+      let extractedText = "";
+      // Layer A: Mozilla Readability (best for article-style pages)
+      try {
+        const dom = new JSDOM(html, { url: input.url });
+        const reader = new Readability(dom.window.document);
+        const article = reader.parse();
+        if (article?.textContent) {
+          extractedText = article.textContent
+            .replace(/\r\n/g, "\n")
+            .replace(/[ \t]+/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        }
+      } catch {
+        // Readability failed — fall through to fallback
+      }
+      // Layer B: Content-container-first fallback (board-agnostic)
+      if (extractedText.length < MIN_TEXT_LENGTH) {
+        try {
+          const dom = new JSDOM(html, { url: input.url });
+          const doc = dom.window.document;
+          // Remove noise elements
+          for (const tag of ["script", "style", "noscript", "svg", "iframe", "nav", "footer", "header"]) {
+            doc.querySelectorAll(tag).forEach((el) => el.remove());
+          }
+          // Remove common ad/tracker elements
+          doc.querySelectorAll('[class*="ad-"], [class*="ads-"], [id*="ad-"], [class*="cookie"], [class*="banner"]').forEach((el) => el.remove());
+          // Prefer known content containers (ordered by specificity)
+          const CONTENT_SELECTORS = [
+            "main",
+            "article",
+            '[role="main"]',
+            ".job-description",
+            ".jobDescription",
+            ".job-details",
+            ".posting-description",
+            ".description",
+            ".content",
+            ".job",
+            ".posting",
+            "#job-description",
+            "#jobDescription",
+            "#job-details",
+          ];
+          let container: Element | null = null;
+          for (const sel of CONTENT_SELECTORS) {
+            const el = doc.querySelector(sel);
+            if (el && (el.textContent?.trim().length ?? 0) > MIN_TEXT_LENGTH) {
+              container = el;
+              break;
+            }
+          }
+          // Fall back to body if no specific container found
+          const rawText = (container ?? doc.body)?.textContent ?? "";
+          extractedText = rawText
+            .replace(/\r\n/g, "\n")
+            .replace(/[ \t]+/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        } catch {
+          throw new Error("Couldn't extract text from this page. Please paste the JD instead.");
+        }
+      }
+      // Layer C: JSON fallback (ld+json, __NEXT_DATA__, window state blobs)
+      // Only attempted when both Readability and container extraction are too short.
+      if (extractedText.length < MIN_TEXT_LENGTH) {
+        try {
+          const jsonResult = extractFromJson(html, MIN_TEXT_LENGTH);
+          if (jsonResult.text.length >= MIN_TEXT_LENGTH) {
+            extractedText = jsonResult.text;
+            console.log(`[jdFetch] JSON fallback used: ${jsonResult.method}`);
+          }
+        } catch {
+          // JSON extraction failed — fall through to "too short" guard
+        }
+      }
+      // Guard: still too short after all layers
+      if (extractedText.length < MIN_TEXT_LENGTH) {
+        throw new Error("Fetched text too short to be a job description. Please paste the JD manually.");
+      }
+      // Truncate to a reasonable max for the textarea
+      const MAX_TEXT = 20_000;
+      const text = extractedText.length > MAX_TEXT ? extractedText.substring(0, MAX_TEXT) : extractedText;
+      return { text, fetchedAt: new Date().toISOString() };
+    }),
 
-  // ─── Evidence Scan ─────────────────────────────────────────────────
+    // Phase 9B: Auto-fill Job Title + Company from fetched JD text
+    extractFields: protectedProcedure.input(z.object({
+      text: z.string().max(20_000),
+      urlHostname: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const snippet = input.text.substring(0, 4_000); // Use first 4k chars for speed
+      let llmResult: any;
+      try {
+        llmResult = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: "You are a structured data extractor. Extract job posting fields from the provided text. Return ONLY valid JSON matching the schema. If a field is unclear or not present, return an empty string for that field. Never invent company names.",
+            },
+            {
+              role: "user",
+              content: `Extract the job title, company name, location, and job type from this job posting text.\n\nURL hostname (hint): ${input.urlHostname ?? "unknown"}\n\nJob posting text:\n${snippet}`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "job_fields",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  job_title: { type: "string", description: "The exact job title as posted (e.g., 'Senior Software Engineer'). Empty string if unclear." },
+                  company_name: { type: "string", description: "The company name (e.g., 'Acme Corp'). Empty string if unclear or not mentioned." },
+                  location: { type: "string", description: "Job location (e.g., 'Toronto, ON' or 'Remote'). Empty string if not mentioned." },
+                  job_type: { type: "string", description: "Employment type (e.g., 'Full-time', 'Contract', 'Part-time'). Empty string if not mentioned." },
+                },
+                required: ["job_title", "company_name", "location", "job_type"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+      } catch {
+        // LLM failure: return empty fields (non-blocking)
+        return { job_title: "", company_name: "", location: "", job_type: "" };
+      }
+      try {
+        const content = llmResult?.choices?.[0]?.message?.content ?? "{}";
+        const parsed = typeof content === "string" ? JSON.parse(content) : content;
+        return {
+          job_title: (parsed.job_title ?? "").trim(),
+          company_name: (parsed.company_name ?? "").trim(),
+          location: (parsed.location ?? "").trim(),
+          job_type: (parsed.job_type ?? "").trim(),
+        };
+      } catch {
+        return { job_title: "", company_name: "", location: "", job_type: "" };
+      }
+    }),
+  }),
+  // ─── Evidence Scan ──────────────────────────────────────────────────
   evidence: router({
     runs: protectedProcedure.input(z.object({ jobCardId: z.number() })).query(async ({ input }) => {
       return db.getEvidenceRuns(input.jobCardId);
@@ -440,6 +738,10 @@ export const appRouter = router({
       resumeId: z.number().optional(),
     })).query(async ({ input }) => {
       return db.getScoreHistory(input.jobCardId, input.resumeId, 20);
+    }),
+    // Patch 8G: aggregated active-card score trends for Dashboard widget
+    activeTrends: protectedProcedure.query(async ({ ctx }) => {
+      return db.getActiveScoredJobCards(ctx.user.id, 10, 10);
     }),
     run: protectedProcedure.input(z.object({
       jobCardId: z.number(),
@@ -489,11 +791,11 @@ export const appRouter = router({
 
       // ── 6. Build eligibility context for the LLM prompt ─────────────
       const missingEligibilityFields = pack.eligibilityChecks
-        .filter(check => check.required && !(profile as any)?.[check.field])
+        .filter(check => check.required && check.field && !(profile as any)?.[check.field])
         .map(check => check.label);
 
       const eligibilityContext = pack.eligibilityChecks.map(check => {
-        const profileValue = profile ? (profile as any)[check.field] : null;
+        const profileValue = check.field && profile ? (profile as any)[check.field] : null;
         return `- ${check.label}: ${profileValue ? "Present" : "MISSING"}${!profileValue && check.required ? ` (RISK: ${check.riskMessage})` : ""}`;
       }).join("\n");
 
@@ -512,7 +814,11 @@ export const appRouter = router({
 
       // ── 8. Single LLM call for all EvidenceItems ─────────────────────
       try {
-        const llmResult = await invokeLLM({
+        // Fetch personalization sources (up to 3 most recent) for this job card
+      const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+      const topSources = personalizationSources.slice(0, 3);
+      const personalizationBlock = buildPersonalizationBlock(topSources);
+      const llmResult = await invokeLLM({
           messages: [
             {
               role: "system",
@@ -660,12 +966,37 @@ export const appRouter = router({
         if (trackCode === "NEW_GRAD" && seniorityMatches.length > 0) {
           roleFitScore -= 20;
           flags.push(`overqualified_risk: Resume signals high seniority (${seniorityMatches.slice(0, 2).join(", ")}). New grad roles may flag this as overqualified.`);
+        }        // Work authorization rule evaluation (pack-driven)
+        const workAuthorizationFlags: Array<{ ruleId: string; title: string; guidance: string; penalty: number }> = [];
+        if (pack.workAuthRules && pack.workAuthRules.length > 0) {
+          const jdTextLower = jdSnapshot.snapshotText.toLowerCase();
+          for (const rule of pack.workAuthRules) {
+            const triggered = rule.triggerPhrases.some(phrase => jdTextLower.includes(phrase.toLowerCase()));
+            if (!triggered) continue;
+            let conditionMet = false;
+            const workStatus = profile?.workStatus ?? "unknown";
+            const needsSponsorship = profile?.needsSponsorship ?? "unknown";
+            const countryOfResidence = profile?.countryOfResidence ?? null;
+            if (rule.condition === "work_status != citizen_pr") {
+              conditionMet = workStatus !== "citizen_pr";
+            } else if (rule.condition === "needs_sponsorship == true") {
+              conditionMet = needsSponsorship === "true";
+            } else if (rule.condition === "work_status == unknown") {
+              conditionMet = workStatus === "unknown";
+            } else if (rule.condition === "country_of_residence != Canada") {
+              conditionMet = countryOfResidence !== null && countryOfResidence.toLowerCase() !== "canada";
+            }
+            if (conditionMet) {
+              roleFitScore += rule.penalty; // penalty is negative
+              workAuthorizationFlags.push({ ruleId: rule.id, title: rule.label, guidance: rule.message, penalty: rule.penalty });
+              flags.push(`work_auth:${rule.id}: ${rule.message}`);
+            }
+          }
         }
 
-        roleFitScore = Math.max(0, roleFitScore);
+        roleFitScore = Math.max(0, Math.min(100, roleFitScore));
 
-        // ── 11. Compute overall_score using pack.scoringWeights ───────────
-        // Map our 4 components to pack weight keys
+        // ── 11. Compute overall_score using pack.scoringWeights ───────────────       // Map our 4 components to pack weight keys
         // Pack weights: eligibility, tools, responsibilities, skills, softSkills
         // We map: role_fit → eligibility weight, keyword_coverage → tools+responsibilities, evidence_strength → skills+softSkills, formatting → remaining
         // Simplified: use a weighted blend of 4 components with pack-derived weights
@@ -715,10 +1046,11 @@ export const appRouter = router({
             score: roleFitScore,
             weight: roleFitWeight,
             explanation: flags.length > 0
-              ? `Flags detected: ${flags.join(" | ")}`
+              ? `Flags detected: ${flags.join(" | ")}${workAuthorizationFlags.length > 0 ? " | Role fit includes work authorization eligibility checks." : ""}`
               : "No eligibility or seniority issues detected.",
           },
           flags,
+          workAuthorizationFlags,
           pack_label: pack.label,
           computed_at: new Date().toISOString(),
         };
@@ -965,6 +1297,7 @@ export const appRouter = router({
     }),
     generatePack: protectedProcedure.input(z.object({
       jobCardId: z.number(),
+      contactId: z.number().optional(),
     })).mutation(async ({ ctx, input }) => {
       // Check credits
       const balance = await db.getCreditsBalance(ctx.user.id);
@@ -977,15 +1310,42 @@ export const appRouter = router({
       const profile = await db.getProfile(ctx.user.id);
       const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "NEW_GRAD");
 
+      // Resolve contact name, email, and LinkedIn URL for deterministic salutation (Fix 1/4), To: line (Fix 2/4), and LinkedIn: line (Fix 3/4)
+      let contactName: string | null = null;
+      let contactEmail: string | null = null;
+      let contactLinkedInUrl: string | null = null;
+      if (input.contactId) {
+        const contact = await db.getContactById(input.contactId, ctx.user.id);
+        contactName = contact?.name ?? null;
+        contactEmail = contact?.email ?? null;
+        contactLinkedInUrl = contact?.linkedinUrl ?? null;
+      }
+      const emailSalutation = computeSalutation(contactName, "email");
+      const linkedinSalutation = computeSalutation(contactName, "linkedin");
+      const contactEmailBlock = buildContactEmailBlock(contactEmail);
+      const linkedInBlock = buildLinkedInBlock(contactLinkedInUrl);
+
+      // Build signature lines from real profile fields; omit if missing
+      const sigLines: string[] = [];
+      if (profile?.phone) sigLines.push(`Phone: ${profile.phone}`);
+      if (profile?.linkedinUrl) sigLines.push(`LinkedIn: ${profile.linkedinUrl}`);
+      const signatureBlock = sigLines.length > 0 ? `\nSignature lines to include:\n${sigLines.join("\n")}` : "\nDo NOT include any phone or LinkedIn placeholder lines in the signature.";
+
+      // Fetch personalization sources (up to 3 most recent) for this job card
+      const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+      const topSources = personalizationSources.slice(0, 3);
+      const personalizationBlock = buildPersonalizationBlock(topSources);
       const llmResult = await invokeLLM({
         messages: [
           {
             role: "system",
-            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2.`
+            content: `Generate an outreach pack for a ${pack.label} job application. Tone: ${pack.templates.outreachTone}. Return JSON with recruiter_email, linkedin_dm, follow_up_1, follow_up_2. IMPORTANT: Never use bracket placeholders like [Your Phone Number] or [Your LinkedIn Profile URL]. Use only real values provided or omit those lines entirely.
+
+${buildToneSystemPrompt()}`
           },
           {
             role: "user",
-            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}`
+            content: `Job: ${jobCard.title} at ${jobCard.company ?? "Unknown Company"}\n${jdSnapshot ? `JD: ${jdSnapshot.snapshotText.substring(0, 2000)}` : ""}\nApplicant: ${ctx.user.name ?? "Student"}, ${profile?.program ?? ""} at ${profile?.school ?? ""}${signatureBlock}\nSalutation for recruiter_email and follow_up messages: ${emailSalutation}\nSalutation for linkedin_dm: ${linkedinSalutation}${contactEmailBlock ? `\n${contactEmailBlock}` : ""}${linkedInBlock ? `\n${linkedInBlock}` : ""}${personalizationBlock ? `\n\n${personalizationBlock}` : ""}`
           }
         ],
         response_format: {
@@ -1009,8 +1369,24 @@ export const appRouter = router({
       });
 
       const content = llmResult.choices[0]?.message?.content;
-      const parsed = JSON.parse(typeof content === "string" ? content : "{}");
-
+      const rawParsed = JSON.parse(typeof content === "string" ? content : "{}");
+      // Strip any remaining bracket placeholders the LLM may have included
+      const stripBrackets = (text: string) =>
+        text
+          .replace(/\[Your Phone Number\]/gi, "")
+          .replace(/\[Your LinkedIn Profile URL\]/gi, "")
+          .replace(/\[Your LinkedIn URL\]/gi, "")
+          .replace(/\[LinkedIn Profile\]/gi, "")
+          .replace(/\[Phone\]/gi, "")
+          .replace(/\[[^\]]{1,60}\]/g, "") // catch any other short bracket placeholders
+          .replace(/\n{3,}/g, "\n\n") // collapse triple+ newlines left by removed lines
+          .trim();
+      const parsed = {
+        recruiter_email: fixContactEmail(sanitizeTone(fixSalutation(stripBrackets(rawParsed.recruiter_email ?? ""), "email"), false), contactEmail),
+        linkedin_dm: fixLinkedInUrl(sanitizeTone(fixSalutation(stripBrackets(rawParsed.linkedin_dm ?? ""), "linkedin"), false), contactLinkedInUrl),
+        follow_up_1: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_1 ?? ""), "email")), true),
+        follow_up_2: sanitizeTone(stripPersonalizationFromFollowUp(fixSalutation(stripBrackets(rawParsed.follow_up_2 ?? ""), "email")), true),
+      };
       const spent = await db.spendCredits(ctx.user.id, 1, "Outreach Pack generation", "outreach_pack");
       if (!spent) throw new Error("Failed to spend credit.");
 
@@ -1270,6 +1646,50 @@ export const appRouter = router({
       }
 
       return { created, skipped: tasksToCreate.length - created };
+    }),
+  }),
+
+  // ─── Personalization Sources ───────────────────────────────────────────────
+  personalization: router({
+    list: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+    })).query(async ({ ctx, input }) => {
+      return db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+    }),
+
+    upsert: protectedProcedure.input(z.object({
+      id: z.number().optional(),
+      jobCardId: z.number(),
+      sourceType: z.enum(["linkedin_post", "linkedin_about", "company_news", "other"]),
+      url: z.string().max(2048).optional(),
+      pastedText: z.string().max(5000).optional(),
+    }).refine(
+      (d) => (d.pastedText && d.pastedText.trim().length >= 50) || (d.url && d.url.trim().length > 0),
+      { message: "Paste at least 50 characters of text, or provide a URL." }
+    )).mutation(async ({ ctx, input }) => {
+      // Enforce max 5 sources per job card (only for new sources)
+      if (!input.id) {
+        const existing = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+        if (existing.length >= 5) {
+          throw new Error("Maximum 5 personalization sources per job card.");
+        }
+      }
+      const id = await db.upsertPersonalizationSource({
+        id: input.id,
+        jobCardId: input.jobCardId,
+        userId: ctx.user.id,
+        sourceType: input.sourceType,
+        url: input.url ?? null,
+        pastedText: input.pastedText ?? null,
+      });
+      return { id };
+    }),
+
+    delete: protectedProcedure.input(z.object({
+      id: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.deletePersonalizationSource(input.id, ctx.user.id);
+      return { success: true };
     }),
   }),
 });

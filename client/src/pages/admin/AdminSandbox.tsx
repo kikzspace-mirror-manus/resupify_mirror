@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { TestTube2, Briefcase, FileText, FlaskConical, Mail, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { TestTube2, Briefcase, FileText, FlaskConical, Mail, CheckCircle2, Loader2, ArrowRight, RefreshCw } from "lucide-react";
 
 export default function AdminSandbox() {
   const [sampleJobId, setSampleJobId] = useState<number | null>(null);
   const [sampleResumeId, setSampleResumeId] = useState<number | null>(null);
   const [evidenceResult, setEvidenceResult] = useState<{ runId: number; score: number; itemCount: number } | null>(null);
   const [outreachResult, setOutreachResult] = useState<any>(null);
+  const [testContactName, setTestContactName] = useState("");
+  const [testContactEmail, setTestContactEmail] = useState("");
+  const [testContactLinkedInUrl, setTestContactLinkedInUrl] = useState("");
 
   // Manual IDs for running on existing data
   const [manualJobId, setManualJobId] = useState("");
@@ -52,6 +55,12 @@ export default function AdminSandbox() {
 
   const effectiveJobId = manualJobId ? parseInt(manualJobId) : sampleJobId;
   const effectiveResumeId = manualResumeId ? parseInt(manualResumeId) : sampleResumeId;
+  // Personalization sources count for the current job card
+  const { data: personalizationSources } = trpc.personalization.list.useQuery(
+    { jobCardId: effectiveJobId! },
+    { enabled: !!effectiveJobId }
+  );
+  const personalizationCount = personalizationSources?.length ?? 0;
 
   return (
     <AdminLayout>
@@ -211,6 +220,45 @@ export default function AdminSandbox() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Contact Name (optional — for salutation test)</label>
+              <Input
+                placeholder="e.g. Erick Tran (leave blank to test fallback)"
+                value={testContactName}
+                onChange={(e) => setTestContactName(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Contact Email (optional — adds To: line to recruiter email)</label>
+              <Input
+                type="email"
+                placeholder="e.g. erick@company.com (leave blank to omit To: line)"
+                value={testContactEmail}
+                onChange={(e) => setTestContactEmail(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Contact LinkedIn URL (optional — adds LinkedIn: line to DM)</label>
+              <Input
+                type="url"
+                placeholder="e.g. https://linkedin.com/in/erick-tran (leave blank to omit)"
+                value={testContactLinkedInUrl}
+                onChange={(e) => setTestContactLinkedInUrl(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
+            {effectiveJobId && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium">Using personalization:</span>
+                {personalizationCount > 0 ? (
+                  <span className="text-green-600 font-medium">Yes ({personalizationCount} source{personalizationCount !== 1 ? "s" : ""})</span>
+                ) : (
+                  <span className="text-muted-foreground">No (0 sources saved for this job card)</span>
+                )}
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={() => {
@@ -218,7 +266,12 @@ export default function AdminSandbox() {
                   toast.error("Please create or specify a job card first.");
                   return;
                 }
-                outreachMut.mutate({ jobCardId: effectiveJobId });
+                outreachMut.mutate({
+                  jobCardId: effectiveJobId,
+                  contactName: testContactName.trim() || undefined,
+                  contactEmail: testContactEmail.trim() || undefined,
+                  contactLinkedInUrl: testContactLinkedInUrl.trim() || undefined,
+                });
               }}
               disabled={outreachMut.isPending || !effectiveJobId}
             >
@@ -236,6 +289,32 @@ export default function AdminSandbox() {
             </Button>
 
             {outreachResult && (
+              <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!effectiveJobId) {
+                    toast.error("Please create or specify a job card first.");
+                    return;
+                  }
+                  outreachMut.mutate({ jobCardId: effectiveJobId });
+                }}
+                disabled={outreachMut.isPending || !effectiveJobId}
+                className="mt-2"
+              >
+                {outreachMut.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate (Test Mode)
+                  </>
+                )}
+              </Button>
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -261,6 +340,7 @@ export default function AdminSandbox() {
                   </div>
                 </div>
               </div>
+              </>  
             )}
           </CardContent>
         </Card>

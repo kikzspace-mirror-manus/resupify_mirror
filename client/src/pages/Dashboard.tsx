@@ -15,7 +15,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+
+import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
+import { ScoreTrendsWidget } from "@/components/ScoreTrendsWidget";
 import { STAGE_LABELS } from "../../../shared/regionPacks";
 
 const stageColors: Record<string, string> = {
@@ -37,11 +39,11 @@ export default function Dashboard() {
   const { data: credits } = trpc.credits.balance.useQuery();
   const { data: recentJobs } = trpc.jobCards.list.useQuery({});
 
-  useEffect(() => {
-    if (!profileLoading && profile && !profile.onboardingComplete) {
-      setLocation("/onboarding");
-    }
-  }, [profile, profileLoading, setLocation]);
+  // Nudge banner state: show when work_status is unknown and not dismissed
+  const workStatus = (profile as any)?.workStatus ?? null;
+  const { showNudge, handleDismiss: handleDismissNudge } = useProfileNudge(
+    profileLoading ? "loading" : workStatus
+  );
 
   const totalJobs = stats?.jobStats?.total ?? 0;
   const appliedCount = stats?.jobStats?.byStage?.applied ?? 0;
@@ -52,6 +54,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Profile completeness nudge — shown only when work_status is unknown */}
+      {showNudge && <ProfileNudgeBanner onDismiss={handleDismissNudge} />}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -122,6 +127,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ATS Score Trends — Patch 8G */}
+      <ScoreTrendsWidget />
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Today's Tasks */}

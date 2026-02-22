@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 
 const taskTypeColors: Record<string, string> = {
   follow_up: "bg-amber-100 text-amber-700",
@@ -30,6 +31,11 @@ export default function Today() {
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
   const { data: todayTasks, isLoading } = trpc.tasks.today.useQuery();
+  const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery();
+  const workStatus = (profile as any)?.workStatus ?? null;
+  const { showNudge, handleDismiss: handleDismissNudge } = useProfileNudge(
+    profileLoading ? "loading" : workStatus
+  );
   const { data: allTasks } = trpc.tasks.list.useQuery({ completed: false });
   const updateTask = trpc.tasks.update.useMutation({
     onSuccess: () => {
@@ -69,6 +75,9 @@ export default function Today() {
 
   return (
     <div className="space-y-6">
+      {/* Profile completeness nudge — shared key with Dashboard */}
+      {showNudge && <ProfileNudgeBanner onDismiss={handleDismissNudge} />}
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Today</h1>
         <p className="text-muted-foreground text-sm mt-1">

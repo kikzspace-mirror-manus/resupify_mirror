@@ -17,13 +17,96 @@ export function sanitizeSegment(segment: string): string {
 }
 
 /**
- * Build a cover letter filename.
+ * Build a resume patch filename.
  *
  * @param fullName  - User's full name (e.g. "Francis Alexes Noces")
  * @param company   - Company name (e.g. "Acme Corp")
  * @param date      - Optional Date object; defaults to today in local time
- * @returns         - e.g. "Francis_Noces - Acme Corp - 2026-02-20.txt"
+ * @returns         - e.g. "Francis_Noces - Resume_Patch - Acme Corp - 2026-02-20.txt"
  */
+
+/**
+ * Build an Application Kit zip bundle filename.
+ *
+ * @param fullName  - User's full name (e.g. "Francis Alexes Noces")
+ * @param company   - Company name (e.g. "Acme Corp")
+ * @param date      - Optional Date object; defaults to today in local time
+ * @returns         - e.g. "Francis_Noces - Application_Kit - Acme Corp - 2026-02-21.zip"
+ */
+export function buildApplicationKitZipFilename(
+  fullName: string,
+  company: string,
+  date?: Date
+): string {
+  const d = date ?? new Date();
+
+  const nameParts = sanitizeSegment(fullName || "User").split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] ?? "User";
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  const namePart = lastName ? `${firstName}_${lastName}` : firstName;
+
+  const companyPart = sanitizeSegment(company || "Company") || "Company";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const datePart = `${year}-${month}-${day}`;
+
+  return `${namePart} - Application_Kit - ${companyPart} - ${datePart}.zip`;
+}
+
+/**
+ * Build a top changes (action checklist) filename.
+ *
+ * @param fullName  - User's full name (e.g. "Francis Alexes Noces")
+ * @param company   - Company name (e.g. "Acme Corp")
+ * @param date      - Optional Date object; defaults to today in local time
+ * @returns         - e.g. "Francis_Noces - Top_Changes - Acme Corp - 2026-02-21.txt"
+ */
+export function buildTopChangesFilename(
+  fullName: string,
+  company: string,
+  date?: Date
+): string {
+  const d = date ?? new Date();
+
+  const nameParts = sanitizeSegment(fullName || "User").split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] ?? "User";
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  const namePart = lastName ? `${firstName}_${lastName}` : firstName;
+
+  const companyPart = sanitizeSegment(company || "Company") || "Company";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const datePart = `${year}-${month}-${day}`;
+
+  return `${namePart} - Top_Changes - ${companyPart} - ${datePart}.txt`;
+}
+
+export function buildResumePatchFilename(
+  fullName: string,
+  company: string,
+  date?: Date
+): string {
+  const d = date ?? new Date();
+
+  const nameParts = sanitizeSegment(fullName || "User").split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] ?? "User";
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  const namePart = lastName ? `${firstName}_${lastName}` : firstName;
+
+  const companyPart = sanitizeSegment(company || "Company") || "Company";
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const datePart = `${year}-${month}-${day}`;
+
+  return `${namePart} - Resume_Patch - ${companyPart} - ${datePart}.txt`;
+}
+
 export function buildCoverLetterFilename(
   fullName: string,
   company: string,
