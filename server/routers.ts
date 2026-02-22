@@ -17,6 +17,7 @@ import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit } from "./rateLimiter";
+import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -101,15 +102,15 @@ export const appRouter = router({
       return db.getProfile(ctx.user.id);
     }),
     upsert: protectedProcedure.input(z.object({
-      regionCode: z.string().optional(),
+      regionCode: z.string().max(MAX_LENGTHS.PROFILE_REGION_CODE).optional(),
       trackCode: z.enum(["COOP", "NEW_GRAD"]).optional(),
-      school: z.string().optional(),
-      program: z.string().optional(),
-      graduationDate: z.string().optional(),
+      school: z.string().max(MAX_LENGTHS.PROFILE_SCHOOL, { message: TOO_LONG_MSG }).optional(),
+      program: z.string().max(MAX_LENGTHS.PROFILE_PROGRAM, { message: TOO_LONG_MSG }).optional(),
+      graduationDate: z.string().max(MAX_LENGTHS.PROFILE_GRADUATION_DATE).optional(),
       currentlyEnrolled: z.boolean().optional(),
       onboardingComplete: z.boolean().optional(),
-      phone: z.string().max(64).nullable().optional(),
-      linkedinUrl: z.string().max(512).nullable().optional(),
+      phone: z.string().max(MAX_LENGTHS.PROFILE_PHONE, { message: TOO_LONG_MSG }).nullable().optional(),
+      linkedinUrl: z.string().max(MAX_LENGTHS.PROFILE_LINKEDIN_URL, { message: TOO_LONG_MSG }).nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
       await db.upsertProfile(ctx.user.id, input);
       return { success: true };
@@ -122,7 +123,7 @@ export const appRouter = router({
       workStatus: z.enum(["citizen_pr", "temporary_resident", "unknown"]).optional(),
       workStatusDetail: z.enum(["open_work_permit", "employer_specific_permit", "student_work_authorization", "other"]).nullable().optional(),
       needsSponsorship: z.enum(["true", "false", "unknown"]).optional(),
-      countryOfResidence: z.string().nullable().optional(),
+      countryOfResidence: z.string().max(MAX_LENGTHS.PROFILE_COUNTRY, { message: TOO_LONG_MSG }).nullable().optional(),
       willingToRelocate: z.boolean().nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
       await db.upsertProfile(ctx.user.id, input as any);
@@ -164,16 +165,16 @@ export const appRouter = router({
       return db.getResumeById(input.id, ctx.user.id);
     }),
     create: protectedProcedure.input(z.object({
-      title: z.string().min(1),
-      content: z.string().min(1),
+      title: z.string().min(1).max(MAX_LENGTHS.RESUME_TITLE, { message: TOO_LONG_MSG }),
+      content: z.string().min(1).max(MAX_LENGTHS.RESUME_CONTENT, { message: TOO_LONG_MSG }),
     })).mutation(async ({ ctx, input }) => {
       const id = await db.createResume({ userId: ctx.user.id, title: input.title, content: input.content });
       return { id };
     }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
-      title: z.string().optional(),
-      content: z.string().optional(),
+      title: z.string().max(MAX_LENGTHS.RESUME_TITLE, { message: TOO_LONG_MSG }).optional(),
+      content: z.string().max(MAX_LENGTHS.RESUME_CONTENT, { message: TOO_LONG_MSG }).optional(),
     })).mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
       await db.updateResume(id, ctx.user.id, data);
@@ -184,11 +185,11 @@ export const appRouter = router({
       return { success: true };
     }),
     upload: protectedProcedure.input(z.object({
-      title: z.string().min(1),
-      content: z.string().min(1),
-      fileName: z.string(),
+      title: z.string().min(1).max(MAX_LENGTHS.RESUME_TITLE, { message: TOO_LONG_MSG }),
+      content: z.string().min(1).max(MAX_LENGTHS.RESUME_CONTENT, { message: TOO_LONG_MSG }),
+      fileName: z.string().max(255),
       fileBase64: z.string(),
-      mimeType: z.string(),
+      mimeType: z.string().max(100),
     })).mutation(async ({ ctx, input }) => {
       const buffer = Buffer.from(input.fileBase64, "base64");
       const fileKey = `resumes/${ctx.user.id}/${nanoid()}-${input.fileName}`;
@@ -217,18 +218,18 @@ export const appRouter = router({
       return db.getJobCardById(input.id, ctx.user.id);
     }),
     create: protectedProcedure.input(z.object({
-      title: z.string().min(1),
-      company: z.string().optional(),
-      location: z.string().optional(),
-      url: z.string().optional(),
+      title: z.string().min(1).max(MAX_LENGTHS.JOB_TITLE, { message: TOO_LONG_MSG }),
+      company: z.string().max(MAX_LENGTHS.COMPANY, { message: TOO_LONG_MSG }).optional(),
+      location: z.string().max(MAX_LENGTHS.LOCATION, { message: TOO_LONG_MSG }).optional(),
+      url: z.string().max(MAX_LENGTHS.SOURCE_URL).optional(),
       stage: z.enum(["bookmarked", "applying", "applied", "interviewing", "offered", "rejected", "archived"]).optional(),
       priority: z.enum(["low", "medium", "high"]).optional(),
       season: z.enum(["fall", "winter", "summer", "year_round"]).optional(),
-      notes: z.string().optional(),
-      salary: z.string().optional(),
-      jobType: z.string().optional(),
+      notes: z.string().max(MAX_LENGTHS.JOB_NOTES, { message: TOO_LONG_MSG }).optional(),
+      salary: z.string().max(MAX_LENGTHS.SALARY).optional(),
+      jobType: z.string().max(64).optional(),
       dueDate: z.string().optional(),
-      jdText: z.string().optional(),
+      jdText: z.string().max(MAX_LENGTHS.JD_TEXT, { message: TOO_LONG_MSG }).optional(),
     })).mutation(async ({ ctx, input }) => {
       const { jdText, dueDate, ...cardData } = input;
       const id = await db.createJobCard({
@@ -266,16 +267,16 @@ export const appRouter = router({
     }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
-      title: z.string().optional(),
-      company: z.string().optional(),
-      location: z.string().optional(),
-      url: z.string().optional(),
+      title: z.string().max(MAX_LENGTHS.JOB_TITLE, { message: TOO_LONG_MSG }).optional(),
+      company: z.string().max(MAX_LENGTHS.COMPANY, { message: TOO_LONG_MSG }).optional(),
+      location: z.string().max(MAX_LENGTHS.LOCATION, { message: TOO_LONG_MSG }).optional(),
+      url: z.string().max(MAX_LENGTHS.SOURCE_URL).optional(),
       stage: z.enum(["bookmarked", "applying", "applied", "interviewing", "offered", "rejected", "archived"]).optional(),
       priority: z.enum(["low", "medium", "high"]).optional(),
       season: z.enum(["fall", "winter", "summer", "year_round"]).optional(),
-      notes: z.string().optional(),
-      salary: z.string().optional(),
-      jobType: z.string().optional(),
+      notes: z.string().max(MAX_LENGTHS.JOB_NOTES, { message: TOO_LONG_MSG }).optional(),
+      salary: z.string().max(MAX_LENGTHS.SALARY).optional(),
+      jobType: z.string().max(64).optional(),
       nextTouchAt: z.string().nullable().optional(),
       dueDate: z.string().nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
@@ -328,8 +329,8 @@ export const appRouter = router({
     }),
     create: protectedProcedure.input(z.object({
       jobCardId: z.number(),
-      snapshotText: z.string().min(1),
-      sourceUrl: z.string().optional(),
+      snapshotText: z.string().min(1).max(MAX_LENGTHS.SNAPSHOT_TEXT, { message: TOO_LONG_MSG }),
+      sourceUrl: z.string().max(MAX_LENGTHS.SOURCE_URL).optional(),
     })).mutation(async ({ ctx, input }) => {
       const id = await db.createJdSnapshot({
         jobCardId: input.jobCardId,
@@ -672,8 +673,8 @@ export const appRouter = router({
 
     // Phase 9B: Auto-fill Job Title + Company from fetched JD text
     extractFields: protectedProcedure.input(z.object({
-      text: z.string().max(20_000),
-      urlHostname: z.string().optional(),
+      text: z.string().max(MAX_LENGTHS.JD_TEXT, { message: TOO_LONG_MSG }),
+      urlHostname: z.string().max(MAX_LENGTHS.SAVED_NOTE_URL_HOSTNAME).optional(),
     })).mutation(async ({ input }) => {
       const snippet = input.text.substring(0, 4_000); // Use first 4k chars for speed
       let llmResult: any;
@@ -1163,8 +1164,8 @@ export const appRouter = router({
     }),
     create: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
-      title: z.string().min(1),
-      description: z.string().optional(),
+      title: z.string().min(1).max(MAX_LENGTHS.TASK_TITLE, { message: TOO_LONG_MSG }),
+      description: z.string().max(MAX_LENGTHS.TASK_DESCRIPTION, { message: TOO_LONG_MSG }).optional(),
       taskType: z.enum(["follow_up", "apply", "interview_prep", "custom", "outreach", "review_evidence"]).optional(),
       dueDate: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
@@ -1180,8 +1181,8 @@ export const appRouter = router({
     }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
-      title: z.string().optional(),
-      description: z.string().optional(),
+      title: z.string().max(MAX_LENGTHS.TASK_TITLE, { message: TOO_LONG_MSG }).optional(),
+      description: z.string().max(MAX_LENGTHS.TASK_DESCRIPTION, { message: TOO_LONG_MSG }).optional(),
       completed: z.boolean().optional(),
       dueDate: z.string().nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
@@ -1234,26 +1235,26 @@ export const appRouter = router({
     }),
     create: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
-      name: z.string().min(1),
-      role: z.string().optional(),
-      company: z.string().optional(),
-      email: z.string().optional(),
-      linkedinUrl: z.string().optional(),
-      phone: z.string().optional(),
-      notes: z.string().optional(),
+      name: z.string().min(1).max(MAX_LENGTHS.CONTACT_NAME, { message: TOO_LONG_MSG }),
+      role: z.string().max(MAX_LENGTHS.CONTACT_ROLE, { message: TOO_LONG_MSG }).optional(),
+      company: z.string().max(MAX_LENGTHS.CONTACT_COMPANY, { message: TOO_LONG_MSG }).optional(),
+      email: z.string().max(MAX_LENGTHS.CONTACT_EMAIL).optional(),
+      linkedinUrl: z.string().max(MAX_LENGTHS.CONTACT_LINKEDIN_URL, { message: TOO_LONG_MSG }).optional(),
+      phone: z.string().max(MAX_LENGTHS.CONTACT_PHONE).optional(),
+      notes: z.string().max(MAX_LENGTHS.CONTACT_NOTES, { message: TOO_LONG_MSG }).optional(),
     })).mutation(async ({ ctx, input }) => {
       const id = await db.createContact({ userId: ctx.user.id, ...input } as any);
       return { id };
     }),
     update: protectedProcedure.input(z.object({
       id: z.number(),
-      name: z.string().optional(),
-      role: z.string().optional(),
-      company: z.string().optional(),
-      email: z.string().optional(),
-      linkedinUrl: z.string().optional(),
-      phone: z.string().optional(),
-      notes: z.string().optional(),
+      name: z.string().max(MAX_LENGTHS.CONTACT_NAME, { message: TOO_LONG_MSG }).optional(),
+      role: z.string().max(MAX_LENGTHS.CONTACT_ROLE, { message: TOO_LONG_MSG }).optional(),
+      company: z.string().max(MAX_LENGTHS.CONTACT_COMPANY, { message: TOO_LONG_MSG }).optional(),
+      email: z.string().max(MAX_LENGTHS.CONTACT_EMAIL).optional(),
+      linkedinUrl: z.string().max(MAX_LENGTHS.CONTACT_LINKEDIN_URL, { message: TOO_LONG_MSG }).optional(),
+      phone: z.string().max(MAX_LENGTHS.CONTACT_PHONE).optional(),
+      notes: z.string().max(MAX_LENGTHS.CONTACT_NOTES, { message: TOO_LONG_MSG }).optional(),
     })).mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
       await db.updateContact(id, ctx.user.id, data as any);
@@ -1278,7 +1279,7 @@ export const appRouter = router({
     createThread: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
       contactId: z.number().optional(),
-      subject: z.string().optional(),
+      subject: z.string().max(200, { message: TOO_LONG_MSG }).optional(),
       channel: z.enum(["email", "linkedin", "other"]).optional(),
     })).mutation(async ({ ctx, input }) => {
       const id = await db.createOutreachThread({ userId: ctx.user.id, ...input });
@@ -1286,7 +1287,7 @@ export const appRouter = router({
     }),
     addMessage: protectedProcedure.input(z.object({
       threadId: z.number(),
-      content: z.string().min(1),
+      content: z.string().min(1).max(25_000, { message: TOO_LONG_MSG }),
       direction: z.enum(["sent", "received"]).optional(),
       messageType: z.enum(["recruiter_email", "linkedin_dm", "follow_up_1", "follow_up_2", "custom"]).optional(),
     })).mutation(async ({ input }) => {

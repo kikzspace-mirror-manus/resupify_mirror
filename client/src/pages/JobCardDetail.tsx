@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename, buildApplicationKitZipFilename } from "../../../shared/filename";
 import JSZip from "jszip";
@@ -471,6 +472,7 @@ function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job
         <CardContent>
           <Textarea
             value={notes}
+            maxLength={MAX_LENGTHS.JOB_NOTES}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add notes about this job..."
             className="min-h-[150px] text-sm"
@@ -699,6 +701,7 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
           )}
           <Textarea
             value={newJdText}
+            maxLength={MAX_LENGTHS.SNAPSHOT_TEXT}
             onChange={(e) => setNewJdText(e.target.value)}
             placeholder="Paste the job description text here, or fetch from a URL above…"
             className="min-h-[120px] text-sm font-mono"
@@ -2188,9 +2191,9 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           ))}
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Input placeholder="Name *" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="flex-1" />
-              <Input placeholder="Role" value={newContactRole} onChange={(e) => setNewContactRole(e.target.value)} className="flex-1" />
-              <Input placeholder="Email" value={newContactEmail} onChange={(e) => setNewContactEmail(e.target.value)} className="flex-1" />
+              <Input placeholder="Name *" value={newContactName} maxLength={MAX_LENGTHS.CONTACT_NAME} onChange={(e) => setNewContactName(e.target.value)} className="flex-1" />
+              <Input placeholder="Role" value={newContactRole} maxLength={MAX_LENGTHS.CONTACT_ROLE} onChange={(e) => setNewContactRole(e.target.value)} className="flex-1" />
+              <Input placeholder="Email" value={newContactEmail} maxLength={MAX_LENGTHS.CONTACT_EMAIL} onChange={(e) => setNewContactEmail(e.target.value)} className="flex-1" />
             </div>
             <div className="flex gap-2 items-start">
               <div className="flex-1">
@@ -2278,7 +2281,7 @@ function TasksTab({ jobCardId, jobStage, tasks, updateTask, createTask }: { jobC
             createTask.mutate({ jobCardId, title: newTitle });
             setNewTitle("");
           }} className="flex gap-3">
-            <Input placeholder="Add a task..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="flex-1" />
+            <Input placeholder="Add a task..." value={newTitle} maxLength={MAX_LENGTHS.TASK_TITLE} onChange={(e) => setNewTitle(e.target.value)} className="flex-1" />
             <Button type="submit" size="sm"><Plus className="h-4 w-4 mr-1" />Add</Button>
           </form>
         </CardContent>

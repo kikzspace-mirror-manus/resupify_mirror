@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -668,6 +669,7 @@ function CreateJobDialog({
               id="title"
               placeholder="e.g., Software Developer Intern"
               value={title}
+              maxLength={MAX_LENGTHS.JOB_TITLE}
               onChange={(e) => { setTitle(e.target.value); setAutoFilled(false); }}
             />
           </div>
@@ -678,6 +680,7 @@ function CreateJobDialog({
                 id="company"
                 placeholder="e.g., Shopify"
                 value={company}
+                maxLength={MAX_LENGTHS.COMPANY}
                 onChange={(e) => setCompany(e.target.value)}
               />
             </div>
@@ -687,6 +690,7 @@ function CreateJobDialog({
                 id="location"
                 placeholder="e.g., Toronto, ON"
                 value={location}
+                maxLength={MAX_LENGTHS.LOCATION}
                 onChange={(e) => setLocation(e.target.value)}
               />
             </div>
@@ -767,6 +771,7 @@ function CreateJobDialog({
               id="jdText"
               placeholder="Paste the full job description here, or use Fetch JD above to auto-fill..."
               value={jdText}
+              maxLength={MAX_LENGTHS.JD_TEXT}
               onChange={(e) => setJdText(e.target.value)}
               className="min-h-[120px] text-sm"
             />

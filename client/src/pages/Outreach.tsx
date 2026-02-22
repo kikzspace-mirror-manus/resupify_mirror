@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -230,25 +231,25 @@ function CreateContactDialog({
         >
           <div className="space-y-2">
             <Label>Name *</Label>
-            <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input placeholder="Full name" value={name} maxLength={MAX_LENGTHS.CONTACT_NAME} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Company</Label>
-              <Input placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+              <Input placeholder="Company" value={company} maxLength={MAX_LENGTHS.CONTACT_COMPANY} onChange={(e) => setCompany(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Role</Label>
-              <Input placeholder="e.g., Recruiter" value={role} onChange={(e) => setRole(e.target.value)} />
+              <Input placeholder="e.g., Recruiter" value={role} maxLength={MAX_LENGTHS.CONTACT_ROLE} onChange={(e) => setRole(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input placeholder="email@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input placeholder="email@example.com" value={email} maxLength={MAX_LENGTHS.CONTACT_EMAIL} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>LinkedIn URL</Label>
-            <Input placeholder="https://linkedin.com/in/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+            <Input placeholder="https://linkedin.com/in/..." value={linkedinUrl} maxLength={MAX_LENGTHS.CONTACT_LINKEDIN_URL} onChange={(e) => setLinkedinUrl(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={createContact.isPending}>
             {createContact.isPending ? "Adding..." : "Add Contact"}

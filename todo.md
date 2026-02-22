@@ -557,3 +557,11 @@
 - [x] Tests: no credit debit on 429 (balance unchanged, ledger unchanged)
 - [x] Tests: URL fetch per-IP 429
 - [x] Tests: Auth per-IP 429 — 20 new tests (A-H), 728 total passing
+
+## Phase 10B-1: Input Length Caps
+- [x] Audit all free-text inputs in routers.ts and client forms
+- [x] Create shared/maxLengths.ts with MAX_LENGTHS constants and TOO_LONG_MSG
+- [x] Apply server-side Zod .max() caps: jobCards (create/update), jdSnapshots, evidence.run, outreach, applicationKits, contacts, resumes, tasks, profile, notes
+- [x] Apply client-side maxLength HTML attributes to all forms (JobCards, JobCardDetail, Resumes, Profile, Outreach, Today)
+- [x] Tests: A-H (19 tests) — over-limit payloads fail as BAD_REQUEST (not 500), no credits spent on validation failure
+- [x] All existing tests remain green — 747 tests pass total
