@@ -431,3 +431,14 @@
 - [x] Inject salutation into both production and sandbox LLM prompts (Option A)
 - [x] Add post-process guard: replace any remaining "Dear ," / "Dear," with "Dear Hiring Manager,"
 - [x] Tests: A-J (476 tests pass)
+
+## Phase 9C1: Personalization Sources + Tone Guardrails
+- [x] Add job_card_personalization_sources table to drizzle/schema.ts
+- [x] Push schema migration (pnpm db:push — migration 0011)
+- [x] Add db helpers: getPersonalizationSources, upsertPersonalizationSource, deletePersonalizationSource
+- [x] Add personalization tRPC router: list, upsert, delete
+- [x] Build Personalization tab in JobCardDetail.tsx (add source form, list with badges, edit/delete)
+- [x] Validation: min 50 chars pasted_text unless URL provided; max 5000 chars; max 5 sources
+- [x] Add disclaimer note on Personalization tab
+- [x] Add OUTREACH_TONE_GUARDRAILS config in shared/toneGuardrails.ts
+- [x] Tests: A-L (492 tests pass)

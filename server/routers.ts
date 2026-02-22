@@ -1613,6 +1613,50 @@ export const appRouter = router({
       return { created, skipped: tasksToCreate.length - created };
     }),
   }),
+
+  // ─── Personalization Sources ───────────────────────────────────────────────
+  personalization: router({
+    list: protectedProcedure.input(z.object({
+      jobCardId: z.number(),
+    })).query(async ({ ctx, input }) => {
+      return db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+    }),
+
+    upsert: protectedProcedure.input(z.object({
+      id: z.number().optional(),
+      jobCardId: z.number(),
+      sourceType: z.enum(["linkedin_post", "linkedin_about", "company_news", "other"]),
+      url: z.string().max(2048).optional(),
+      pastedText: z.string().max(5000).optional(),
+    }).refine(
+      (d) => (d.pastedText && d.pastedText.trim().length >= 50) || (d.url && d.url.trim().length > 0),
+      { message: "Paste at least 50 characters of text, or provide a URL." }
+    )).mutation(async ({ ctx, input }) => {
+      // Enforce max 5 sources per job card (only for new sources)
+      if (!input.id) {
+        const existing = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
+        if (existing.length >= 5) {
+          throw new Error("Maximum 5 personalization sources per job card.");
+        }
+      }
+      const id = await db.upsertPersonalizationSource({
+        id: input.id,
+        jobCardId: input.jobCardId,
+        userId: ctx.user.id,
+        sourceType: input.sourceType,
+        url: input.url ?? null,
+        pastedText: input.pastedText ?? null,
+      });
+      return { id };
+    }),
+
+    delete: protectedProcedure.input(z.object({
+      id: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.deletePersonalizationSource(input.id, ctx.user.id);
+      return { success: true };
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

@@ -15,6 +15,7 @@ import {
   adminActionLogs, InsertAdminActionLog,
   jobCardRequirements, InsertJobCardRequirement,
   applicationKits, InsertApplicationKit,
+  jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -851,4 +852,62 @@ export async function getActiveScoredJobCards(
     ...card,
     runs: runsByCard.get(card.id) ?? [],
   }));
+}
+
+// ─── Personalization Sources ─────────────────────────────────────────────────
+export async function getPersonalizationSources(jobCardId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(jobCardPersonalizationSources)
+    .where(and(
+      eq(jobCardPersonalizationSources.jobCardId, jobCardId),
+      eq(jobCardPersonalizationSources.userId, userId),
+    ))
+    .orderBy(asc(jobCardPersonalizationSources.capturedAt));
+}
+
+export async function upsertPersonalizationSource(
+  data: InsertJobCardPersonalizationSource & { id?: number }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  if (data.id) {
+    await db
+      .update(jobCardPersonalizationSources)
+      .set({
+        sourceType: data.sourceType,
+        url: data.url ?? null,
+        pastedText: data.pastedText ?? null,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(jobCardPersonalizationSources.id, data.id),
+        eq(jobCardPersonalizationSources.userId, data.userId),
+      ));
+    return data.id;
+  } else {
+    const [result] = await db
+      .insert(jobCardPersonalizationSources)
+      .values({
+        jobCardId: data.jobCardId,
+        userId: data.userId,
+        sourceType: data.sourceType,
+        url: data.url ?? null,
+        pastedText: data.pastedText ?? null,
+      });
+    return (result as any).insertId as number;
+  }
+}
+
+export async function deletePersonalizationSource(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(jobCardPersonalizationSources)
+    .where(and(
+      eq(jobCardPersonalizationSources.id, id),
+      eq(jobCardPersonalizationSources.userId, userId),
+    ));
 }

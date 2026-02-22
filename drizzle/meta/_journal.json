@@ -78,6 +78,13 @@
       "when": 1771727935405,
       "tag": "0010_whole_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771732624604,
+      "tag": "0011_hard_invaders",
+      "breakpoints": true
     }
   ]
 }

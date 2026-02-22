@@ -62,6 +62,9 @@ import {
   ChevronDown,
   History,
   GitCompare,
+  Pencil,
+  Trash2,
+  BookOpen,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -196,6 +199,7 @@ export default function JobCardDetail({ id }: { id: number }) {
           <TabsTrigger value="kit"><Package className="h-3.5 w-3.5 mr-1.5" />Application Kit</TabsTrigger>
           <TabsTrigger value="outreach"><Users className="h-3.5 w-3.5 mr-1.5" />Outreach</TabsTrigger>
           <TabsTrigger value="tasks"><CheckSquare className="h-3.5 w-3.5 mr-1.5" />Tasks</TabsTrigger>
+          <TabsTrigger value="personalization"><BookOpen className="h-3.5 w-3.5 mr-1.5" />Personalization</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -221,6 +225,11 @@ export default function JobCardDetail({ id }: { id: number }) {
         {/* Outreach Tab */}
         <TabsContent value="outreach" className="space-y-4 mt-4">
           <OutreachTab jobCardId={id} contacts={contacts ?? []} outreachPack={outreachPack} />
+        </TabsContent>
+
+        {/* Personalization Tab */}
+        <TabsContent value="personalization" className="space-y-4 mt-4">
+          <PersonalizationTab jobCardId={id} />
         </TabsContent>
 
         {/* Tasks Tab */}
@@ -2037,6 +2046,261 @@ function TasksTab({ jobCardId, jobStage, tasks, updateTask, createTask }: { jobC
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Personalization Tab ─────────────────────────────────────────────────────
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  linkedin_post: "LinkedIn Post",
+  linkedin_about: "LinkedIn About",
+  company_news: "Company News",
+  other: "Other",
+};
+const SOURCE_TYPE_COLORS: Record<string, string> = {
+  linkedin_post: "bg-blue-100 text-blue-700",
+  linkedin_about: "bg-indigo-100 text-indigo-700",
+  company_news: "bg-amber-100 text-amber-700",
+  other: "bg-gray-100 text-gray-600",
+};
+
+type SourceType = "linkedin_post" | "linkedin_about" | "company_news" | "other";
+
+interface SourceForm {
+  id?: number;
+  sourceType: SourceType;
+  url: string;
+  pastedText: string;
+}
+
+const EMPTY_FORM: SourceForm = { sourceType: "other", url: "", pastedText: "" };
+
+function PersonalizationTab({ jobCardId }: { jobCardId: number }) {
+  const utils = trpc.useUtils();
+  const { data: sources, isLoading } = trpc.personalization.list.useQuery({ jobCardId });
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<SourceForm>(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const upsert = trpc.personalization.upsert.useMutation({
+    onSuccess: () => {
+      utils.personalization.list.invalidate({ jobCardId });
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+      setFormError(null);
+      toast.success(form.id ? "Source updated" : "Source added");
+    },
+    onError: (err) => {
+      setFormError(err.message);
+    },
+  });
+
+  const del = trpc.personalization.delete.useMutation({
+    onSuccess: () => {
+      utils.personalization.list.invalidate({ jobCardId });
+      toast.success("Source removed");
+    },
+  });
+
+  function handleEdit(src: any) {
+    setForm({
+      id: src.id,
+      sourceType: src.sourceType as SourceType,
+      url: src.url ?? "",
+      pastedText: src.pastedText ?? "",
+    });
+    setFormError(null);
+    setShowForm(true);
+  }
+
+  function handleCancel() {
+    setShowForm(false);
+    setForm(EMPTY_FORM);
+    setFormError(null);
+  }
+
+  function handleSubmit() {
+    setFormError(null);
+    const trimmedText = form.pastedText.trim();
+    const trimmedUrl = form.url.trim();
+    if (trimmedText.length > 0 && trimmedText.length < 50 && trimmedUrl.length === 0) {
+      setFormError("Paste at least 50 characters of text, or provide a URL.");
+      return;
+    }
+    if (trimmedText.length === 0 && trimmedUrl.length === 0) {
+      setFormError("Paste at least 50 characters of text, or provide a URL.");
+      return;
+    }
+    if (trimmedText.length > 5000) {
+      setFormError("Pasted text must be 5,000 characters or less.");
+      return;
+    }
+    upsert.mutate({
+      id: form.id,
+      jobCardId,
+      sourceType: form.sourceType,
+      url: trimmedUrl || undefined,
+      pastedText: trimmedText || undefined,
+    });
+  }
+
+  const canAdd = !showForm && (sources?.length ?? 0) < 5;
+
+  return (
+    <div className="space-y-4">
+      {/* Disclaimer */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <span className="font-semibold">Privacy note:</span> Use only professional content you're comfortable referencing. Resupify uses only what you paste here — no scraping or external fetching.
+      </div>
+
+      {/* Source list */}
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading sources…
+        </div>
+      ) : (sources ?? []).length === 0 && !showForm ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          No personalization sources yet. Add a LinkedIn post, About section, or company news snippet to help personalize future outreach.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(sources ?? []).map((src: any) => (
+            <Card key={src.id} className="p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className={`text-xs ${SOURCE_TYPE_COLORS[src.sourceType] ?? SOURCE_TYPE_COLORS.other}`}>
+                      {SOURCE_TYPE_LABELS[src.sourceType] ?? src.sourceType}
+                    </Badge>
+                    {src.url && (
+                      <a
+                        href={src.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1 truncate max-w-[240px]"
+                      >
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                        {src.url}
+                      </a>
+                    )}
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {new Date(src.capturedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {src.pastedText && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {src.pastedText}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleEdit(src)}
+                    title="Edit"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => del.mutate({ id: src.id })}
+                    title="Delete"
+                    disabled={del.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit form */}
+      {showForm && (
+        <Card className="p-4 space-y-3 border-primary/30">
+          <h3 className="text-sm font-semibold">{form.id ? "Edit source" : "Add source"}</h3>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Source type</Label>
+            <Select
+              value={form.sourceType}
+              onValueChange={(v) => setForm((f) => ({ ...f, sourceType: v as SourceType }))}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="linkedin_post">LinkedIn Post</SelectItem>
+                <SelectItem value="linkedin_about">LinkedIn About</SelectItem>
+                <SelectItem value="company_news">Company News</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">URL <span className="text-muted-foreground">(optional)</span></Label>
+            <Input
+              className="h-8 text-sm"
+              placeholder="https://linkedin.com/posts/..."
+              value={form.url}
+              onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">
+              Pasted text <span className="text-muted-foreground">(required if no URL; min 50 chars, max 5,000)</span>
+            </Label>
+            <Textarea
+              className="text-sm min-h-[100px] resize-y"
+              placeholder="Paste the relevant excerpt here…"
+              value={form.pastedText}
+              onChange={(e) => setForm((f) => ({ ...f, pastedText: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {form.pastedText.length}/5000
+            </p>
+          </div>
+
+          {formError && (
+            <p className="text-xs text-destructive">{formError}</p>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSubmit} disabled={upsert.isPending}>
+              {upsert.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+              {form.id ? "Save changes" : "Add source"}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Add button */}
+      {canAdd && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowForm(true); }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add source
+          <span className="text-muted-foreground text-xs ml-1">({(sources?.length ?? 0)}/5)</span>
+        </Button>
+      )}
+      {!canAdd && !showForm && (sources?.length ?? 0) >= 5 && (
+        <p className="text-xs text-muted-foreground">Maximum 5 sources reached. Delete one to add another.</p>
+      )}
     </div>
   );
 }

@@ -295,3 +295,16 @@ export const applicationKits = mysqlTable("application_kits", {
 
 export type ApplicationKit = typeof applicationKits.$inferSelect;
 export type InsertApplicationKit = typeof applicationKits.$inferInsert;
+// ─── Job Card Personalization Sources ───────────────────────────────
+export const jobCardPersonalizationSources = mysqlTable("job_card_personalization_sources", {
+  id: int("id").autoincrement().primaryKey(),
+  jobCardId: int("jobCardId").notNull(),
+  userId: int("userId").notNull(),
+  sourceType: mysqlEnum("sourceType", ["linkedin_post", "linkedin_about", "company_news", "other"]).notNull().default("other"),
+  url: varchar("url", { length: 2048 }),
+  pastedText: text("pastedText"),
+  capturedAt: timestamp("capturedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().onUpdateNow(),
+});
+export type JobCardPersonalizationSource = typeof jobCardPersonalizationSources.$inferSelect;
+export type InsertJobCardPersonalizationSource = typeof jobCardPersonalizationSources.$inferInsert;
