@@ -408,11 +408,22 @@ function ScoreTrendCard({
 function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job: any; updateJob: any; jobCardId: number; resumes: any[]; evidenceRuns: any[] }) {
   const [notes, setNotes] = useState(job.notes ?? "");
   const { data: profile } = trpc.profile.get.useQuery();
+  const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
+
+  // Detect eligibility triggers in JD requirements
+  const hasEligibilityRequirements = (requirements ?? []).some(
+    (r: any) => r.requirementType === "eligibility"
+  );
+  const profileUnknown = !profile?.workStatus || profile.workStatus === "unknown";
 
   return (
     <div className="space-y-4">
       <ScoreTrendCard jobCardId={jobCardId} resumes={resumes} evidenceRuns={evidenceRuns} />
       <EligibilityBanner evidenceRuns={evidenceRuns} workStatus={profile?.workStatus ?? "unknown"} />
+      {/* Inline eligibility nudge: shown when JD has eligibility requirements and profile is unknown */}
+      {hasEligibilityRequirements && profileUnknown && (
+        <EligibilityProfileNudge />
+      )}
       <div className="grid md:grid-cols-2 gap-4">
       <Card>
         <CardHeader className="pb-3">
@@ -475,6 +486,27 @@ function OverviewTab({ job, updateJob, jobCardId, resumes, evidenceRuns }: { job
         </CardContent>
       </Card>
       </div>
+    </div>
+  );
+}
+
+// ─── Eligibility Profile Nudge (inline, no blocking) ───────────────
+function EligibilityProfileNudge() {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-2.5 text-sm">
+      <ShieldQuestion className="h-4 w-4 text-blue-500 shrink-0" aria-hidden />
+      <p className="flex-1 text-xs text-blue-800">
+        Complete work authorization to improve eligibility checks for this role.
+      </p>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 text-xs text-blue-700 hover:text-blue-900 hover:bg-blue-100 shrink-0"
+        onClick={() => setLocation("/profile")}
+      >
+        Go to Profile
+      </Button>
     </div>
   );
 }
@@ -1997,8 +2029,42 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
     },
   });
 
+  const selectedContact = contacts.find((c) => c.id === selectedContactId) ?? null;
+  const noContacts = contacts.length === 0;
+  const missingEmail = selectedContact && !selectedContact.email;
+  const missingLinkedIn = selectedContact && !selectedContact.linkedinUrl;
+
   return (
     <div className="space-y-4">
+      {/* Contact tip nudges */}
+      {noContacts && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-2.5">
+          <UserCircle className="h-4 w-4 text-amber-500 shrink-0" />
+          <p className="flex-1 text-xs text-amber-800">
+            Add a recruiter contact below to personalise the salutation and improve outreach quality.
+          </p>
+        </div>
+      )}
+      {!noContacts && !selectedContactId && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-2.5">
+          <UserCircle className="h-4 w-4 text-blue-500 shrink-0" />
+          <p className="flex-1 text-xs text-blue-800">
+            Select a contact below to personalise the salutation in your outreach messages.
+          </p>
+        </div>
+      )}
+      {(missingEmail || missingLinkedIn) && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-2.5">
+          <Mail className="h-4 w-4 text-blue-500 shrink-0" />
+          <p className="flex-1 text-xs text-blue-800">
+            {missingEmail && missingLinkedIn
+              ? "Add the contact's email and LinkedIn URL for a more complete outreach pack."
+              : missingEmail
+              ? "Add the contact's email to include a direct To: line in the recruiter email."
+              : "Add the contact's LinkedIn URL to personalise the LinkedIn DM."}
+          </p>
+        </div>
+      )}
       {/* Generate Pack */}
       <Card>
         <CardHeader className="pb-3">

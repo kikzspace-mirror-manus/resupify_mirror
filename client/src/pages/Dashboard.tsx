@@ -15,7 +15,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 import { ScoreTrendsWidget } from "@/components/ScoreTrendsWidget";
 import { STAGE_LABELS } from "../../../shared/regionPacks";
@@ -44,12 +44,6 @@ export default function Dashboard() {
   const { showNudge, handleDismiss: handleDismissNudge } = useProfileNudge(
     profileLoading ? "loading" : workStatus
   );
-
-  useEffect(() => {
-    if (!profileLoading && profile && !profile.onboardingComplete) {
-      setLocation("/onboarding");
-    }
-  }, [profile, profileLoading, setLocation]);
 
   const totalJobs = stats?.jobStats?.total ?? 0;
   const appliedCount = stats?.jobStats?.byStage?.applied ?? 0;

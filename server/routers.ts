@@ -113,6 +113,10 @@ export const appRouter = router({
       await db.upsertProfile(ctx.user.id, input);
       return { success: true };
     }),
+    skip: protectedProcedure.mutation(async ({ ctx }) => {
+      await db.upsertProfile(ctx.user.id, { onboardingSkippedAt: new Date() } as any);
+      return { success: true };
+    }),
     updateWorkStatus: protectedProcedure.input(z.object({
       workStatus: z.enum(["citizen_pr", "temporary_resident", "unknown"]).optional(),
       workStatusDetail: z.enum(["open_work_permit", "employer_specific_permit", "student_work_authorization", "other"]).nullable().optional(),

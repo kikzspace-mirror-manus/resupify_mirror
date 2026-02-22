@@ -5,7 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { ArrowRight, GraduationCap, Briefcase, Zap } from "lucide-react";
 import { useState } from "react";
@@ -16,18 +22,35 @@ export default function Onboarding() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
+
+  // Step 1: Track
   const [trackCode, setTrackCode] = useState<"COOP" | "NEW_GRAD">("COOP");
+
+  // Step 2: Education
   const [school, setSchool] = useState("");
   const [program, setProgram] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(true);
-  const [resumeText, setResumeText] = useState("");
-  const [resumeTitle, setResumeTitle] = useState("Base Resume");
+
+  // Step 3: Work Authorization
+  const [workStatus, setWorkStatus] = useState<"citizen_pr" | "temporary_resident" | "unknown">("unknown");
+  const [needsSponsorship, setNeedsSponsorship] = useState<"true" | "false" | "unknown">("unknown");
 
   const upsertProfile = trpc.profile.upsert.useMutation();
-  const createResume = trpc.resumes.create.useMutation();
+  const updateWorkStatus = trpc.profile.updateWorkStatus.useMutation();
+  const skipOnboarding = trpc.profile.skip.useMutation();
 
   if (loading) return null;
+
+  const handleSkip = async () => {
+    try {
+      await skipOnboarding.mutateAsync();
+      setLocation("/dashboard");
+    } catch {
+      // Even if skip fails, let the user through
+      setLocation("/dashboard");
+    }
+  };
 
   const handleComplete = async () => {
     try {
@@ -37,15 +60,12 @@ export default function Onboarding() {
         school: school || undefined,
         program: program || undefined,
         graduationDate: graduationDate || undefined,
-        currentlyEnrolled,
+        currentlyEnrolled: trackCode === "COOP" ? currentlyEnrolled : undefined,
         onboardingComplete: true,
       });
 
-      if (resumeText.trim()) {
-        await createResume.mutateAsync({
-          title: resumeTitle || "Base Resume",
-          content: resumeText,
-        });
+      if (workStatus !== "unknown" || needsSponsorship !== "unknown") {
+        await updateWorkStatus.mutateAsync({ workStatus, needsSponsorship });
       }
 
       toast.success("Welcome to Resupify!");
@@ -54,6 +74,9 @@ export default function Onboarding() {
       toast.error(error.message || "Something went wrong");
     }
   };
+
+  const isStudentTrack = trackCode === "COOP";
+  const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -77,6 +100,7 @@ export default function Onboarding() {
           ))}
         </div>
 
+        {/* Step 1: Choose Track */}
         {step === 1 && (
           <Card>
             <CardHeader>
@@ -102,7 +126,7 @@ export default function Onboarding() {
                   <RadioGroupItem value="COOP" id="coop" className="sr-only" />
                   <GraduationCap className="h-8 w-8 text-primary" />
                   <div className="text-center">
-                    <div className="font-semibold">Co-op</div>
+                    <div className="font-semibold">Student / Co-op</div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Currently enrolled
                     </div>
@@ -123,9 +147,9 @@ export default function Onboarding() {
                   />
                   <Briefcase className="h-8 w-8 text-primary" />
                   <div className="text-center">
-                    <div className="font-semibold">New Grad</div>
+                    <div className="font-semibold">Early-career / General</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Recently graduated
+                      New grad or career changer
                     </div>
                   </div>
                 </Label>
@@ -134,23 +158,35 @@ export default function Onboarding() {
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={handleSkip}
+                disabled={isPending}
+              >
+                Skip for now
+              </Button>
             </CardContent>
           </Card>
         )}
 
+        {/* Step 2: Education */}
         {step === 2 && (
           <Card>
             <CardHeader>
               <CardTitle>Your education</CardTitle>
               <CardDescription>
-                {trackCode === "COOP"
+                {isStudentTrack
                   ? "Co-op employers verify enrollment status."
-                  : "New grad roles check graduation eligibility."}
+                  : "Optional — helps with new grad eligibility checks."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="school">School / Institution</Label>
+                <Label htmlFor="school">
+                  School / Institution{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                </Label>
                 <Input
                   id="school"
                   placeholder="e.g., University of Waterloo"
@@ -159,7 +195,9 @@ export default function Onboarding() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="program">Program</Label>
+                <Label htmlFor="program">
+                  Program{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                </Label>
                 <Input
                   id="program"
                   placeholder="e.g., Computer Science"
@@ -169,9 +207,8 @@ export default function Onboarding() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gradDate">
-                  {trackCode === "COOP"
-                    ? "Expected Graduation"
-                    : "Graduation Date"}
+                  {isStudentTrack ? "Expected Graduation" : "Graduation Date"}
+                  {!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="gradDate"
@@ -180,7 +217,7 @@ export default function Onboarding() {
                   onChange={(e) => setGraduationDate(e.target.value)}
                 />
               </div>
-              {trackCode === "COOP" && (
+              {isStudentTrack && (
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
                     <Label>Currently Enrolled</Label>
@@ -207,40 +244,63 @@ export default function Onboarding() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={handleSkip}
+                disabled={isPending}
+              >
+                Skip for now
+              </Button>
             </CardContent>
           </Card>
         )}
 
+        {/* Step 3: Work Authorization */}
         {step === 3 && (
           <Card>
             <CardHeader>
-              <CardTitle>Upload your base resume</CardTitle>
+              <CardTitle>Work authorization</CardTitle>
               <CardDescription>
-                Paste your resume text below. You can always edit it later.
+                Optional — helps flag eligibility requirements in job postings. You can always update this later.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="resumeTitle">Resume Title</Label>
-                <Input
-                  id="resumeTitle"
-                  value={resumeTitle}
-                  onChange={(e) => setResumeTitle(e.target.value)}
-                  placeholder="e.g., Base Resume"
-                />
+                <Label>Work status in Canada</Label>
+                <Select
+                  value={workStatus}
+                  onValueChange={(v) => setWorkStatus(v as typeof workStatus)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select work status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="citizen_pr">Citizen / Permanent Resident</SelectItem>
+                    <SelectItem value="temporary_resident">Temporary Resident (work/study permit)</SelectItem>
+                    <SelectItem value="unknown">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="resumeText">Resume Content</Label>
-                <Textarea
-                  id="resumeText"
-                  value={resumeText}
-                  onChange={(e) => setResumeText(e.target.value)}
-                  placeholder="Paste your resume text here..."
-                  className="min-h-[200px] font-mono text-sm"
-                />
+                <Label>Sponsorship needed?</Label>
+                <Select
+                  value={needsSponsorship}
+                  onValueChange={(v) => setNeedsSponsorship(v as typeof needsSponsorship)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="false">No — I do not need sponsorship</SelectItem>
+                    <SelectItem value="true">Yes — I need sponsorship</SelectItem>
+                    <SelectItem value="unknown">Not sure / prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <p className="text-xs text-muted-foreground">
-                You can skip this step and add your resume later.
+                This information is only used to improve eligibility checks. It is never shared.
               </p>
               <div className="flex gap-3">
                 <Button
@@ -253,13 +313,20 @@ export default function Onboarding() {
                 <Button
                   onClick={handleComplete}
                   className="flex-1"
-                  disabled={upsertProfile.isPending || createResume.isPending}
+                  disabled={isPending}
                 >
-                  {upsertProfile.isPending || createResume.isPending
-                    ? "Saving..."
-                    : "Complete Setup"}
+                  {isPending ? "Saving..." : "Complete Setup"}
                 </Button>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={handleSkip}
+                disabled={isPending}
+              >
+                Skip for now
+              </Button>
             </CardContent>
           </Card>
         )}

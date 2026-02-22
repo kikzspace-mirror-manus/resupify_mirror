@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +140,13 @@ export default function JobCards() {
 
   const { data: jobs, isLoading } = trpc.jobCards.list.useQuery({});
 
+  // Profile nudge banner (shared with Dashboard/Today)
+  const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery();
+  const workStatus = (profile as any)?.workStatus ?? null;
+  const { showNudge, handleDismiss: handleDismissNudge } = useProfileNudge(
+    profileLoading ? "loading" : workStatus
+  );
+
   // Stage update mutation used by drag-and-drop
   const updateStage = trpc.jobCards.update.useMutation({
     onMutate: async ({ id, stage }) => {
@@ -207,6 +215,8 @@ export default function JobCards() {
 
   return (
     <div className="space-y-4">
+      {/* Profile completeness nudge — shown only when work_status is unknown */}
+      {showNudge && <ProfileNudgeBanner onDismiss={handleDismissNudge} />}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Job Cards</h1>

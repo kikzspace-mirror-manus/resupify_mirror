@@ -512,3 +512,18 @@
 - [x] Add stripHtmlToText(html) normalizer: strip tags, preserve line breaks, deduplicate paragraphs
 - [x] Insert Layer C (JSON fallback) between Layer B and the "too short" guard in fetchFromUrl
 - [x] Tests: A-E per acceptance criteria
+
+## Phase 9D2: Onboarding 2.0 (Skippable + Nudges)
+- [x] Remove trap redirect in Dashboard.tsx (useEffect that sends to /onboarding if !onboardingComplete)
+- [x] Add onboarding_skipped_at field to userProfiles schema (minimal, nullable timestamp)
+- [x] Push schema migration (pnpm db:push)
+- [x] Add profile.skip tRPC mutation (sets onboardingSkippedAt = now, onboardingComplete = false)
+- [x] Update Onboarding.tsx Step 1: rename "Co-op" → "Student / Co-op", "New Grad" → "Early-career / General"
+- [x] Add "Skip for now" button to all 3 onboarding steps
+- [x] Step 2 (Education): make optional for Early-career / General track (show "optional" label)
+- [x] Step 3: replace resume upload with Work Authorization step (work_status, needs_sponsorship)
+- [x] Add first-login redirect: if brand new user (no profile row) route to /onboarding once; otherwise never force
+- [x] Add ProfileNudgeBanner to JobCards page (same shared component + localStorage key)
+- [x] Add inline eligibility nudge to Job Card Overview tab (JD eligibility triggers + unknown profile)
+- [x] Add inline contact tip nudges to Outreach tab (no contact selected, missing email/LinkedIn)
+- [x] Tests: A-F (23 tests) — 666 tests pass total
