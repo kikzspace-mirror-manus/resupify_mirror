@@ -134,6 +134,13 @@
       "when": 1771789987252,
       "tag": "0018_silky_zombie",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1771792114012,
+      "tag": "0019_aberrant_longshot",
+      "breakpoints": true
     }
   ]
 }

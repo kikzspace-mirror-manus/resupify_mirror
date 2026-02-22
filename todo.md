@@ -745,3 +745,8 @@
 - [x] Add "GLOBAL" to CountryPackId type, COUNTRY_PACK_IDS, and countryPackRegistry in shared/countryPacks.ts
 - [x] Set DEFAULT_COUNTRY_PACK_ID = "GLOBAL" in shared/countryPacks.ts
 - [x] Update v2-phase1b.test.ts: assert default resolves to GLOBAL, inheritance unchanged (H2, H4, H5 + updated C, E) — 958 tests pass, 0 TypeScript errors
+
+## V2 Phase 1A.1: Add GLOBAL to countryPackId DB Enums
+- [x] Update countryPackId enum in drizzle/schema.ts to include "GLOBAL" for users and job_cards
+- [x] Run db:push migration (0019_aberrant_longshot.sql)
+- [x] Add test: v2-phase1a1.test.ts (A-G, 8 tests); updated v2-phase1a.test.ts D and F — 966 tests pass, 0 TypeScript errors
