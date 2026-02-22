@@ -600,3 +600,8 @@
 - [x] Apply red left border + down-arrow badge when delta <= -10 in ScoreTrendsWidget TrendRow
 - [x] Apply same delta indicator to Analytics ATS table rows (border-l-4 + badge)
 - [x] Tests: A-B (15 tests) — 802 tests pass total
+
+## Phase 10B-2A: HTTP Body Size Cap
+- [x] Audit Express body parser setup in server/_core/index.ts (was 50mb, reduced to 512kb)
+- [x] Apply express.json({ limit: "512kb" }) + urlencoded({ limit: "512kb" }) before tRPC handler
+- [x] Tests: A-B (8 tests) — oversized body returns 413, normal 25kb payloads pass, 810 tests pass total
