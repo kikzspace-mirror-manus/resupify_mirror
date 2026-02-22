@@ -389,3 +389,14 @@
 - [x] On success: fill empty fields, show "Auto-filled from JD (edit anytime)." note in green
 - [x] On extraction failure: silently ignore (no toast, no blocking)
 - [x] Tests: A-J (10 tests) — structured fields, non-destructive contract, empty fields, no credits, LLM failure, strict schema, whitespace trim, urlHostname hint, malformed JSON
+
+## Prompt A: Evidence Map + Application Kit Collapse + Run Label (UI Only)
+- [x] Evidence Map: bold "JD:" label and JD requirement text in each EvidenceItem card (font-semibold + text-foreground)
+- [x] Evidence Map: group items into collapsible sections (Skills open, Responsibilities/Soft Skills/Eligibility collapsed)
+- [x] Evidence Map: show item counts in section headers (e.g. "Skills (8)")
+- [x] Application Kit: make Top Changes section collapsible (open by default)
+- [x] Application Kit: make Bullet Rewrites section collapsible (collapsed by default)
+- [x] Application Kit: make Cover Letter Draft section collapsible (collapsed by default)
+- [x] Evidence Run dropdown: replace "Run #..." with "{Company} — {Job Title} ({score}%) · {MMM D}" label
+- [x] Evidence Run dropdown: keep run id as tooltip (title attribute on span)
+- [x] Tests: 13 tests — openCategories, toggleCategory, sort order, kitSections, toggleKitSection, run label format, fallback, em dash, company-only, no run id in label

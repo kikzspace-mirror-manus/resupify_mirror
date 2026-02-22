@@ -879,6 +879,9 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
   const [selectedRunId, setSelectedRunId] = useState<number | null>(runs[0]?.id ?? null);
   // Patch 8J: Past Runs panel state (collapsed by default)
   const [pastRunsOpen, setPastRunsOpen] = useState(false);
+  // Prompt A: collapsible category sections (skills open, others collapsed)
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({ skills: true });
+  const toggleCategory = (group: string) => setOpenCategories((prev) => ({ ...prev, [group]: !prev[group] }));
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
 
@@ -1156,54 +1159,72 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
             </CardContent>
           </Card>
 
-          {/* Group evidence items by type */}
-          {evidenceItems && Object.entries(
-            evidenceItems.reduce((acc: Record<string, any[]>, item: any) => {
+          {/* Group evidence items by type — Prompt A: collapsible categories */}
+          {evidenceItems && (() => {
+            const grouped = evidenceItems.reduce((acc: Record<string, any[]>, item: any) => {
               const group = item.groupType;
               if (!acc[group]) acc[group] = [];
               acc[group].push(item);
               return acc;
-            }, {})
-          ).map(([groupType, items]) => (
-            <div key={groupType}>
-              <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                {EVIDENCE_GROUP_LABELS[groupType as keyof typeof EVIDENCE_GROUP_LABELS] ?? groupType}
-                <Badge variant="secondary" className="text-xs">{(items as any[]).length}</Badge>
-              </h3>
-              <div className="space-y-3">
-                {(items as any[]).map((item: any) => (
-                  <Card key={item.id} className={`border ${statusColors[item.status as keyof typeof statusColors] ?? ""}`}>
-                    <CardContent className="pt-4 space-y-2 text-sm">
-                      <div className="flex items-start gap-2">
-                        {statusIcons[item.status as keyof typeof statusIcons]}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={item.status === "matched" ? "default" : item.status === "partial" ? "secondary" : "destructive"} className="text-xs">
-                              {item.status}
-                            </Badge>
-                            {item.needsConfirmation && (
-                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                Needs confirmation
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="pl-6 space-y-1.5">
-                        <p><span className="font-medium text-muted-foreground">JD:</span> "{item.jdRequirement}"</p>
-                        <p><span className="font-medium text-muted-foreground">Resume proof:</span> "{item.resumeProof ?? "None found"}"</p>
-                        <p><span className="font-medium text-muted-foreground">Fix:</span> {item.fix}</p>
-                        <p><span className="font-medium text-muted-foreground">Rewrite A:</span> {item.rewriteA}</p>
-                        <p><span className="font-medium text-muted-foreground">Rewrite B:</span> {item.rewriteB}</p>
-                        <p><span className="font-medium text-muted-foreground">Why it matters:</span> {item.whyItMatters}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))}
+            }, {});
+            const ORDER = ["skills", "tools", "responsibilities", "soft_skills", "eligibility"];
+            const sorted = Object.entries(grouped).sort(([a], [b]) => {
+              const ai = ORDER.indexOf(a); const bi = ORDER.indexOf(b);
+              return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+            });
+            return sorted.map(([groupType, items]) => {
+              const isOpen = openCategories[groupType] ?? false;
+              return (
+                <div key={groupType} className="border rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(groupType)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <span className="text-sm font-semibold flex items-center gap-2">
+                      {EVIDENCE_GROUP_LABELS[groupType as keyof typeof EVIDENCE_GROUP_LABELS] ?? groupType}
+                      <Badge variant="secondary" className="text-xs">{(items as any[]).length}</Badge>
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="p-3 space-y-3">
+                      {(items as any[]).map((item: any) => (
+                        <Card key={item.id} className={`border ${statusColors[item.status as keyof typeof statusColors] ?? ""}`}>
+                          <CardContent className="pt-4 space-y-2 text-sm">
+                            <div className="flex items-start gap-2">
+                              {statusIcons[item.status as keyof typeof statusIcons]}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={item.status === "matched" ? "default" : item.status === "partial" ? "secondary" : "destructive"} className="text-xs">
+                                    {item.status}
+                                  </Badge>
+                                  {item.needsConfirmation && (
+                                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      Needs confirmation
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="pl-6 space-y-1.5">
+                              <p><span className="font-bold">JD:</span> <span className="font-semibold">"{item.jdRequirement}"</span></p>
+                              <p><span className="font-medium text-muted-foreground">Resume proof:</span> "{item.resumeProof ?? "None found"}"</p>
+                              <p><span className="font-medium text-muted-foreground">Fix:</span> {item.fix}</p>
+                              <p><span className="font-medium text-muted-foreground">Rewrite A:</span> {item.rewriteA}</p>
+                              <p><span className="font-medium text-muted-foreground">Rewrite B:</span> {item.rewriteB}</p>
+                              <p><span className="font-medium text-muted-foreground">Why it matters:</span> {item.whyItMatters}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
@@ -1241,6 +1262,9 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
   const [tone, setTone] = useState<Tone>("Human");
   // Patch 8H: regeneration guard
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  // Prompt A: collapsible kit sections (Top Changes open, rest collapsed)
+  const [kitSections, setKitSections] = useState({ topChanges: true, bulletRewrites: false, coverLetter: false });
+  const toggleKitSection = (key: keyof typeof kitSections) => setKitSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const selectedRun = completedRuns.find((r) => r.id === selectedRunId);
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
   const hasRequirements = (requirements?.length ?? 0) > 0;
@@ -1323,9 +1347,20 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
               <Select value={selectedRunId?.toString() ?? ""} onValueChange={(v) => setSelectedRunId(Number(v))}>
                 <SelectTrigger className="text-xs"><SelectValue placeholder="Choose run..." /></SelectTrigger>
                 <SelectContent>
-                  {completedRuns.map((r) => (
-                    <SelectItem key={r.id} value={r.id.toString()}>Run #{r.id} — {r.overallScore}% — {new Date(r.createdAt).toLocaleDateString()}</SelectItem>
-                  ))}
+                  {completedRuns.map((r) => {
+                    const d = new Date(r.createdAt);
+                    const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                    const company = job?.company ?? "";
+                    const title = job?.title ?? "";
+                    const label = [company, title].filter(Boolean).join(" — ");
+                    return (
+                      <SelectItem key={r.id} value={r.id.toString()}>
+                        <span title={`Run #${r.id}`}>
+                          {label ? `${label} (${r.overallScore}%) · ${mmmd}` : `${r.overallScore}% · ${mmmd}`}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1496,7 +1531,10 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Top Changes ({topChanges.length})</CardTitle>
+                  <button type="button" onClick={() => toggleKitSection("topChanges")} className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2"><ListChecks className="h-4 w-4 text-primary" />Top Changes ({topChanges.length})</CardTitle>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${kitSections.topChanges ? "rotate-180" : ""}`} />
+                  </button>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -1559,17 +1597,19 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {topChanges.map((change, i) => (
-                  <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${change.status === "missing" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
-                    <Badge variant={change.status === "missing" ? "destructive" : "secondary"} className="text-xs mt-0.5 shrink-0">{change.status}</Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{change.requirement_text}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{change.fix}</p>
+              {kitSections.topChanges && (
+                <CardContent className="space-y-2">
+                  {topChanges.map((change, i) => (
+                    <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${change.status === "missing" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                      <Badge variant={change.status === "missing" ? "destructive" : "secondary"} className="text-xs mt-0.5 shrink-0">{change.status}</Badge>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{change.requirement_text}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{change.fix}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </CardContent>
+                  ))}
+                </CardContent>
+              )}
             </Card>
           )}
 
@@ -1577,7 +1617,10 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold">Bullet Rewrites ({bulletRewrites.length})</CardTitle>
+                  <button type="button" onClick={() => toggleKitSection("bulletRewrites")} className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity">
+                    <CardTitle className="text-sm font-semibold">Bullet Rewrites ({bulletRewrites.length})</CardTitle>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${kitSections.bulletRewrites ? "rotate-180" : ""}`} />
+                  </button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1640,6 +1683,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   </Button>
                 </div>
               </CardHeader>
+              {kitSections.bulletRewrites && (
               <CardContent className="space-y-4">
                 {missingRewrites.length > 0 && (
                   <div>
@@ -1686,14 +1730,17 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   </div>
                 )}
               </CardContent>
+              )}
             </Card>
           )}
-
           {coverLetterText && (
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold">Cover Letter Draft</CardTitle>
+                  <button type="button" onClick={() => toggleKitSection("coverLetter")} className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity">
+                    <CardTitle className="text-sm font-semibold">Cover Letter Draft</CardTitle>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${kitSections.coverLetter ? "rotate-180" : ""}`} />
+                  </button>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(coverLetterText); toast.success("Cover letter copied!"); }}>
                       <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
@@ -1721,9 +1768,11 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-sm whitespace-pre-wrap rounded-lg bg-muted/30 p-4 border">{coverLetterText}</div>
-              </CardContent>
+              {kitSections.coverLetter && (
+                <CardContent>
+                  <div className="text-sm whitespace-pre-wrap rounded-lg bg-muted/30 p-4 border">{coverLetterText}</div>
+                </CardContent>
+              )}
             </Card>
           )}
         </>
