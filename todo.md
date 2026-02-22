@@ -779,3 +779,10 @@
 - [x] Add Instrumentation Health card to AdminGrowthDashboard.tsx (3-column: events24h, last event, top events)
 - [x] Write tests Q (DB-based new users, 2 tests), R (activation rate 0-100 or null), S (instrumentation health, 4 tests)
 - [x] Fix v2-phase1a.test.ts test K: assert boolean type only (env-driven flags) — 1000 tests pass, 0 TypeScript errors
+
+## Patch: Growth Dashboard Layout Cleanup + Timeline View
+- [x] Add getDailyMetrics(rangeDays: 7|14|30) helper to server/db.ts (raw SQL to avoid MySQL ONLY_FULL_GROUP_BY)
+- [x] Add admin.timeline.daily tRPC procedure to admin.ts router
+- [x] Rewrite AdminGrowthDashboard.tsx: Row 1 (Audience+Activation), Row 2 (Quality+Monetization), Row 3 (Timeline chart with recharts), Row 4 (Funnel+Outcomes), collapsible Instrumentation Health
+- [x] recharts already available via pnpm workspace
+- [x] Write acceptance tests T (getDailyMetrics, 4 tests) and U (admin.timeline.daily, 4 tests) — 1008 tests pass, 0 TypeScript errors

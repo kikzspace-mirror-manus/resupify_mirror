@@ -484,3 +484,90 @@ describe("S: getInstrumentationHealth24h", () => {
     }
   });
 });
+
+// ─── T: getDailyMetrics helper ────────────────────────────────────────────────
+describe("T: getDailyMetrics", () => {
+  it("T1: returns an array", async () => {
+    const { getDailyMetrics } = await import("./db");
+    const rows = await getDailyMetrics(7);
+    expect(Array.isArray(rows)).toBe(true);
+  });
+
+  it("T2: each row has required numeric fields", async () => {
+    const { getDailyMetrics } = await import("./db");
+    const rows = await getDailyMetrics(7);
+    for (const row of rows) {
+      expect(typeof row.date).toBe("string");
+      expect(typeof row.eventsTotal).toBe("number");
+      expect(typeof row.newUsers).toBe("number");
+      expect(typeof row.quickMatchRun).toBe("number");
+      expect(typeof row.jobCardCreated).toBe("number");
+      expect(typeof row.outreachGenerated).toBe("number");
+    }
+  });
+
+  it("T3: accepts rangeDays of 7, 14, and 30", async () => {
+    const { getDailyMetrics } = await import("./db");
+    const [r7, r14, r30] = await Promise.all([
+      getDailyMetrics(7),
+      getDailyMetrics(14),
+      getDailyMetrics(30),
+    ]);
+    expect(Array.isArray(r7)).toBe(true);
+    expect(Array.isArray(r14)).toBe(true);
+    expect(Array.isArray(r30)).toBe(true);
+  });
+
+  it("T4: all numeric fields are non-negative", async () => {
+    const { getDailyMetrics } = await import("./db");
+    const rows = await getDailyMetrics(7);
+    for (const row of rows) {
+      expect(row.eventsTotal).toBeGreaterThanOrEqual(0);
+      expect(row.newUsers).toBeGreaterThanOrEqual(0);
+      expect(row.quickMatchRun).toBeGreaterThanOrEqual(0);
+      expect(row.jobCardCreated).toBeGreaterThanOrEqual(0);
+      expect(row.outreachGenerated).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+// ─── U: admin.timeline.daily procedure ───────────────────────────────────────
+describe("U: admin.timeline.daily", () => {
+  it("U1: non-admin cannot call admin.timeline.daily", async () => {
+    const caller = appRouter.createCaller(makeUserCtx());
+    await expect(caller.admin.timeline.daily({ rangeDays: 7 })).rejects.toThrow();
+  });
+
+  it("U2: admin can call admin.timeline.daily", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.timeline.daily({ rangeDays: 7 });
+    expect(result).toBeDefined();
+    expect(typeof result.enabled).toBe("boolean");
+  });
+
+  it("U3: when growth flag is off, returns enabled=false and data=null", async () => {
+    const savedFlag = featureFlags.v2GrowthDashboardEnabled;
+    featureFlags.v2GrowthDashboardEnabled = false;
+    try {
+      const caller = appRouter.createCaller(makeAdminCtx());
+      const result = await caller.admin.timeline.daily({ rangeDays: 7 });
+      expect(result.enabled).toBe(false);
+      expect(result.data).toBeNull();
+    } finally {
+      featureFlags.v2GrowthDashboardEnabled = savedFlag;
+    }
+  });
+
+  it("U4: when growth flag is on, returns enabled=true and data array", async () => {
+    const savedFlag = featureFlags.v2GrowthDashboardEnabled;
+    featureFlags.v2GrowthDashboardEnabled = true;
+    try {
+      const caller = appRouter.createCaller(makeAdminCtx());
+      const result = await caller.admin.timeline.daily({ rangeDays: 7 });
+      expect(result.enabled).toBe(true);
+      expect(Array.isArray(result.data)).toBe(true);
+    } finally {
+      featureFlags.v2GrowthDashboardEnabled = savedFlag;
+    }
+  });
+});

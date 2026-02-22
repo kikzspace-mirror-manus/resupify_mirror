@@ -1309,6 +1309,7 @@ export async function resolveCountryPack(params: {
 import { analyticsEvents } from "../drizzle/schema";
 import {
   EVT_SIGNUP_COMPLETED, EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN,
+  EVT_COVER_LETTER_GENERATED, EVT_OUTREACH_GENERATED,
   FUNNEL_STEPS,
 } from "../shared/analyticsEvents";
 
@@ -1487,4 +1488,75 @@ export async function getInstrumentationHealth24h(): Promise<InstrumentationHeal
   const topEvents24h = topRows.map((r) => ({ name: r.name, count: Number(r.count) }));
 
   return { events24h, lastEventAt, topEvents24h };
+}
+
+// ─── getDailyMetrics ─────────────────────────────────────────────────────────
+// Returns per-day buckets for the last N days (UTC dates, YYYY-MM-DD).
+// Two queries: one for analytics_events (grouped by date+eventName), one for
+// new users (grouped by date from users.createdAt). Merged in JS.
+
+export interface DailyMetricBucket {
+  date: string; // "YYYY-MM-DD"
+  eventsTotal: number;
+  newUsers: number;
+  jobCardCreated: number;
+  quickMatchRun: number;
+  coverLetterGenerated: number;
+  outreachGenerated: number;
+}
+
+export async function getDailyMetrics(rangeDays: 7 | 14 | 30): Promise<DailyMetricBucket[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const cutoff = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+  const cutoffStr = cutoff.toISOString().replace('T', ' ').slice(0, 23);
+  // Query 1: raw SQL avoids MySQL ONLY_FULL_GROUP_BY with DATE_FORMAT in SELECT
+  type EvtRow = { date: string; eventName: string; cnt: string | number };
+  type UserRow = { date: string; cnt: string | number };
+  const [evtResult] = await db.execute(
+    sql.raw(`SELECT DATE_FORMAT(\`eventAt\`, '%Y-%m-%d') AS date, \`eventName\` AS eventName, COUNT(*) AS cnt FROM analytics_events WHERE \`eventAt\` >= '${cutoffStr}' GROUP BY DATE_FORMAT(\`eventAt\`, '%Y-%m-%d'), \`eventName\``)
+  ) as unknown as [EvtRow[], unknown];
+  const evtRows: EvtRow[] = Array.isArray(evtResult) ? evtResult : [];
+  // Query 2: new users grouped by date
+  const [userResult] = await db.execute(
+    sql.raw(`SELECT DATE_FORMAT(\`createdAt\`, '%Y-%m-%d') AS date, COUNT(*) AS cnt FROM users WHERE \`createdAt\` >= '${cutoffStr}' GROUP BY DATE_FORMAT(\`createdAt\`, '%Y-%m-%d')`)
+  ) as unknown as [UserRow[], unknown];
+  const userRows: UserRow[] = Array.isArray(userResult) ? userResult : [];
+
+  // Build a map of date -> bucket, seeded with all dates in range (zero-filled)
+  const buckets = new Map<string, DailyMetricBucket>();
+  for (let i = rangeDays - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const key = d.toISOString().slice(0, 10);
+    buckets.set(key, {
+      date: key,
+      eventsTotal: 0,
+      newUsers: 0,
+      jobCardCreated: 0,
+      quickMatchRun: 0,
+      coverLetterGenerated: 0,
+      outreachGenerated: 0,
+    });
+  }
+
+  // Merge analytics_events rows
+  for (const row of evtRows) {
+    const b = buckets.get(row.date);
+    if (!b) continue;
+    const cnt = Number(row.cnt);
+    b.eventsTotal += cnt;
+    if (row.eventName === EVT_JOB_CARD_CREATED) b.jobCardCreated += cnt;
+    else if (row.eventName === EVT_QUICK_MATCH_RUN) b.quickMatchRun += cnt;
+    else if (row.eventName === EVT_COVER_LETTER_GENERATED) b.coverLetterGenerated += cnt;
+    else if (row.eventName === EVT_OUTREACH_GENERATED) b.outreachGenerated += cnt;
+  }
+
+  // Merge new users rows
+  for (const row of userRows) {
+    const b = buckets.get(row.date);
+    if (!b) continue;
+    b.newUsers += Number(row.cnt);
+  }
+
+  return Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
