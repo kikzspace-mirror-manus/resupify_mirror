@@ -105,6 +105,12 @@ export const appRouter = router({
         return { url };
       }),
     packs: publicProcedure.query(() => CREDIT_PACKS),
+    // Returns true when STRIPE_SECRET_KEY starts with 'sk_test_'.
+    // Safe to expose publicly — reveals no secret material, only mode.
+    isTestMode: publicProcedure.query(() => {
+      const key = process.env.STRIPE_SECRET_KEY ?? "";
+      return { isTestMode: key.startsWith("sk_test_") };
+    }),
   }),
 
   auth: router({

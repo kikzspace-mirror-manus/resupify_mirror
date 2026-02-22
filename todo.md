@@ -636,3 +636,8 @@
 - [x] Handle charge.refunded: record as manual review operational event
 - [x] Wire Billing.tsx Buy buttons to real Stripe Checkout redirect
 - [x] Tests: A-I (9 tests) — 835 tests pass total, 0 TypeScript errors
+
+## Patch: Stripe Copy Guard
+- [x] Add isStripeTestMode to stripe tRPC router (publicProcedure, derived from STRIPE_SECRET_KEY prefix)
+- [x] Guard test-card helper text in Billing.tsx with isStripeTestMode
+- [x] Tests: A-E (5 tests) — 840 tests pass total, 0 TypeScript errors

@@ -25,6 +25,8 @@ export default function Billing() {
   const { data: credits, isLoading } = trpc.credits.balance.useQuery();
   const { data: ledger } = trpc.credits.ledger.useQuery();
   const { data: packs } = trpc.stripe.packs.useQuery();
+  const { data: testModeData } = trpc.stripe.isTestMode.useQuery();
+  const isTestMode = testModeData?.isTestMode ?? false;
 
   // Show success / cancelled toast based on ?checkout= query param
   useEffect(() => {
@@ -115,9 +117,11 @@ export default function Billing() {
             </Card>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground mt-3 text-center">
-          Payments are processed securely by Stripe. Use card <strong>4242 4242 4242 4242</strong> for test purchases.
-        </p>
+        {isTestMode && (
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Test mode: use card <strong>4242 4242 4242 4242</strong> to simulate a purchase.
+          </p>
+        )}
       </div>
 
       {/* Transaction History */}
