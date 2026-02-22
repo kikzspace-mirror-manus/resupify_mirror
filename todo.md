@@ -672,3 +672,7 @@
 - [x] Add admin.llmStatus.get adminProcedure (returns provider + openaiModel, no secrets)
 - [x] Display LLM status badge in admin dashboard header
 - [x] Tests: A-H (8 tests) — 878 tests pass total (LLM_PROVIDER=manus), 0 TypeScript errors
+
+## Patch: Test Stability (Force LLM_PROVIDER=manus)
+- [x] Override LLM_PROVIDER=manus and clear OPENAI_API_KEY in vitest setup
+- [x] Tests: A-C (3 tests) — 881 tests pass total, 0 TypeScript errors
