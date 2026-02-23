@@ -188,6 +188,9 @@ export const appRouter = router({
       await db.addCredits(ctx.user.id, input.amount, `Purchased ${input.amount} credits`);
       return { success: true, newBalance: await db.getCreditsBalance(ctx.user.id) };
     }),
+    listReceipts: protectedProcedure.query(async ({ ctx }) => {
+      return db.listPurchaseReceipts(ctx.user.id);
+    }),
   }),
 
   // ─── Resumes ──────────────────────────────────────────────────────

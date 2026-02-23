@@ -1136,3 +1136,14 @@
 - [x] Admin users (role === "admin") do not see banner
 - [x] Write Phase 11B acceptance tests
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 11C.1: Billing Receipts + Invoices
+- [x] Add purchaseReceipts table to drizzle/schema.ts
+- [x] Run pnpm db:push to migrate
+- [x] Add createPurchaseReceipt and listPurchaseReceipts helpers to server/db.ts
+- [x] Update stripeWebhook.ts to write receipt after credits granted
+- [x] Add billing.listReceipts tRPC procedure to routers.ts
+- [x] Add Receipts section to /billing page
+- [x] Add Invoices section to /billing page (reuses receipt data)
+- [x] Write Phase 11C.1 acceptance tests (37 tests)
+- [x] All tests pass (1694), 0 TypeScript errors

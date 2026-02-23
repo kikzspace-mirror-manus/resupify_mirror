@@ -25,11 +25,13 @@ const {
   mockStripeEventExists,
   mockRecordStripeEvent,
   mockAddCredits,
+  mockCreatePurchaseReceipt,
 } = vi.hoisted(() => ({
   mockCreateCheckoutSession: vi.fn(),
   mockStripeEventExists: vi.fn(),
   mockRecordStripeEvent: vi.fn(),
   mockAddCredits: vi.fn(),
+  mockCreatePurchaseReceipt: vi.fn(),
 }));
 
 vi.mock("./stripe", async (importOriginal) => {
@@ -47,6 +49,7 @@ vi.mock("./db", async (importOriginal) => {
     stripeEventExists: mockStripeEventExists,
     recordStripeEvent: mockRecordStripeEvent,
     addCredits: mockAddCredits,
+    createPurchaseReceipt: mockCreatePurchaseReceipt,
   };
 });
 
@@ -156,6 +159,7 @@ describe("Phase 10C-1: Stripe Checkout + Idempotent Webhook", () => {
     mockStripeEventExists.mockResolvedValue(false);
     mockRecordStripeEvent.mockResolvedValue(undefined);
     mockAddCredits.mockResolvedValue(undefined);
+    mockCreatePurchaseReceipt.mockResolvedValue(undefined);
   });
 
   // ── A) Checkout procedure returns URL with correct metadata ───────────────

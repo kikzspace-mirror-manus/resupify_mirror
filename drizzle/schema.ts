@@ -384,3 +384,22 @@ export const analyticsEvents = mysqlTable("analytics_events", {
 
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+// ─── Purchase Receipts (Phase 11C.1) ─────────────────────────────────────────
+// One row per confirmed Stripe checkout session. Idempotent: unique on
+// stripeCheckoutSessionId so webhook replays never create duplicate rows.
+export const purchaseReceipts = mysqlTable("purchase_receipts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 128 }).notNull().unique(),
+  packId: varchar("packId", { length: 64 }).notNull(),
+  creditsAdded: int("creditsAdded").notNull(),
+  amountCents: int("amountCents"),                 // e.g. 999 for $9.99
+  currency: varchar("currency", { length: 8 }),    // e.g. "usd"
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 128 }),
+  stripeReceiptUrl: text("stripeReceiptUrl"),       // Stripe-hosted receipt/invoice URL
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PurchaseReceipt = typeof purchaseReceipts.$inferSelect;
+export type InsertPurchaseReceipt = typeof purchaseReceipts.$inferInsert;
+

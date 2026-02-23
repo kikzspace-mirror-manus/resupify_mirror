@@ -16,6 +16,7 @@ import Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { ENV } from "./_core/env";
 import * as db from "./db";
+import { createPurchaseReceipt } from "./db";
 import { logAnalyticsEvent } from "./analytics";
 import { EVT_PURCHASE_COMPLETED } from "../shared/analyticsEvents";
 
@@ -63,6 +64,17 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
       // Grant credits using the existing approved addCredits helper
       await db.addCredits(userId, credits, `Purchase: ${packId}`, "credit_purchase");
+      // Record purchase receipt (idempotent — duplicate key silently ignored)
+      await createPurchaseReceipt({
+        userId,
+        stripeCheckoutSessionId: session.id,
+        packId: packId!,
+        creditsAdded: credits,
+        amountCents: session.amount_total ?? undefined,
+        currency: session.currency ?? undefined,
+        stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : undefined,
+        stripeReceiptUrl: undefined,
+      });
 
       await db.recordStripeEvent({
         stripeEventId: event.id,

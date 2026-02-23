@@ -29,11 +29,13 @@ const {
   mockStripeEventExists,
   mockRecordStripeEvent,
   mockAddCredits,
+  mockCreatePurchaseReceipt,
 } = vi.hoisted(() => ({
   mockCreateCheckoutSession: vi.fn(),
   mockStripeEventExists: vi.fn(),
   mockRecordStripeEvent: vi.fn(),
   mockAddCredits: vi.fn(),
+  mockCreatePurchaseReceipt: vi.fn(),
 }));
 
 vi.mock("./stripe", async (importOriginal) => {
@@ -51,6 +53,7 @@ vi.mock("./db", async (importOriginal) => {
     stripeEventExists: mockStripeEventExists,
     recordStripeEvent: mockRecordStripeEvent,
     addCredits: mockAddCredits,
+    createPurchaseReceipt: mockCreatePurchaseReceipt,
   };
 });
 
@@ -140,6 +143,7 @@ describe("Phase 11A: Stripe Credits Purchase", () => {
     mockStripeEventExists.mockResolvedValue(false);
     mockRecordStripeEvent.mockResolvedValue(undefined);
     mockAddCredits.mockResolvedValue(undefined);
+    mockCreatePurchaseReceipt.mockResolvedValue(undefined);
     mockCreateCheckoutSession.mockResolvedValue("https://checkout.stripe.com/pay/cs_test_11a");
   });
 

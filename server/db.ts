@@ -18,6 +18,7 @@ import {
   jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
   operationalEvents, InsertOperationalEvent, OperationalEvent,
   stripeEvents, InsertStripeEvent,
+  purchaseReceipts, InsertPurchaseReceipt, PurchaseReceipt,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1742,4 +1743,55 @@ export async function getDailyMetrics(rangeDays: 7 | 14 | 30): Promise<DailyMetr
   }
 
   return Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ─── Purchase Receipts (Phase 11C.1) ─────────────────────────────────────────
+
+/**
+ * Create a purchase receipt. Idempotent: if a row with the same
+ * stripeCheckoutSessionId already exists, the insert is silently ignored.
+ */
+export async function createPurchaseReceipt(data: InsertPurchaseReceipt): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(purchaseReceipts).values(data);
+  } catch (err: any) {
+    // Duplicate key on stripeCheckoutSessionId — idempotent, ignore
+    if (err?.code === 'ER_DUP_ENTRY' || err?.message?.includes('Duplicate entry')) return;
+    throw err;
+  }
+}
+
+/**
+ * List purchase receipts for a user, newest first.
+ * Returns at most `limit` rows (default 50).
+ */
+export async function listPurchaseReceipts(
+  userId: number,
+  limit = 50
+): Promise<PurchaseReceipt[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(purchaseReceipts)
+    .where(eq(purchaseReceipts.userId, userId))
+    .orderBy(desc(purchaseReceipts.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Check if a purchase receipt already exists for a given Stripe session.
+ * Used to prevent duplicate receipt creation on webhook retries.
+ */
+export async function purchaseReceiptExists(stripeCheckoutSessionId: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: purchaseReceipts.id })
+    .from(purchaseReceipts)
+    .where(eq(purchaseReceipts.stripeCheckoutSessionId, stripeCheckoutSessionId))
+    .limit(1);
+  return rows.length > 0;
 }
