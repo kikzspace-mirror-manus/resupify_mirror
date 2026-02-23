@@ -206,9 +206,10 @@ export function registerStripeWebhook(app: Express): void {
     express.raw({ type: () => true }),
     async (req: Request, res: Response) => {
       const sig = req.headers["stripe-signature"];
-      // Read lazily from process.env so the secret can be updated without restart
-      // and so tests can set process.env.STRIPE_WEBHOOK_SECRET before each request.
-      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? ENV.STRIPE_WEBHOOK_SECRET;
+      // Use ONLY process.env.STRIPE_WEBHOOK_SECRET — no ENV fallback — so the
+      // Manus Secrets panel is the single source of truth and stale cached values
+      // from ENV cannot cause signature mismatches.
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
       if (!webhookSecret) {
         console.error("[Stripe] STRIPE_WEBHOOK_SECRET is not configured");
