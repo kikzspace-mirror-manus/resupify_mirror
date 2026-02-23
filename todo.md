@@ -1283,3 +1283,9 @@
 - [x] Add upsertOpsStatus call after successful checkout.session.completed processing in stripeWebhook.ts
 - [x] Write Phase 12E.2 acceptance tests confirming ops_status is updated on success
 - [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12E.3: Webhook Failure Tracking (ops_status on error)
+- [x] Add upsertOpsStatus({ lastStripeWebhookFailureAt }) in the webhook catch block
+- [x] Wrap the ops write in try/catch so it never crashes the process
+- [x] Write Phase 12E.3 acceptance tests (E3_1-E3_8)
+- [x] Full test suite passing, 0 TypeScript errors

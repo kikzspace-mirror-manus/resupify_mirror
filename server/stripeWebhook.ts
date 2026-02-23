@@ -245,6 +245,10 @@ export function registerStripeWebhook(app: Express): void {
         return res.json({ received: true });
       } catch (err: any) {
         console.error("[Stripe] Webhook processing error:", err.message);
+        // Phase 12E.3: record failure timestamp in ops_status (fire-and-forget, never crashes)
+        upsertOpsStatus({ lastStripeWebhookFailureAt: new Date() }).catch((opsErr: unknown) => {
+          console.warn("[Stripe] ops_status failure write failed:", opsErr instanceof Error ? opsErr.message : String(opsErr));
+        });
         return res.status(500).json({ error: "Webhook processing failed" });
       }
     }
