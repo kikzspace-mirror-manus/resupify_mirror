@@ -213,12 +213,7 @@ describe("PATCH: Stripe Webhook Raw Body Signature Verification", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("Webhook Error");
-    expect(res.body.debug).toBeDefined();
-    expect(res.body.debug.secretTail).toBeDefined();
-    expect(res.body.debug.secretTail.length).toBe(6);
-    expect(res.body.debug.host).toBeDefined();
-    expect(res.body.debug.envHasSecret).toBe(true);
-    expect(res.body.debug.secretLen).toBeGreaterThan(0);
+    expect(res.body.debug).toBeUndefined();
   });
 
   // ── E) Missing stripe-signature header returns 400 ────────────────────────
@@ -233,12 +228,8 @@ describe("PATCH: Stripe Webhook Raw Body Signature Verification", () => {
       .send(bodyStr);
 
     expect(res.status).toBe(400);
-    expect(res.body.debug).toBeDefined();
-    expect(res.body.debug.secretTail).toBeDefined();
-    expect(res.body.debug.secretTail.length).toBe(6);
-    expect(res.body.debug.host).toBeDefined();
-    expect(res.body.debug.envHasSecret).toBe(true);
-    expect(res.body.debug.secretLen).toBeGreaterThan(0);
+    expect(res.body.error).toContain("Webhook Error");
+    expect(res.body.debug).toBeUndefined();
   });
 
   // ── F) Valid checkout.session.completed returns { received: true } ────────

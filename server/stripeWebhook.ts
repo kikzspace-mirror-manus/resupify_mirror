@@ -225,20 +225,7 @@ export function registerStripeWebhook(app: Express): void {
         );
       } catch (err: any) {
         console.error("[Stripe] Webhook signature verification failed:", err.message);
-        // TEMPORARY DEBUG: return debug info to diagnose production signature failures
-        return res.status(400).json({
-          error: `Webhook Error: ${err.message}`,
-          debug: {
-            hasStripeSignatureHeader: Boolean(req.headers["stripe-signature"]),
-            contentType: String(req.headers["content-type"] || ""),
-            isBuffer: Buffer.isBuffer(req.body),
-            bodyLength: Buffer.isBuffer(req.body) ? req.body.length : -1,
-            host: String(req.headers["host"] || ""),
-            envHasSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET_V2),
-            secretLen: process.env.STRIPE_WEBHOOK_SECRET_V2 ? process.env.STRIPE_WEBHOOK_SECRET_V2.length : 0,
-            secretTail: (process.env.STRIPE_WEBHOOK_SECRET_V2 || "").slice(-6),
-          },
-        });
+        return res.status(400).json({ error: `Webhook Error: ${err.message}` });
       }
 
       // Test event: return verification response immediately
