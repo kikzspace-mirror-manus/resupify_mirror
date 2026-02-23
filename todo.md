@@ -1289,3 +1289,8 @@
 - [x] Wrap the ops write in try/catch so it never crashes the process
 - [x] Write Phase 12E.3 acceptance tests (E3_1-E3_8)
 - [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12F: Public Health Check Endpoint
+- [x] Add GET /api/health route to Express server entry point (no auth, no DB)
+- [x] Write Phase 12F acceptance tests (HTTP 200, status=ok, ts is number)
+- [x] Full test suite passing, 0 TypeScript errors

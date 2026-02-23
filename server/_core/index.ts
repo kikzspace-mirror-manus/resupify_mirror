@@ -41,6 +41,10 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "512kb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  // Phase 12F: Public health check — no auth, no DB
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", ts: Date.now() });
+  });
   // tRPC API
   app.use(
     "/api/trpc",
