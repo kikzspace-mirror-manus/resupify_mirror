@@ -821,3 +821,11 @@
 - [x] Keep Copy all as variant="ghost" (secondary/neutral)
 - [x] Write structural test confirming variant in source
 - [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E3: Application Kit Header Polish (2-row layout)
+- [x] Row 1: Resume selector + Evidence Run selector (left), Download Kit + Regenerate Kit (right)
+- [x] Row 2: Tone pills on one line below Row 1
+- [x] Tone mismatch note: render as small helper text under tone pills (not a banner)
+- [x] Metadata line: "Generated ... · Tone: X · Included free" as muted small text below Row 2
+- [x] Increase whitespace between header card and first accordion section
+- [x] Write acceptance tests A-D (Phase 9E3)
+- [x] Verify all tests pass, 0 TypeScript errors (Phase 9E3)

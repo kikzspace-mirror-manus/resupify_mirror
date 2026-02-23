@@ -1405,68 +1405,43 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
             <Package className="h-4 w-4" />Application Kit
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Resume</Label>
-              <Select value={selectedResumeId?.toString() ?? ""} onValueChange={(v) => setSelectedResumeId(Number(v))}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Choose resume..." /></SelectTrigger>
-                <SelectContent>
-                  {resumes.map((r) => (<SelectItem key={r.id} value={r.id.toString()}>{r.title}</SelectItem>))}
-                </SelectContent>
-              </Select>
+        <CardContent className="space-y-3 pt-3">
+          {/* Row 1: Selectors (left) + Actions (right) */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap items-end gap-3 flex-1 min-w-0">
+              <div className="space-y-1 min-w-[140px] flex-1">
+                <Label className="text-xs text-muted-foreground">Resume</Label>
+                <Select value={selectedResumeId?.toString() ?? ""} onValueChange={(v) => setSelectedResumeId(Number(v))}>
+                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Choose resume..." /></SelectTrigger>
+                  <SelectContent>
+                    {resumes.map((r) => (<SelectItem key={r.id} value={r.id.toString()}>{r.title}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1 min-w-[160px] flex-1">
+                <Label className="text-xs text-muted-foreground">Evidence Run</Label>
+                <Select value={selectedRunId?.toString() ?? ""} onValueChange={(v) => setSelectedRunId(Number(v))}>
+                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Choose run..." /></SelectTrigger>
+                  <SelectContent>
+                    {completedRuns.map((r) => {
+                      const d = new Date(r.createdAt);
+                      const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                      const company = job?.company ?? "";
+                      const title = job?.title ?? "";
+                      const label = [company, title].filter(Boolean).join(" — ");
+                      return (
+                        <SelectItem key={r.id} value={r.id.toString()}>
+                          <span title={`Run #${r.id}`}>
+                            {label ? `${label} (${r.overallScore}%) · ${mmmd}` : `${r.overallScore}% · ${mmmd}`}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Evidence Run</Label>
-              <Select value={selectedRunId?.toString() ?? ""} onValueChange={(v) => setSelectedRunId(Number(v))}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Choose run..." /></SelectTrigger>
-                <SelectContent>
-                  {completedRuns.map((r) => {
-                    const d = new Date(r.createdAt);
-                    const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                    const company = job?.company ?? "";
-                    const title = job?.title ?? "";
-                    const label = [company, title].filter(Boolean).join(" — ");
-                    return (
-                      <SelectItem key={r.id} value={r.id.toString()}>
-                        <span title={`Run #${r.id}`}>
-                          {label ? `${label} (${r.overallScore}%) · ${mmmd}` : `${r.overallScore}% · ${mmmd}`}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tone</Label>
-            <div className="flex gap-2 flex-wrap">
-              {TONES.map((t) => (
-                <button key={t} onClick={() => setTone(t)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${tone === t ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}`}>
-                  {t} <span className="ml-1 text-[10px] opacity-70">— {TONE_DESCRIPTIONS[t]}</span>
-                </button>
-              ))}
-            </div>
-            {existingKit && tone !== existingKit.tone && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 mt-1" data-testid="tone-mismatch-note">
-                Tone applies when you regenerate. Current kit tone: <strong>{existingKit.tone}</strong>.
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              {selectedRun && (() => {
-                const d = new Date(selectedRun.createdAt);
-                const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                const company = job?.company ?? "";
-                const title = job?.title ?? "";
-                const lbl = [company, title].filter(Boolean).join(" — ");
-                const friendly = lbl ? `${lbl} (${selectedRun.overallScore}%) · ${mmmd}` : `${selectedRun.overallScore}% · ${mmmd}`;
-                return <span title={`Run #${selectedRun.id}`}>{friendly}</span>;
-              })()}
-            </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {existingKit && (coverLetterText || bulletRewrites.length > 0 || topChanges.length > 0) && (
                 <Button
                   variant="outline"
@@ -1485,18 +1460,16 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       : "N/A";
                     const userName = user?.name ?? "User";
                     const companyName = job?.company ?? "Company";
-
                     // Cover letter
                     if (coverLetterText) {
                       const filename = buildCoverLetterFilename(userName, companyName);
                       zip.file(filename, coverLetterText + "\n");
                     }
-
                     // Resume patch (bullet rewrites)
                     if (bulletRewrites.length > 0) {
                       const filename = buildResumePatchFilename(userName, companyName);
                       const lines: string[] = [
-                        `Job: ${job?.title ?? ""} \u2014 ${companyName}`,
+                        `Job: ${job?.title ?? ""} — ${companyName}`,
                         `Date: ${dateStr}`,
                         `Resume: ${resumeName}`,
                         `Evidence run: ${runDate}`,
@@ -1523,12 +1496,11 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       }
                       zip.file(filename, lines.join("\n") + "\n");
                     }
-
                     // Top changes
                     if (topChanges.length > 0) {
                       const filename = buildTopChangesFilename(userName, companyName);
                       const lines: string[] = [
-                        `Job: ${job?.title ?? ""} \u2014 ${companyName}`,
+                        `Job: ${job?.title ?? ""} — ${companyName}`,
                         `Date: ${dateStr}`,
                         `Resume: ${resumeName}`,
                         `Evidence run: ${runDate}`,
@@ -1549,7 +1521,6 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       lines.push("[ ] Submit application");
                       zip.file(filename, lines.join("\n") + "\n");
                     }
-
                     const zipFilename = buildApplicationKitZipFilename(userName, companyName);
                     const blob = await zip.generateAsync({ type: "blob" });
                     const url = URL.createObjectURL(blob);
@@ -1588,14 +1559,13 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                 </AlertDialogContent>
               </AlertDialog>
               <Button
+                size="sm"
                 onClick={() => {
                   if (!selectedResumeId) { toast.error("Select a resume first."); return; }
                   if (!selectedRunId) { toast.error("Select an evidence run first."); return; }
                   if (existingKit) {
-                    // Kit already exists — show confirmation guard
                     setShowConfirmDialog(true);
                   } else {
-                    // First-time generation — run immediately
                     generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
                   }
                 }}
@@ -1605,8 +1575,25 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
               </Button>
             </div>
           </div>
+          {/* Row 2: Tone pills */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tone</Label>
+            <div className="flex gap-2 flex-wrap">
+              {TONES.map((t) => (
+                <button key={t} onClick={() => setTone(t)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${tone === t ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}`}>
+                  {t} <span className="ml-1 text-[10px] opacity-70">— {TONE_DESCRIPTIONS[t]}</span>
+                </button>
+              ))}
+            </div>
+            {existingKit && tone !== existingKit.tone && (
+              <p className="text-xs text-amber-600 flex items-center gap-1 mt-0.5" data-testid="tone-mismatch-note">
+                <span className="opacity-70">⚠</span> Tone applies when you regenerate. Current kit tone: <strong>{existingKit.tone}</strong>.
+              </p>
+            )}
+          </div>
+          {/* Metadata line */}
           {existingKit && (
-            <p className="text-xs text-muted-foreground">Generated {new Date(existingKit.createdAt).toLocaleString()} • Tone: {existingKit.tone} • Included free with Evidence Scan</p>
+            <p className="text-xs text-muted-foreground/70 pt-0.5">Generated {new Date(existingKit.createdAt).toLocaleString()} · Tone: {existingKit.tone} · Included free with Evidence Scan</p>
           )}
         </CardContent>
       </Card>
