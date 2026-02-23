@@ -57,7 +57,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS } from "../../../shared/regionPacks";
@@ -264,6 +264,16 @@ export default function JobCards() {
     return filtered;
   }, [jobs, filterStage, filterPriority, filterSeason, search, sortBy]);
 
+  // Prune selectedIds when filteredJobs changes to avoid phantom selections
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const visibleIdSet = new Set(filteredJobs.map((j) => j.id));
+    const pruned = new Set(Array.from(selectedIds).filter((id) => visibleIdSet.has(id)));
+    if (pruned.size !== selectedIds.size) {
+      setSelectedIds(pruned);
+    }
+  }, [filteredJobs]);
+
   const jobsByStage = useMemo(() => {
     const map: Record<string, typeof filteredJobs> = {};
     for (const stage of STAGES) map[stage] = [];
@@ -407,30 +417,37 @@ export default function JobCards() {
       {view === "list" && (
         <div className="space-y-2">
           {/* Header checkbox row */}
-          {!isLoading && filteredJobs.length > 0 && (
-            <div className="flex items-center gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
-              <input
-                type="checkbox"
-                ref={(el) => {
-                  if (el) {
-                    el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredJobs.length;
-                  }
-                }}
-                checked={selectedIds.size === filteredJobs.length && filteredJobs.length > 0}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    const newSelected = new Set(selectedIds);
-                    filteredJobs.forEach((job) => newSelected.add(job.id));
-                    setSelectedIds(newSelected);
-                  } else {
-                    setSelectedIds(new Set());
-                  }
-                }}
-                className="cursor-pointer shrink-0"
-              />
-              <span>Select all {filteredJobs.length}</span>
-            </div>
-          )}
+          {!isLoading && filteredJobs.length > 0 && (() => {
+            const visibleIds = filteredJobs.map((j) => j.id);
+            const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+            const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id)) && !allVisibleSelected;
+            return (
+              <div className="flex items-center gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
+                <input
+                  type="checkbox"
+                  ref={(el) => {
+                    if (el) el.indeterminate = someVisibleSelected;
+                  }}
+                  checked={allVisibleSelected}
+                  onChange={() => {
+                    if (allVisibleSelected) {
+                      // Deselect all visible
+                      const newSelected = new Set(selectedIds);
+                      visibleIds.forEach((id) => newSelected.delete(id));
+                      setSelectedIds(newSelected);
+                    } else {
+                      // Select all visible
+                      const newSelected = new Set(selectedIds);
+                      visibleIds.forEach((id) => newSelected.add(id));
+                      setSelectedIds(newSelected);
+                    }
+                  }}
+                  className="cursor-pointer shrink-0"
+                />
+                <span>Select all {filteredJobs.length}</span>
+              </div>
+            );
+          })()}
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
@@ -640,41 +657,46 @@ export default function JobCards() {
                 let successCount = 0;
                 const failedIds = new Set<number>();
 
-                // Archive with max 3 concurrent
-                for (let i = 0; i < toArchive.length; i += 3) {
-                  const batch = toArchive.slice(i, i + 3);
-                  await Promise.all(
-                    batch.map((id) =>
-                      new Promise<void>((resolve) => {
-                        archiveCard.mutate(
-                          { id, stage: "archived" as any },
-                          {
-                            onSuccess: () => {
-                              successCount++;
-                              setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
-                              resolve();
-                            },
-                            onError: () => {
-                              failedIds.add(id);
-                              setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
-                              resolve();
-                            },
-                          }
-                        );
-                      })
-                    )
-                  );
-                }
+                try {
+                  // Archive with max 3 concurrent
+                  for (let i = 0; i < toArchive.length; i += 3) {
+                    const batch = toArchive.slice(i, i + 3);
+                    await Promise.all(
+                      batch.map((id) =>
+                        new Promise<void>((resolve) => {
+                          archiveCard.mutate(
+                            { id, stage: "archived" as any },
+                            {
+                              onSuccess: () => {
+                                successCount++;
+                                setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                                resolve();
+                              },
+                              onError: () => {
+                                failedIds.add(id);
+                                setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                                resolve();
+                              },
+                            }
+                          );
+                        })
+                      )
+                    );
+                  }
 
-                setBulkArchiveProgress(null);
-                if (failedIds.size > 0) {
-                  toast.error(`Archived ${successCount}/${toArchive.length}. Some failed.`);
-                  setSelectedIds(failedIds);
-                } else {
-                  toast.success(`Archived ${successCount}/${toArchive.length} job cards`);
-                  setSelectedIds(new Set());
+                  if (failedIds.size > 0) {
+                    toast.error(`Archived ${successCount}/${toArchive.length}. Some failed.`);
+                    setSelectedIds(failedIds);
+                  } else {
+                    toast.success(`Archived ${successCount}/${toArchive.length} job cards`);
+                    setSelectedIds(new Set());
+                  }
+                } catch (err) {
+                  toast.error("An unexpected error occurred during archiving.");
+                } finally {
+                  setBulkArchiveProgress(null);
+                  setBulkArchiveConfirmOpen(false);
                 }
-                setBulkArchiveConfirmOpen(false);
               }}
             >
               Archive
