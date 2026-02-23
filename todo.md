@@ -1077,3 +1077,12 @@
 - [x] Add action_id (optional UUID) to all 4 frontend mutation call sites
 - [x] Write acceptance tests A-E (idempotency-10c.test.ts)
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 10D: Batch Sprint Concurrency — Shared AI Busy Lock + Queue (Frontend Only)
+- [x] Add Batch Sprint button + resume selector to bulk action bar in JobCards.tsx
+- [x] Integrate batchSprint.mutate with runAI() from AIConcurrencyContext
+- [x] Show queue/waiting banner in bulk action bar when Batch Sprint is queued
+- [x] Show "Already queued" toast when user clicks again while queued
+- [x] Handle markDone in batchSprint onSuccess/onError
+- [x] Write acceptance tests A-F (batch-sprint-concurrency-10d.test.ts)
+- [x] All tests pass, 0 TypeScript errors

@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { useAIConcurrency } from "@/contexts/AIConcurrencyContext";
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,6 +41,7 @@ import {
   MoreHorizontal,
   Archive,
   ArchiveRestore,
+  Zap,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -166,6 +168,11 @@ export default function JobCards() {
   const [bulkArchiveConfirmOpen, setBulkArchiveConfirmOpen] = useState(false);
   const [bulkArchiveProgress, setBulkArchiveProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // ── Batch Sprint state ────────────────────────────────────────────────
+  const [batchSprintResumeId, setBatchSprintResumeId] = useState<number | null>(null);
+  const [showBatchSprintDialog, setShowBatchSprintDialog] = useState(false);
+  const { isBusy, isQueued, runAI, markDone, cancelQueued } = useAIConcurrency();
+
   const archiveCard = trpc.jobCards.update.useMutation({
     onMutate: async ({ id, stage }) => {
       await utils.jobCards.list.cancel();
@@ -192,6 +199,26 @@ export default function JobCards() {
   );
 
   const { data: jobs, isLoading } = trpc.jobCards.list.useQuery({});
+  const { data: resumes } = trpc.resumes.list.useQuery();
+
+  // ── Batch Sprint mutation ─────────────────────────────────────────────
+  const batchSprint = trpc.evidence.batchSprint.useMutation({
+    onSuccess: (data) => {
+      markDone();
+      const succeeded = data.results.filter((r) => r.runId !== null).length;
+      const failed = data.results.length - succeeded;
+      if (failed === 0) {
+        toast.success(`Batch Sprint complete! ${succeeded} job${succeeded !== 1 ? "s" : ""} scanned.`);
+      } else {
+        toast.warning(`Batch Sprint done: ${succeeded} succeeded, ${failed} failed.`);
+      }
+      utils.jobCards.list.invalidate();
+    },
+    onError: (err) => {
+      markDone();
+      toast.error(err.message ?? "Batch Sprint failed. Try again.");
+    },
+  });
 
   // Profile nudge banner (shared with Dashboard/Today)
   const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery();
@@ -388,28 +415,82 @@ export default function JobCards() {
 
       {/* Bulk action bar */}
       {view === "list" && selectedIds.size > 0 && (
-        <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-lg p-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+        <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Phase 10D: Batch Sprint button */}
+              {selectedIds.size <= 10 && (
+                <Button
+                  data-testid="batch-sprint-btn"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+                  disabled={batchSprint.isPending || isBusy || bulkArchiveProgress !== null}
+                  onClick={() => {
+                    if (isQueued) {
+                      toast.info("Already queued — one Batch Sprint is waiting to run.");
+                      return;
+                    }
+                    if (!resumes || resumes.length === 0) {
+                      toast.error("Upload a resume first before running Batch Sprint.");
+                      return;
+                    }
+                    const resumeId = batchSprintResumeId ?? resumes[0]?.id;
+                    if (!resumeId) return;
+                    const ids = Array.from(selectedIds);
+                    runAI(() => batchSprint.mutate({ jobCardIds: ids, resumeId }));
+                  }}
+                >
+                  {batchSprint.isPending ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Running…</>
+                  ) : (
+                    <><Zap className="h-3.5 w-3.5" /> Batch Sprint (5 credits)</>
+                  )}
+                </Button>
+              )}
+              {selectedIds.size > 10 && (
+                <span className="text-xs text-amber-600">Select up to 10 for Batch Sprint</span>
+              )}
+              <Button
+                size="sm"
+                onClick={() => setBulkArchiveConfirmOpen(true)}
+                disabled={bulkArchiveProgress !== null || Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived")}
+                title={Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived") ? "All selected cards are already archived" : ""}
+              >
+                {bulkArchiveProgress ? `Archiving ${bulkArchiveProgress.current}/${bulkArchiveProgress.total}...` : "Archive selected"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedIds(new Set())}
+                disabled={bulkArchiveProgress !== null}
+              >
+                Clear
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => setBulkArchiveConfirmOpen(true)}
-              disabled={bulkArchiveProgress !== null || Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived")}
-              title={Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived") ? "All selected cards are already archived" : ""}
+          {/* Phase 10D: Queue waiting banner — same pattern as EvidenceTab */}
+          {isQueued && (
+            <div
+              data-testid="batch-sprint-queue-waiting"
+              className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
             >
-              {bulkArchiveProgress ? `Archiving ${bulkArchiveProgress.current}/${bulkArchiveProgress.total}...` : "Archive selected"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSelectedIds(new Set())}
-              disabled={bulkArchiveProgress !== null}
-            >
-              Clear
-            </Button>
-          </div>
+              <Loader2 className="h-4 w-4 animate-spin shrink-0 text-amber-600" />
+              <span className="flex-1">Waiting for previous AI action to finish…</span>
+              <Button
+                data-testid="batch-sprint-queue-cancel-btn"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-amber-700 hover:bg-amber-100"
+                onClick={cancelQueued}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
