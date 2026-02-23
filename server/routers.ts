@@ -19,6 +19,7 @@ import { adminRouter } from "./routers/admin";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
 import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, jdExtractRateLimit, shortHash } from "./rateLimiter";
+import { checkIdempotency, markStarted, markSucceeded, markFailed, markCreditsCharged } from "./idempotency";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 import { logAnalyticsEvent } from "./analytics";
 import {
@@ -399,7 +400,15 @@ export const appRouter = router({
     // ─── Real LLM extraction (replaces stub) ──────────────────────────
     extract: protectedProcedure.use(jdExtractRateLimit).input(z.object({
       jobCardId: z.number(),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "jdSnapshots.extract", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: This extraction is already running. Please wait.");
+      markStarted(ctx.user.id, "jdSnapshots.extract", input.actionId);
+      // ─────────────────────────────────────────────────────────────────
+      try {
       const MIN_JD_LENGTH = 200;
       const MAX_JD_LENGTH = 12000;
 
@@ -511,8 +520,7 @@ export const appRouter = router({
         }));
 
       await db.upsertRequirements(input.jobCardId, snapshot.id, requirements);
-
-      return {
+      const extractResult = {
         snapshotId: snapshot.id,
         structuredFields: {
           company_name: parsed.company_name,
@@ -523,8 +531,14 @@ export const appRouter = router({
         requirements,
         count: requirements.length,
       };
+      markSucceeded(ctx.user.id, "jdSnapshots.extract", input.actionId, extractResult, false);
+      return extractResult;
+      } catch (err: any) {
+        markFailed(ctx.user.id, "jdSnapshots.extract", input.actionId, String(err?.message ?? err));
+        throw err;
+      }
     }),
-    // ─── Get persisted requirements ───────────────────────────────────
+    // ─── Get persisted requirements ────────────────────────────────────
     requirements: protectedProcedure.input(z.object({
       jobCardId: z.number(),
     })).query(async ({ input }) => {
@@ -785,7 +799,13 @@ export const appRouter = router({
     run: protectedProcedure.use(evidenceRateLimit).input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "evidence.run", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: This scan is already running. Please wait for it to complete.");
+      markStarted(ctx.user.id, "evidence.run", input.actionId);
       // ── 1. Credit gate (unchanged) ───────────────────────────────────
       const balance = await db.getCreditsBalance(ctx.user.id);
       if (balance < 1) {
@@ -827,6 +847,7 @@ export const appRouter = router({
       // ── 5. Spend credit (unchanged) ──────────────────────────────────
       const spent = await db.spendCredits(ctx.user.id, 1, "Evidence+ATS run", "evidence_run", runId);
       if (!spent) throw new Error("Failed to spend credit.");
+      markCreditsCharged(ctx.user.id, "evidence.run", input.actionId); // Phase 10C: credit charged once
 
       // ── 6. Build eligibility context for the LLM prompt ─────────────
       const missingEligibilityFields = pack.eligibilityChecks
@@ -1115,18 +1136,20 @@ export const appRouter = router({
         }
 
         logAnalyticsEvent(EVT_QUICK_MATCH_RUN, ctx.user.id, { run_type: "evidence" });
-        return {
+        const evidenceResult = {
           runId,
           score: overallScore,
           itemCount: evidenceItemsData.length,
           breakdown: scoreBreakdown,
         };
+        markSucceeded(ctx.user.id, "evidence.run", input.actionId, evidenceResult, true);
+        return evidenceResult;
       } catch (error: any) {
         await db.updateEvidenceRun(runId, { status: "failed" });
+        markFailed(ctx.user.id, "evidence.run", input.actionId, String(error?.message ?? error));
         throw new Error(`Evidence scan failed: ${error.message}`);
       }
     }),
-
     batchSprint: protectedProcedure.input(z.object({
       jobCardIds: z.array(z.number()).min(1).max(10),
       resumeId: z.number(),
@@ -1341,7 +1364,14 @@ export const appRouter = router({
     generatePack: protectedProcedure.use(outreachRateLimit).input(z.object({
       jobCardId: z.number(),
       contactId: z.number().optional(),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "outreach.generatePack", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: Outreach Pack is already being generated. Please wait.");
+      markStarted(ctx.user.id, "outreach.generatePack", input.actionId);
+      try {
       // Check credits
       const balance = await db.getCreditsBalance(ctx.user.id);
       if (balance < 1) throw new Error("Insufficient credits. Outreach Pack costs 1 credit.");
@@ -1432,7 +1462,7 @@ ${buildToneSystemPrompt()}`
       };
       const spent = await db.spendCredits(ctx.user.id, 1, "Outreach Pack generation", "outreach_pack");
       if (!spent) throw new Error("Failed to spend credit.");
-
+      markCreditsCharged(ctx.user.id, "outreach.generatePack", input.actionId); // Phase 10C
       const packId = await db.createOutreachPack({
         userId: ctx.user.id,
         jobCardId: input.jobCardId,
@@ -1443,7 +1473,13 @@ ${buildToneSystemPrompt()}`
       });
 
       logAnalyticsEvent(EVT_OUTREACH_GENERATED, ctx.user.id);
-      return { id: packId, ...parsed };
+      const packResult = { id: packId, ...parsed };
+      markSucceeded(ctx.user.id, "outreach.generatePack", input.actionId, packResult, true);
+      return packResult;
+      } catch (err: any) {
+        markFailed(ctx.user.id, "outreach.generatePack", input.actionId, String(err?.message ?? err));
+        throw err;
+      }
     }),
   }),
   // ─── Analyticss ────────────────────────────────────────────────────
@@ -1476,7 +1512,14 @@ ${buildToneSystemPrompt()}`
       resumeId: z.number(),
       evidenceRunId: z.number(),
       tone: z.enum(["Human", "Confident", "Warm", "Direct"]).default("Human"),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "applicationKits.generate", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: Application Kit is already being generated. Please wait.");
+      markStarted(ctx.user.id, "applicationKits.generate", input.actionId);
+      try {
       // ── Option A: verify a completed EvidenceRun exists (no extra credit charge) ──
       const evidenceRuns = await db.getEvidenceRuns(input.jobCardId);
       const validRun = evidenceRuns.find(
@@ -1645,12 +1688,18 @@ ${buildToneSystemPrompt()}`
       });
 
        logAnalyticsEvent(EVT_COVER_LETTER_GENERATED, ctx.user.id);
-      return {
+      const kitResult = {
         kitId,
         topChanges: parsed.top_changes ?? [],
         bulletRewrites: parsed.bullet_rewrites ?? [],
         coverLetterText: parsed.cover_letter_text ?? "",
       };
+      markSucceeded(ctx.user.id, "applicationKits.generate", input.actionId, kitResult, false);
+      return kitResult;
+      } catch (err: any) {
+        markFailed(ctx.user.id, "applicationKits.generate", input.actionId, String(err?.message ?? err));
+        throw err;
+      }
     }),
     // Create checklist tasks from the kit (no duplicates)
     createTasks: protectedProcedure.input(z.object({

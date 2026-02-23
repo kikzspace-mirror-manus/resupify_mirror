@@ -120,7 +120,8 @@ describe("D: Behavioral contracts are unchanged", () => {
   });
 
   it("D6: generateKit.mutate is still called with tone parameter", () => {
-    expect(SOURCE).toContain("generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone })");
+    // Phase 10C: actionId was added; verify tone is still present in the call
+    expect(SOURCE).toContain("generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone, actionId: crypto.randomUUID() })");
   });
 
   it("D7: Download button still uses variant=outline (secondary styling)", () => {

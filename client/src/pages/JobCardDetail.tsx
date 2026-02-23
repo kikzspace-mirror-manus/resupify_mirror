@@ -735,7 +735,7 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
                 size="sm"
                 onClick={() => {
                   setExtractError(null);
-                  runAI(() => extractRequirements.mutate({ jobCardId }));
+                  runAI(() => extractRequirements.mutate({ jobCardId, actionId: crypto.randomUUID() }));
                 }}
                 disabled={extractRequirements.isPending || isBusy}
               >
@@ -1047,7 +1047,7 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
               onClick={() => {
                 if (!selectedResumeId) { toast.error("Select a resume first"); return; }
                 if (!hasRequirements) { toast.error("Extract requirements first from the JD Snapshot tab."); return; }
-                runAI(() => runEvidence.mutate({ jobCardId, resumeId: selectedResumeId! }));
+                runAI(() => runEvidence.mutate({ jobCardId, resumeId: selectedResumeId!, actionId: crypto.randomUUID() }));
               }}
               disabled={runEvidence.isPending || !selectedResumeId}
             >
@@ -1579,7 +1579,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       disabled={generateKit.isPending}
                       onClick={() => {
                         setShowConfirmDialog(false);
-                        runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone }));
+                        runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone, actionId: crypto.randomUUID() }));
                       }}
                     >
                       {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Replacing...</> : "Replace kit"}
@@ -1595,7 +1595,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   if (existingKit) {
                     setShowConfirmDialog(true);
                   } else {
-                    runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone }));
+                    runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone, actionId: crypto.randomUUID() }));
                   }
                 }}
                 disabled={generateKit.isPending || !hasRequirements || noRun}
@@ -2295,7 +2295,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
                   variant="default"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId })); }}
+                  onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId, actionId: crypto.randomUUID() })); }}
                   disabled={generatePack.isPending || isBusy}
                 >
                   {generatePack.isPending ? (
@@ -2329,7 +2329,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
               <p className="text-sm text-muted-foreground mb-1">No outreach pack yet.</p>
               <p className="text-xs text-muted-foreground mb-3">Creates: recruiter email + LinkedIn DM + 2 follow-ups</p>
               <Button
-                onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId })); }}
+                onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId, actionId: crypto.randomUUID() })); }}
                 disabled={generatePack.isPending || isBusy}
               >
                 {generatePack.isPending ? (

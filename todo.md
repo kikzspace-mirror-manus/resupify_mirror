@@ -1067,3 +1067,13 @@
 - [x] Friendly inline error when server returns concurrency/rate-limit error
 - [x] Write acceptance tests A-F
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 10C: Idempotency + No Double-Charge + Clean Errors (Server-Side)
+- [x] Create server/idempotency.ts with in-memory store (userId+endpoint+actionId → status/result/creditsCharged)
+- [x] Integrate idempotency guard into evidence.run (action_id input, check before run, store result)
+- [x] Integrate idempotency guard into applicationKits.generate
+- [x] Integrate idempotency guard into outreach.generatePack
+- [x] Integrate idempotency guard into jdSnapshots.extract
+- [x] Add action_id (optional UUID) to all 4 frontend mutation call sites
+- [x] Write acceptance tests A-E (idempotency-10c.test.ts)
+- [x] All tests pass, 0 TypeScript errors
