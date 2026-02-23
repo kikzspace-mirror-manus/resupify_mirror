@@ -16,7 +16,7 @@ import Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { ENV } from "./_core/env";
 import * as db from "./db";
-import { createPurchaseReceipt, createRefundQueueItem, getPurchaseReceiptBySessionId, markReceiptEmailSent, markReceiptEmailError } from "./db";
+import { createPurchaseReceipt, createRefundQueueItem, getPurchaseReceiptBySessionId, markReceiptEmailSent, markReceiptEmailError, upsertOpsStatus } from "./db";
 import { sendPurchaseConfirmationEmail } from "./email";
 import { logAnalyticsEvent } from "./analytics";
 import { EVT_PURCHASE_COMPLETED } from "../shared/analyticsEvents";
@@ -131,6 +131,12 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       });
 
       logAnalyticsEvent(EVT_PURCHASE_COMPLETED, userId, { pack_id: packId, credits });
+      // Phase 12E.2: update ops_status with last successful webhook
+      await upsertOpsStatus({
+        lastStripeWebhookSuccessAt: new Date(),
+        lastStripeWebhookEventId: event.id,
+        lastStripeWebhookEventType: event.type,
+      });
       console.log(`[Stripe] Credited ${credits} credits to user ${userId} (event ${event.id})`);
       break;
     }

@@ -1278,3 +1278,8 @@
 - [x] Wire /admin/ops to admin sidebar navigation
 - [x] Write Phase 12E.1 acceptance tests (admin access, non-admin guard, null state)
 - [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12E.2: Wire ops_status on Webhook Success
+- [x] Add upsertOpsStatus call after successful checkout.session.completed processing in stripeWebhook.ts
+- [x] Write Phase 12E.2 acceptance tests confirming ops_status is updated on success
+- [x] Full test suite passing, 0 TypeScript errors
