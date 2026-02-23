@@ -402,15 +402,32 @@ export async function getContactById(id: number, userId: number) {
 export async function getContactsWithUsage(userId: number) {
   const db = await getDb();
   if (!db) return [];
-
-  // Query 1: all contacts for this user
+  // Query 1: all contacts for this user, with direct job card data via contacts.jobCardId
   const allContacts = await db
-    .select()
+    .select({
+      id: contacts.id,
+      userId: contacts.userId,
+      jobCardId: contacts.jobCardId,
+      name: contacts.name,
+      role: contacts.role,
+      company: contacts.company,
+      email: contacts.email,
+      linkedinUrl: contacts.linkedinUrl,
+      phone: contacts.phone,
+      notes: contacts.notes,
+      createdAt: contacts.createdAt,
+      updatedAt: contacts.updatedAt,
+      // Direct link: job card data from contacts.jobCardId
+      directJobTitle: jobCards.title,
+      directJobCompany: jobCards.company,
+      directJobStage: jobCards.stage,
+      directJobUpdatedAt: jobCards.updatedAt,
+      directJobNextTouchAt: jobCards.nextTouchAt,
+    })
     .from(contacts)
+    .leftJoin(jobCards, and(eq(contacts.jobCardId, jobCards.id), eq(jobCards.userId, userId)))
     .where(eq(contacts.userId, userId));
-
   if (allContacts.length === 0) return [];
-
   const contactIds = allContacts.map((c) => c.id);
 
   // Query 2: all outreach threads for these contacts, joined with job_cards
@@ -465,13 +482,29 @@ export async function getContactsWithUsage(userId: number) {
   }>();
 
   for (const c of allContacts) {
-    contactMap.set(c.id, {
+    const agg = {
       usedInCount: 0,
-      jobCardIds: new Set(),
-      jobCards: [],
-      lastTouchAt: null,
-      nextTouchAt: null,
-    });
+      jobCardIds: new Set<number>(),
+      jobCards: [] as { id: number; company: string | null; title: string; stage: string; updatedAt: Date }[],
+      lastTouchAt: null as Date | null,
+      nextTouchAt: null as Date | null,
+    };
+    // Seed direct link from contacts.jobCardId (contacts created from Job Card detail page)
+    if (c.jobCardId && c.directJobTitle) {
+      agg.jobCardIds.add(c.jobCardId);
+      agg.jobCards.push({
+        id: c.jobCardId,
+        company: c.directJobCompany ?? null,
+        title: c.directJobTitle,
+        stage: c.directJobStage ?? "bookmarked",
+        updatedAt: c.directJobUpdatedAt ?? new Date(0),
+      });
+      // Seed nextTouchAt from direct job card
+      if (c.directJobNextTouchAt && c.directJobNextTouchAt > now) {
+        agg.nextTouchAt = c.directJobNextTouchAt;
+      }
+    }
+    contactMap.set(c.id, agg);
   }
 
   for (const t of threads) {

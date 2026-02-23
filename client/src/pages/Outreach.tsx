@@ -20,7 +20,7 @@ import {
 import { Users, Plus, Mail, Linkedin, Search, MessageSquare, Clock, Briefcase, CalendarDays } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 // ─── Date formatting helpers ──────────────────────────────────────────────────
 
@@ -273,6 +273,9 @@ function ContactRow({
 // ─── Used In Badge ────────────────────────────────────────────────────────────
 
 function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
+  const [, navigate] = useLocation();
+  const [open, setOpen] = useState(false);
+
   if (contact.usedInCount === 0) {
     return (
       <span className="flex items-center gap-1 text-muted-foreground/60 italic">
@@ -285,21 +288,24 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
   if (contact.usedInCount === 1 && contact.mostRecentJobCard) {
     const jc = contact.mostRecentJobCard;
     return (
-      <Link
-        href={`/jobs/${jc.id}`}
-        className="flex items-center gap-1 text-primary hover:underline"
+      <button
+        onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${jc.id}`); }}
+        className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
       >
         <Briefcase className="h-3 w-3" />
         Used in: {jc.company ? `${jc.company} — ` : ""}{jc.title} ({formatStageLabel(jc.stage)})
-      </Link>
+      </button>
     );
   }
 
   // Multiple job cards — show popover
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1 text-primary hover:underline cursor-pointer">
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+        >
           <Briefcase className="h-3 w-3" />
           Used in: {contact.usedInCount} job cards · View
         </button>
@@ -311,10 +317,10 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
         </div>
         <div className="max-h-64 overflow-y-auto">
           {contact.recentJobCards.map((jc) => (
-            <Link
+            <button
               key={jc.id}
-              href={`/jobs/${jc.id}`}
-              className="flex items-start gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors border-b last:border-b-0"
+              onClick={() => { setOpen(false); navigate(`/jobs/${jc.id}`); }}
+              className="w-full flex items-start gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors border-b last:border-b-0 text-left"
             >
               <Briefcase className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
               <div className="min-w-0">
@@ -328,7 +334,7 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
                   </Badge>
                 </div>
               </div>
-            </Link>
+            </button>
           ))}
         </div>
       </PopoverContent>

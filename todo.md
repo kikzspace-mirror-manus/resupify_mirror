@@ -956,3 +956,22 @@
 - [x] Show Last touch / Next touch where available
 - [x] Write acceptance tests A-F (27 tests: A1-A6, B1-B5, C1-C6, D1-D3, E1-E4, F1-F3)
 - [x] Verify all 1230 tests pass, 0 TypeScript errors
+
+## Phase 9E10.1: Contacts Linking Fix — Real Usage Data + Clickable Navigation
+- [ ] Diagnose linking source of truth (contacts.jobCardId vs outreach_threads.contactId)
+- [ ] Fix getContactsWithUsage to query correct relationship
+- [ ] Fix frontend: single-job contact row navigates to /jobs/:id
+- [ ] Fix frontend: multi-job popover items navigate to /jobs/:id
+- [ ] Correct empty state: only show "Not used yet" when linkedJobCount === 0
+- [ ] Write acceptance tests A-D
+- [ ] Verify all tests pass, 0 TypeScript errors
+
+## Phase 9E10.1: Contacts Linking Fix (COMPLETED)
+- [x] Diagnose why contacts show "Not used yet" (missing direct contacts.jobCardId link)
+- [x] Fix getContactsWithUsage to LEFT JOIN job_cards via contacts.jobCardId (direct link)
+- [x] Seed contactMap with direct link before processing threads
+- [x] Fix UsedInBadge navigation: use useLocation navigate() instead of Link
+- [x] Fix popover navigation: close popover then navigate on click
+- [x] Fix routers.ts UTF-8 box-drawing comment causing esbuild error
+- [x] Write acceptance tests A-D (18 tests) covering direct link, thread link, dedup, navigation
+- [x] All 1248 tests pass, 0 TypeScript errors
