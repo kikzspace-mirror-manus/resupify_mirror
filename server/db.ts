@@ -390,6 +390,153 @@ export async function getContactById(id: number, userId: number) {
   return rows[0] ?? null;
 }
 
+/**
+ * Aggregated contacts query — returns each contact enriched with:
+ * - usedInCount: number of distinct job cards linked via outreach_threads
+ * - mostRecentJobCard: the most recently updated job card linked to this contact
+ * - recentJobCards: top 10 job cards linked to this contact
+ * - lastTouchAt: MAX(outreach_messages.sentAt) across all threads for this contact
+ * - nextTouchAt: MIN(job_cards.nextTouchAt) for future dates across linked job cards
+ * No N+1: all data fetched in 3 queries then merged in memory.
+ */
+export async function getContactsWithUsage(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Query 1: all contacts for this user
+  const allContacts = await db
+    .select()
+    .from(contacts)
+    .where(eq(contacts.userId, userId));
+
+  if (allContacts.length === 0) return [];
+
+  const contactIds = allContacts.map((c) => c.id);
+
+  // Query 2: all outreach threads for these contacts, joined with job_cards
+  const threads = await db
+    .select({
+      threadId: outreachThreads.id,
+      contactId: outreachThreads.contactId,
+      jobCardId: outreachThreads.jobCardId,
+      jobTitle: jobCards.title,
+      jobCompany: jobCards.company,
+      jobStage: jobCards.stage,
+      jobUpdatedAt: jobCards.updatedAt,
+      jobNextTouchAt: jobCards.nextTouchAt,
+    })
+    .from(outreachThreads)
+    .leftJoin(jobCards, eq(outreachThreads.jobCardId, jobCards.id))
+    .where(
+      and(
+        eq(outreachThreads.userId, userId),
+        inArray(outreachThreads.contactId, contactIds)
+      )
+    );
+
+  // Query 3: last sent message per thread (for lastTouchAt)
+  const threadIds = threads.map((t) => t.threadId);
+  let lastMessages: { threadId: number; sentAt: Date | null }[] = [];
+  if (threadIds.length > 0) {
+    lastMessages = await db
+      .select({
+        threadId: outreachMessages.threadId,
+        sentAt: sql<Date | null>`MAX(${outreachMessages.sentAt})`.as("sentAt"),
+      })
+      .from(outreachMessages)
+      .where(inArray(outreachMessages.threadId, threadIds))
+      .groupBy(outreachMessages.threadId);
+  }
+
+  // Build lookup: threadId -> lastSentAt
+  const threadLastSent = new Map<number, Date | null>();
+  for (const msg of lastMessages) {
+    threadLastSent.set(msg.threadId, msg.sentAt);
+  }
+
+  // Build per-contact aggregates
+  const now = new Date();
+  const contactMap = new Map<number, {
+    usedInCount: number;
+    jobCardIds: Set<number>;
+    jobCards: { id: number; company: string | null; title: string; stage: string; updatedAt: Date }[];
+    lastTouchAt: Date | null;
+    nextTouchAt: Date | null;
+  }>();
+
+  for (const c of allContacts) {
+    contactMap.set(c.id, {
+      usedInCount: 0,
+      jobCardIds: new Set(),
+      jobCards: [],
+      lastTouchAt: null,
+      nextTouchAt: null,
+    });
+  }
+
+  for (const t of threads) {
+    if (!t.contactId) continue;
+    const agg = contactMap.get(t.contactId);
+    if (!agg) continue;
+
+    // Count distinct job cards
+    if (t.jobCardId && !agg.jobCardIds.has(t.jobCardId)) {
+      agg.jobCardIds.add(t.jobCardId);
+      if (t.jobTitle) {
+        agg.jobCards.push({
+          id: t.jobCardId,
+          company: t.jobCompany ?? null,
+          title: t.jobTitle,
+          stage: t.jobStage ?? "bookmarked",
+          updatedAt: t.jobUpdatedAt ?? new Date(0),
+        });
+      }
+    }
+
+    // Last touch: MAX(sentAt) across all threads for this contact
+    const sentAt = threadLastSent.get(t.threadId);
+    if (sentAt) {
+      if (!agg.lastTouchAt || sentAt > agg.lastTouchAt) {
+        agg.lastTouchAt = sentAt;
+      }
+    }
+
+    // Next touch: MIN(future nextTouchAt) from linked job cards
+    if (t.jobNextTouchAt && t.jobNextTouchAt > now) {
+      if (!agg.nextTouchAt || t.jobNextTouchAt < agg.nextTouchAt) {
+        agg.nextTouchAt = t.jobNextTouchAt;
+      }
+    }
+  }
+
+  // Build result array
+  const result = allContacts.map((c) => {
+    const agg = contactMap.get(c.id)!;
+    const sortedJobCards = agg.jobCards
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .slice(0, 10);
+    const mostRecentJobCard = sortedJobCards[0] ?? null;
+
+    return {
+      ...c,
+      usedInCount: agg.jobCardIds.size,
+      mostRecentJobCard,
+      recentJobCards: sortedJobCards,
+      lastTouchAt: agg.lastTouchAt,
+      nextTouchAt: agg.nextTouchAt,
+    };
+  });
+
+  // Sort: most recent activity desc, fallback createdAt desc
+  result.sort((a, b) => {
+    const aActivity = a.mostRecentJobCard?.updatedAt ?? a.lastTouchAt ?? a.createdAt;
+    const bActivity = b.mostRecentJobCard?.updatedAt ?? b.lastTouchAt ?? b.createdAt;
+    return bActivity.getTime() - aActivity.getTime();
+  });
+
+  return result;
+}
+
 // ─── Outreach ────────────────────────────────────────────────────────
 export async function getOutreachThreads(userId: number, jobCardId?: number) {
   const db = await getDb();

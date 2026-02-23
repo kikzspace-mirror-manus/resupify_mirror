@@ -836,7 +836,7 @@
 - [ ] Add "..." menu button to KanbanCard tiles (Archive / Unarchive) - pass onArchive/onUnarchive props
 - [ ] Add lightweight Archive confirm AlertDialog (no confirm for Unarchive)
 - [ ] Pass stage field in KanbanCard job prop to determine Archive vs Unarchive
-- [ ] Write acceptance tests A-E
+- [x] Write acceptance tests A-F (27 tests: A1-A6, B1-B5, C1-C6, D1-D3, E1-E4, F1-F3)
 - [x] Verify all 1187 tests pass, 0 TypeScript errors
 
 ## Phase 9E4.1: Job Cards Stage Filter — Add "Archived" Option
@@ -943,3 +943,16 @@
 - [x] Add 15s request timeout per item with clearTimeout on success/error
 - [x] Write acceptance tests (16 tests: 1A-1D, 2A-2B, 3A-3C, 4A-4D, 5A-5C)
 - [x] Verify all 1203 tests pass, 0 TypeScript errors
+
+## Phase 9E10: Contacts Page — Used in Job Cards + Created + Last/Next Touch
+- [x] Read existing schema (contacts, outreach_threads, job_cards tables)
+- [x] Create contacts.listWithUsage tRPC procedure (aggregated, no N+1)
+- [x] Return: contact fields, usedInCount, mostRecentJobCard, lastTouchAt, nextTouchAt, recentJobCards[]
+- [x] Default sort: most recent activity desc, fallback createdAt desc
+- [x] Update Contacts page UI: show Created date
+- [x] Show "Not used yet" for contacts with no threads
+- [x] Show "Used in: Company — Title (Stage)" for single usage
+- [x] Show "Used in: N job cards" + View popover for multiple usages
+- [x] Show Last touch / Next touch where available
+- [x] Write acceptance tests A-F (27 tests: A1-A6, B1-B5, C1-C6, D1-D3, E1-E4, F1-F3)
+- [x] Verify all 1230 tests pass, 0 TypeScript errors

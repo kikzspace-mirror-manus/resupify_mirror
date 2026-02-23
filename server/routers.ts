@@ -1264,12 +1264,15 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── Contacts ─────────────────────────────────────────────────────
+  // ─── Contacts ─────────────────────────────────────────────────
   contacts: router({
     list: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
     }).optional()).query(async ({ ctx, input }) => {
       return db.getContacts(ctx.user.id, input?.jobCardId);
+    }),
+    listWithUsage: protectedProcedure.query(async ({ ctx }) => {
+      return db.getContactsWithUsage(ctx.user.id);
     }),
     create: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
