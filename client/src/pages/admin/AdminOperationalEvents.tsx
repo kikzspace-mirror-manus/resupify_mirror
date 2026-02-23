@@ -13,11 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ENDPOINT_GROUPS, EVENT_TYPES, type EndpointGroup, type EventType } from "@/../../shared/operational-events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type EndpointGroup = "evidence" | "outreach" | "kit" | "url_fetch" | "auth" | "waitlist";
-type EventType = "rate_limited" | "provider_error" | "validation_error" | "unknown" | "waitlist_joined";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 

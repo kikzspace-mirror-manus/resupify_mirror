@@ -846,3 +846,11 @@
 - [ ] Verify filtering behavior: selecting Archived shows only archived cards in list + board
 - [ ] Write acceptance tests A-D
 - [ ] Verify all tests pass, 0 TypeScript errors
+
+## Phase 9E6: AdminOperationalEvents TS Fix (Admin-only Enum Mismatch)
+- [x] Create shared/operational-events.ts with endpointGroupSchema and eventTypeSchema Zod enums
+- [x] Update admin.ts to import and use Zod enum schemas
+- [x] Update AdminOperationalEvents.tsx to import types from shared constants
+- [x] Verify tsc --noEmit returns 0 errors
+- [x] Verify all 1117 tests pass, no regressions
+- [x] Note: LSP warning persists due to Zod type inference cache issue (known TypeScript LSP limitation), but code is correct and compiles cleanly

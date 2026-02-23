@@ -7,6 +7,7 @@ import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../../shared/outreachHelpers";
 import { buildToneSystemPrompt, sanitizeTone } from "../../shared/toneGuardrails";
+import { endpointGroupSchema, eventTypeSchema } from "../../shared/operational-events";
 
 export const adminRouter = router({
   // ─── Dashboard KPIs ──────────────────────────────────────────────
@@ -644,8 +645,8 @@ ${buildToneSystemPrompt()}`
   // No payload, no names, no emails — only hashes + enum fields.
   operationalEvents: router({
     list: adminProcedure.input(z.object({
-      endpointGroup: z.enum(["evidence", "outreach", "kit", "url_fetch", "auth", "waitlist"]).optional(),
-      eventType: z.enum(["rate_limited", "provider_error", "validation_error", "unknown", "waitlist_joined"]).optional(),
+      endpointGroup: endpointGroupSchema.optional(),
+      eventType: eventTypeSchema.optional(),
       limit: z.number().min(1).max(500).optional().default(100),
       offset: z.number().min(0).optional().default(0),
     }).optional()).query(async ({ input }) => {
