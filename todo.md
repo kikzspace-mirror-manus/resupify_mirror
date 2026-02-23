@@ -828,4 +828,13 @@
 - [x] Metadata line: "Generated ... · Tone: X · Included free" as muted small text below Row 2
 - [x] Increase whitespace between header card and first accordion section
 - [x] Write acceptance tests A-D (Phase 9E3)
-- [x] Verify all tests pass, 0 TypeScript errors (Phase 9E3)
+- [x] Verify all tests pass, 0 TypeScript errors (Phase 9E3)## Phase 9E4: Quick Archive Action (List + Board)
+- [ ] Add DropdownMenu import to JobCards.tsx (MoreHorizontal icon + DropdownMenu components)
+- [ ] Add archiveJobId state + archiveConfirmOpen state to JobCards component
+- [ ] Add archiveCard mutation (uses existing updateStage / jobCards.update) with optimistic update
+- [ ] Add "..." menu button to list view rows (Archive / Unarchive)
+- [ ] Add "..." menu button to KanbanCard tiles (Archive / Unarchive) - pass onArchive/onUnarchive props
+- [ ] Add lightweight Archive confirm AlertDialog (no confirm for Unarchive)
+- [ ] Pass stage field in KanbanCard job prop to determine Archive vs Unarchive
+- [ ] Write acceptance tests A-E
+- [ ] Verify all tests pass, 0 TypeScript errors

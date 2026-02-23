@@ -35,7 +35,26 @@ import {
   Bell,
   ShieldAlert,
   Loader2,
+  MoreHorizontal,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -135,6 +154,31 @@ export default function JobCards() {
 
   // ── Drag-and-drop state ──────────────────────────────────────────────
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
+
+  // ── Archive state ────────────────────────────────────────────────────
+  const [archiveConfirmId, setArchiveConfirmId] = useState<number | null>(null);
+
+  const archiveCard = trpc.jobCards.update.useMutation({
+    onMutate: async ({ id, stage }) => {
+      await utils.jobCards.list.cancel();
+      const previous = utils.jobCards.list.getData({});
+      utils.jobCards.list.setData({}, (old) =>
+        old ? old.map((j) => (j.id === id ? { ...j, stage: stage! } : j)) : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) utils.jobCards.list.setData({}, context.previous);
+      toast.error("Action failed. Try again.");
+    },
+    onSuccess: (_data, vars) => {
+      const isArchiving = vars.stage === "archived";
+      toast.success(isArchiving ? "Job card archived." : "Job card unarchived.");
+    },
+    onSettled: () => {
+      utils.jobCards.list.invalidate();
+    },
+  });
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
@@ -399,6 +443,37 @@ export default function JobCards() {
                   <Badge className={`${stageColors[job.stage] ?? ""}`}>
                     {STAGE_LABELS[job.stage as keyof typeof STAGE_LABELS] ?? job.stage}
                   </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="More actions"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      {job.stage !== "archived" ? (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); setArchiveConfirmId(job.id); }}
+                          className="text-muted-foreground"
+                        >
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); archiveCard.mutate({ id: job.id, stage: "bookmarked" as any }); }}
+                        >
+                          <ArchiveRestore className="h-4 w-4 mr-2" />
+                          Unarchive
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))
@@ -406,6 +481,30 @@ export default function JobCards() {
         </div>
       )}
 
+      {/* Archive confirm dialog */}
+      <AlertDialog open={archiveConfirmId !== null} onOpenChange={(open) => { if (!open) setArchiveConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this job card?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The card will be moved to Archived. You can unarchive it at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (archiveConfirmId !== null) {
+                  archiveCard.mutate({ id: archiveConfirmId, stage: "archived" as any });
+                  setArchiveConfirmId(null);
+                }
+              }}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Kanban View */}
       {view === "kanban" && (
         <DndContext
@@ -421,6 +520,8 @@ export default function JobCards() {
                   stage={stage}
                   jobs={jobsByStage[stage] ?? []}
                   onCardClick={(id) => setLocation(`/jobs/${id}`)}
+                  onArchive={(id) => setArchiveConfirmId(id)}
+                  onUnarchive={(id) => archiveCard.mutate({ id, stage: "bookmarked" as any })}
                 />
               ))}
             </div>
@@ -447,10 +548,14 @@ function KanbanColumn({
   stage,
   jobs,
   onCardClick,
+  onArchive,
+  onUnarchive,
 }: {
   stage: string;
   jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null }>;
   onCardClick: (id: number) => void;
+  onArchive: (id: number) => void;
+  onUnarchive: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
@@ -474,7 +579,14 @@ function KanbanColumn({
         }`}
       >
         {jobs.map((job) => (
-          <KanbanCard key={job.id} job={job} onCardClick={onCardClick} />
+          <KanbanCard
+            key={job.id}
+            job={job}
+            jobStage={stage}
+            onCardClick={onCardClick}
+            onArchive={onArchive}
+            onUnarchive={onUnarchive}
+          />
         ))}
       </div>
     </div>
@@ -484,10 +596,16 @@ function KanbanColumn({
 // ─── KanbanCard ─────────────────────────────────────────────────────────────
 function KanbanCard({
   job,
+  jobStage,
   onCardClick,
+  onArchive,
+  onUnarchive,
 }: {
   job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null };
+  jobStage: string;
   onCardClick: (id: number) => void;
+  onArchive: (id: number) => void;
+  onUnarchive: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: job.id,
@@ -507,7 +625,40 @@ function KanbanCard({
       }`}
       onClick={() => onCardClick(job.id)}
     >
-      <p className="text-sm font-medium truncate">{job.title}</p>
+      <div className="flex items-start justify-between gap-1">
+        <p className="text-sm font-medium truncate flex-1">{job.title}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 shrink-0 -mt-0.5 -mr-1"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {jobStage !== "archived" ? (
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onArchive(job.id); }}
+                className="text-muted-foreground"
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onUnarchive(job.id); }}
+              >
+                <ArchiveRestore className="h-4 w-4 mr-2" />
+                Unarchive
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <p className="text-xs text-muted-foreground mt-1 truncate">
         {job.company ?? "—"}
       </p>
