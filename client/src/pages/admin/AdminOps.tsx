@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Clock, Webhook, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Webhook, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 
 function formatTs(ts: Date | null | undefined): string {
   if (!ts) return "—";
@@ -36,11 +36,23 @@ function formatFreshness(ts: Date | null): string {
   return `${diffMin}m ago`;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  processed: "bg-green-100 text-green-800 border-green-200",
+  manual_review: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  skipped: "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+const PAGE_SIZE = 20;
+
 export default function AdminOps() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   // Tick every second so the freshness label updates live
   const [, setTick] = useState(0);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Pagination state: stack of cursors (undefined = first page)
+  const [cursorStack, setCursorStack] = useState<(number | undefined)[]>([undefined]);
+  const currentCursor = cursorStack[cursorStack.length - 1];
 
   useEffect(() => {
     tickRef.current = setInterval(() => setTick(t => t + 1), 1_000);
@@ -53,6 +65,12 @@ export default function AdminOps() {
     trpc.admin.ops.getStatus.useQuery(undefined, {
       refetchInterval: 30_000,
     });
+
+  const { data: eventsPage, isLoading: eventsLoading } =
+    trpc.admin.ops.listStripeEvents.useQuery(
+      { limit: PAGE_SIZE, cursor: currentCursor },
+      { placeholderData: (prev: any) => prev }
+    );
 
   // Update lastRefreshedAt whenever a successful fetch completes (dataUpdatedAt changes)
   useEffect(() => {
@@ -67,6 +85,22 @@ export default function AdminOps() {
   function handleRefresh() {
     refetch();
   }
+
+  function handleNext() {
+    if (eventsPage?.nextCursor != null) {
+      setCursorStack(prev => [...prev, eventsPage.nextCursor!]);
+    }
+  }
+
+  function handlePrev() {
+    if (cursorStack.length > 1) {
+      setCursorStack(prev => prev.slice(0, -1));
+    }
+  }
+
+  const pageNum = cursorStack.length;
+  const hasPrev = cursorStack.length > 1;
+  const hasNext = !!eventsPage?.nextCursor;
 
   return (
     <AdminLayout>
@@ -182,6 +216,100 @@ export default function AdminOps() {
               </div>
               );
             })()}
+          </CardContent>
+        </Card>
+
+        {/* Recent Stripe Events audit table */}
+        <Card data-testid="stripe-events-table-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Recent Stripe Events</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {eventsLoading ? (
+              <div className="px-6 py-4 text-muted-foreground text-sm animate-pulse">Loading…</div>
+            ) : !eventsPage || eventsPage.items.length === 0 ? (
+              <div
+                className="px-6 py-8 text-center text-muted-foreground text-sm"
+                data-testid="no-events-message"
+              >
+                No events yet
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" data-testid="stripe-events-table">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Event ID</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Type</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">User</th>
+                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eventsPage.items.map((evt) => (
+                        <tr key={evt.eventId} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="px-4 py-2 font-mono text-xs text-muted-foreground truncate max-w-[180px]">
+                            {evt.eventId}
+                          </td>
+                          <td className="px-4 py-2 font-mono text-xs">
+                            {evt.eventType}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[evt.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}
+                            >
+                              {evt.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-muted-foreground">
+                            {evt.userId != null ? `#${evt.userId}` : "—"}
+                          </td>
+                          <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                            {formatTs(evt.createdAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination controls */}
+                <div
+                  className="flex items-center justify-between px-4 py-3 border-t"
+                  data-testid="pagination-controls"
+                >
+                  <span className="text-xs text-muted-foreground">
+                    Page {pageNum}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrev}
+                      disabled={!hasPrev}
+                      data-testid="prev-button"
+                      className="h-7 px-2 text-xs gap-1"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNext}
+                      disabled={!hasNext}
+                      data-testid="next-button"
+                      className="h-7 px-2 text-xs gap-1"
+                    >
+                      Next
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

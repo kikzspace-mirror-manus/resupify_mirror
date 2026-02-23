@@ -863,5 +863,27 @@ ${buildToneSystemPrompt()}`
         updatedAt: row.updatedAt,
       };
     }),
+    /** Paginated read-only list of stripe_events (newest first). Admin-only. */
+    listStripeEvents: adminProcedure
+      .input(
+        z.object({
+          limit: z.number().int().min(1).max(50).default(20),
+          cursor: z.number().int().optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        const { items, nextCursor } = await db.getStripeEventsPage(input.limit, input.cursor);
+        return {
+          items: items.map((e) => ({
+            eventId: e.stripeEventId,
+            eventType: e.eventType,
+            status: e.status,
+            userId: e.userId ?? null,
+            creditsPurchased: e.creditsPurchased ?? null,
+            createdAt: e.createdAt,
+          })),
+          nextCursor,
+        };
+      }),
   }),
 });

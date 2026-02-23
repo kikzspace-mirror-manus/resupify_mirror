@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, lte, gte, sql, isNull, isNotNull, or, inArray, ilike } from "drizzle-orm";
+import { eq, and, desc, asc, lt, lte, gte, sql, isNull, isNotNull, or, inArray, ilike } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -17,7 +17,7 @@ import {
   applicationKits, InsertApplicationKit,
   jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
   operationalEvents, InsertOperationalEvent, OperationalEvent,
-  stripeEvents, InsertStripeEvent,
+  stripeEvents, InsertStripeEvent, StripeEvent,
   purchaseReceipts, InsertPurchaseReceipt, PurchaseReceipt,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -2089,4 +2089,25 @@ export async function upsertOpsStatus(patch: {
     .insert(opsStatus)
     .values({ id: 1, ...patch, updatedAt: new Date() })
     .onDuplicateKeyUpdate({ set: { ...patch, updatedAt: new Date() } });
+}
+
+// ─── Phase 12H: Stripe Events Audit Pagination ───────────────────────────────
+export async function getStripeEventsPage(
+  limit: number,
+  cursor?: number
+): Promise<{ items: StripeEvent[]; nextCursor: number | null }> {
+  const db = await getDb();
+  if (!db) return { items: [], nextCursor: null };
+  const pageSize = Math.min(limit, 50);
+  const conditions = cursor !== undefined ? lt(stripeEvents.id, cursor) : undefined;
+  const rows = await db
+    .select()
+    .from(stripeEvents)
+    .where(conditions)
+    .orderBy(desc(stripeEvents.id))
+    .limit(pageSize + 1);
+  const hasMore = rows.length > pageSize;
+  const items = hasMore ? rows.slice(0, pageSize) : rows;
+  const nextCursor = hasMore ? items[items.length - 1].id : null;
+  return { items, nextCursor };
 }

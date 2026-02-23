@@ -1302,3 +1302,12 @@
 - [x] Keep existing 30s auto-refresh behavior unchanged
 - [x] Write Phase 12G acceptance tests (no-data, label appears, refresh triggers refetch)
 - [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12H: Admin Ops Stripe Event Audit Table
+- [x] Add getStripeEventsPage DB helper (limit, cursor, newest-first)
+- [x] Add admin.ops.listStripeEvents tRPC procedure (admin-only, limit/cursor input, items+nextCursor output)
+- [x] Update AdminOps.tsx: add Recent Stripe Events table (Event ID, Type, Status, User, Timestamp)
+- [x] Add pagination controls (Previous/Next, disable when unavailable)
+- [x] Add empty state: "No events yet"
+- [x] Write Phase 12H acceptance tests (admin-only, newest-first, cursor pagination, UI states)
+- [x] Full test suite passing, 0 TypeScript errors
