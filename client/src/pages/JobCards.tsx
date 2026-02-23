@@ -161,6 +161,11 @@ export default function JobCards() {
   // ── Archive state ────────────────────────────────────────────────────
   const [archiveConfirmId, setArchiveConfirmId] = useState<number | null>(null);
 
+  // ── Bulk selection state ───────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkArchiveConfirmOpen, setBulkArchiveConfirmOpen] = useState(false);
+  const [bulkArchiveProgress, setBulkArchiveProgress] = useState<{ current: number; total: number } | null>(null);
+
   const archiveCard = trpc.jobCards.update.useMutation({
     onMutate: async ({ id, stage }) => {
       await utils.jobCards.list.cancel();
@@ -370,6 +375,32 @@ export default function JobCards() {
         </Select>
       </div>
 
+      {/* Bulk action bar */}
+      {view === "list" && selectedIds.size > 0 && (
+        <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setBulkArchiveConfirmOpen(true)}
+              disabled={bulkArchiveProgress !== null}
+            >
+              {bulkArchiveProgress ? `Archiving ${bulkArchiveProgress.current}/${bulkArchiveProgress.total}...` : "Archive selected"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkArchiveProgress !== null}
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* List View */}
       {view === "list" && (
         <div className="space-y-2">
@@ -396,12 +427,20 @@ export default function JobCards() {
               </CardContent>
             </Card>
           ) : (
-            filteredJobs.map((job) => (
+            filteredJobs.map((job) => {
+              const isSelected = selectedIds.has(job.id);
+              return (
               <div
                 key={job.id}
-                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/30 transition-colors cursor-pointer"
-                onClick={() => setLocation(`/jobs/${job.id}`)}
+                className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${isSelected ? "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700" : "bg-card hover:bg-accent/30 cursor-pointer"}`}
+                onClick={() => { if (!isSelected) setLocation(`/jobs/${job.id}`); }}
               >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => { e.stopPropagation(); const newSelected = new Set(selectedIds); if (e.target.checked) { newSelected.add(job.id); } else { newSelected.delete(job.id); } setSelectedIds(newSelected); }}
+                  className="cursor-pointer shrink-0"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{job.title}</p>
@@ -504,7 +543,8 @@ export default function JobCards() {
                   </DropdownMenu>
                 </div>
               </div>
-            ))
+            );
+            })
           )}
         </div>
       )}
@@ -533,6 +573,80 @@ export default function JobCards() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk archive confirm dialog */}
+      <AlertDialog open={bulkArchiveConfirmOpen} onOpenChange={setBulkArchiveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {selectedIds.size} job cards?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You can unarchive them later from the Archived stage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkArchiveProgress !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkArchiveProgress !== null}
+              onClick={async () => {
+                const toArchive = Array.from(selectedIds).filter(id => {
+                  const job = jobs?.find(j => j.id === id);
+                  return job && job.stage !== "archived";
+                });
+
+                if (toArchive.length === 0) {
+                  toast.success("No new cards to archive.");
+                  setSelectedIds(new Set());
+                  setBulkArchiveConfirmOpen(false);
+                  return;
+                }
+
+                setBulkArchiveProgress({ current: 0, total: toArchive.length });
+                let successCount = 0;
+                const failedIds = new Set<number>();
+
+                // Archive with max 3 concurrent
+                for (let i = 0; i < toArchive.length; i += 3) {
+                  const batch = toArchive.slice(i, i + 3);
+                  await Promise.all(
+                    batch.map((id) =>
+                      new Promise<void>((resolve) => {
+                        archiveCard.mutate(
+                          { id, stage: "archived" as any },
+                          {
+                            onSuccess: () => {
+                              successCount++;
+                              setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                              resolve();
+                            },
+                            onError: () => {
+                              failedIds.add(id);
+                              setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                              resolve();
+                            },
+                          }
+                        );
+                      })
+                    )
+                  );
+                }
+
+                setBulkArchiveProgress(null);
+                if (failedIds.size > 0) {
+                  toast.error(`Archived ${successCount}/${toArchive.length}. Some failed.`);
+                  setSelectedIds(failedIds);
+                } else {
+                  toast.success(`Archived ${successCount}/${toArchive.length} job cards`);
+                  setSelectedIds(new Set());
+                }
+                setBulkArchiveConfirmOpen(false);
+              }}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Kanban View */}
       {view === "kanban" && (
         <DndContext

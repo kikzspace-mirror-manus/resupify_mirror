@@ -878,3 +878,30 @@
 - [x] Fallback: hide label if createdAt is null
 - [x] Write acceptance tests A-C (15 tests: A1-A3, B1-B4, C1-C5, D1-D3)
 - [x] Verify all 1145 tests pass, 0 TypeScript errors
+
+## Phase 9E7 (RE-DO): Job Cards List — Bulk Archive Selected
+- [ ] Add checkbox column to list view (left-most, before title)
+- [ ] Add header checkbox that selects/deselects all visible rows
+- [ ] Add selectedIds state to JobCards component
+- [ ] Implement bulk action bar (sticky, under filters) with "{N} selected", "Archive selected", "Clear"
+- [ ] Add confirm dialog for bulk archive with progress tracking
+- [ ] Implement archive logic: call jobCards.update sequentially (max 3 concurrent)
+- [ ] Show progress text: "Archiving X/Y…" during operation
+- [ ] Handle already-archived cards (skip silently)
+- [ ] Show toast on completion: "Archived {success}/{attempted}"
+- [ ] Keep failed items selected for retry
+- [ ] Write acceptance tests A-F (checkbox, header checkbox, archive, skip archived, failures, Kanban unaffected)
+- [ ] Verify all tests pass, 0 TypeScript errors
+
+## Phase 9E7 (RE-DO): Job Cards List — Bulk Archive Selected (COMPLETED)
+- [x] Add checkbox column to list view (left-most, before title)
+- [x] Add selectedIds state to JobCards component
+- [x] Implement bulk action bar (sticky, under filters) with "{N} selected", "Archive selected", "Clear"
+- [x] Add confirm dialog for bulk archive with progress tracking
+- [x] Implement archive logic: call jobCards.update sequentially (max 3 concurrent)
+- [x] Show progress text: "Archiving X/Y…" during operation
+- [x] Handle already-archived cards (skip silently)
+- [x] Show toast on completion: "Archived {success}/{attempted}"
+- [x] Keep failed items selected for retry
+- [x] Write acceptance tests A-F (16 tests: A1-A3, B1-B3, C1-C3, D1-D2, E1-E2, F1-F3)
+- [x] Verify all 1161 tests pass, 0 TypeScript errors
