@@ -808,3 +808,11 @@
 - [x] Preserve auto-fill non-destructive behavior
 - [x] Write acceptance tests A-C in server/create-job-card-field-order.test.ts
 - [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E2: Outreach Pack — Move Regenerate + Copy All to Header
+- [x] Move "Copy all" button to Outreach Pack card header (top-right), keep visibility rule (only when pack exists)
+- [x] Move "Regenerate Pack (1 credit)" button to header next to Copy all
+- [x] Remove bottom Regenerate button from inside the pack content area
+- [x] Keep packError display near the header buttons
+- [x] Preserve loading/disabled states and all mutation logic
+- [x] Write acceptance tests A-D in server/outreach-pack-header-buttons.test.ts
+- [x] Verify all tests pass, 0 TypeScript errors

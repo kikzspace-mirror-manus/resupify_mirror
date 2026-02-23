@@ -2251,27 +2251,45 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>
             {outreachPack && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  const text = buildOutreachCopyAllText({
-                    recruiter_email: outreachPack.recruiterEmail,
-                    linkedin_dm: outreachPack.linkedinDm,
-                    follow_up_1: outreachPack.followUp1,
-                    follow_up_2: outreachPack.followUp2,
-                  });
-                  navigator.clipboard.writeText(text)
-                    .then(() => toast.success("Copied all messages"))
-                    .catch(() => toast.error("Could not copy. Please try again."));
-                }}
-              >
-                <CopyCheck className="h-3.5 w-3.5" />
-                Copy all
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    const text = buildOutreachCopyAllText({
+                      recruiter_email: outreachPack.recruiterEmail,
+                      linkedin_dm: outreachPack.linkedinDm,
+                      follow_up_1: outreachPack.followUp1,
+                      follow_up_2: outreachPack.followUp2,
+                    });
+                    navigator.clipboard.writeText(text)
+                      .then(() => toast.success("Copied all messages"))
+                      .catch(() => toast.error("Could not copy. Please try again."));
+                  }}
+                >
+                  <CopyCheck className="h-3.5 w-3.5" />
+                  Copy all
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
+                  disabled={generatePack.isPending}
+                >
+                  {generatePack.isPending ? (
+                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Regenerating...</>
+                  ) : (
+                    "Regenerate Pack (1 credit)"
+                  )}
+                </Button>
+              </div>
             )}
           </div>
+          {packError && outreachPack && (
+            <p className="text-xs text-destructive mt-1">{packError}</p>
+          )}
         </CardHeader>
         <CardContent>
           {/* Selected contact summary chip */}
@@ -2284,23 +2302,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
               <CopyBlock label="LinkedIn DM" content={outreachPack.linkedinDm} />
               <CopyBlock label="Follow-up #1" content={outreachPack.followUp1} />
               <CopyBlock label="Follow-up #2" content={outreachPack.followUp2} />
-              <div className="pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
-                  disabled={generatePack.isPending}
-                >
-                  {generatePack.isPending ? (
-                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Regenerating...</>
-                  ) : (
-                    "Regenerate Pack (1 credit)"
-                  )}
-                </Button>
-                {packError && (
-                  <p className="text-xs text-destructive mt-2">{packError}</p>
-                )}
-              </div>
+
             </div>
           ) : (
             <div className="text-center py-4">
