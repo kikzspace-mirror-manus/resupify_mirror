@@ -18,6 +18,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -316,11 +317,15 @@ export default function JobCards() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stages</SelectItem>
-            {STAGES.map((s) => (
+            {STAGES.filter((s) => s !== "archived").map((s) => (
               <SelectItem key={s} value={s}>
                 {STAGE_LABELS[s]}
               </SelectItem>
             ))}
+            <SelectSeparator />
+            <SelectItem value="archived">
+              {STAGE_LABELS["archived"]}
+            </SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterPriority} onValueChange={setFilterPriority}>

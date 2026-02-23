@@ -838,3 +838,11 @@
 - [ ] Pass stage field in KanbanCard job prop to determine Archive vs Unarchive
 - [ ] Write acceptance tests A-E
 - [ ] Verify all tests pass, 0 TypeScript errors
+
+## Phase 9E4.1: Job Cards Stage Filter — Add "Archived" Option
+- [x] Confirm STAGES already includes "archived" (it does — line 302 of regionPacks.ts)
+- [ ] Remove "archived" from STAGES.map loop in filter dropdown (to avoid duplicate with explicit item)
+- [ ] Add explicit "Archived" SelectItem with visual separator after the main stages
+- [ ] Verify filtering behavior: selecting Archived shows only archived cards in list + board
+- [ ] Write acceptance tests A-D
+- [ ] Verify all tests pass, 0 TypeScript errors
