@@ -11,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -23,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Users, Plus, Mail, Linkedin, Search, Clock, Briefcase, ExternalLink, Pencil } from "lucide-react";
+import { Users, Plus, Mail, Linkedin, Search, Clock, Briefcase, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -118,6 +120,17 @@ export default function Outreach() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editContact, setEditContact] = useState<ContactWithUsage | null>(null);
+  const [contactToDelete, setContactToDelete] = useState<ContactWithUsage | null>(null);
+  const deleteContact = trpc.contacts.delete.useMutation({
+    onSuccess: () => {
+      utils.contacts.listWithUsage.invalidate();
+      setContactToDelete(null);
+      toast.success("Contact deleted");
+    },
+    onError: () => {
+      toast.error("Failed to delete contact");
+    },
+  });
   const USED_IN_MIN = 180;
   const USED_IN_MAX = 520;
   const [usedInWidth, setUsedInWidth] = useState<number>(() => {
@@ -258,6 +271,7 @@ export default function Outreach() {
                         contact={contact}
                         isLast={idx === filteredContacts.length - 1}
                         onEdit={() => setEditContact(contact)}
+                        onDelete={() => setContactToDelete(contact)}
                         onUpdated={() => utils.contacts.listWithUsage.invalidate()}
                       />
                     ))}
@@ -273,6 +287,7 @@ export default function Outreach() {
                   key={contact.id}
                   contact={contact}
                   onEdit={() => setEditContact(contact)}
+                  onDelete={() => setContactToDelete(contact)}
                   onUpdated={() => utils.contacts.listWithUsage.invalidate()}
                 />
               ))}
@@ -310,6 +325,30 @@ export default function Outreach() {
             }}
           />
         )}
+
+        {/* Delete Contact Confirm Dialog */}
+        <Dialog open={!!contactToDelete} onOpenChange={(open) => { if (!open) setContactToDelete(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Delete contact?</DialogTitle>
+              <DialogDescription>
+                <strong>{contactToDelete?.name}</strong> will be permanently removed. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setContactToDelete(null)} disabled={deleteContact.isPending}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => contactToDelete && deleteContact.mutate({ id: contactToDelete.id })}
+                disabled={deleteContact.isPending}
+              >
+                {deleteContact.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );
@@ -321,11 +360,13 @@ function ContactTableRow({
   contact,
   isLast,
   onEdit,
+  onDelete,
   onUpdated: _onUpdated,
 }: {
   contact: ContactWithUsage;
   isLast: boolean;
   onEdit: () => void;
+  onDelete: () => void;
   onUpdated: () => void;
 }) {
   const lastTouchDate = formatShortDate(contact.lastTouchAt);
@@ -462,14 +503,24 @@ function ContactTableRow({
 
       {/* Actions */}
       <td className="px-3 py-2.5">
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title="Edit contact"
-          data-testid="edit-contact-btn"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Edit contact"
+            data-testid="edit-contact-btn"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+            title="Delete contact"
+            data-testid="delete-contact-btn"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -480,10 +531,12 @@ function ContactTableRow({
 function ContactMobileCard({
   contact,
   onEdit,
+  onDelete,
   onUpdated: _onUpdated,
 }: {
   contact: ContactWithUsage;
   onEdit: () => void;
+  onDelete: () => void;
   onUpdated: () => void;
 }) {
   const lastTouchDate = formatShortDate(contact.lastTouchAt);
@@ -559,15 +612,25 @@ function ContactMobileCard({
         </div>
       </div>
 
-      {/* Edit button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onEdit(); }}
-        className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
-        title="Edit contact"
-        data-testid="edit-contact-btn"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
+      {/* Edit/Delete buttons */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          title="Edit contact"
+          data-testid="edit-contact-btn"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-1.5 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+          title="Delete contact"
+          data-testid="delete-contact-btn"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

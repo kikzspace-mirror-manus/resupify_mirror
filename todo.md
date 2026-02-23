@@ -1006,7 +1006,7 @@
 - [ ] Truncate "Used in" with ellipsis + tooltip
 - [ ] Add resizable "Used in" column with localStorage persistence
 - [ ] Write acceptance tests A-G
-- [ ] All tests pass, 0 TypeScript errors
+- [x] All 1378 tests pass, 0 TypeScript errors
 
 ## Phase 9E10.5: Outreach CRM — Priority Column + Truncate Used in + Resizable Column
 - [x] Remove Status column (derived "Active" pill)
@@ -1024,3 +1024,11 @@
 - [x] Route /outreach unchanged
 - [x] Write acceptance tests A-D (12 tests)
 - [x] All 1361 tests pass, 0 TypeScript errors
+
+## Phase 9E12: Contact Delete Button
+- [x] Add Trash icon next to Pencil on each contact row (desktop table + mobile card)
+- [x] Confirm dialog: "Delete contact?" with warning
+- [x] Call contacts.delete(contactId) on confirm
+- [x] Invalidate listWithUsage after delete
+- [x] Write acceptance tests A-D (17 tests)
+- [x] All 1378 tests pass, 0 TypeScript errors
