@@ -232,6 +232,7 @@ export function registerStripeWebhook(app: Express): void {
             contentType: String(req.headers["content-type"] || ""),
             isBuffer: Buffer.isBuffer(req.body),
             bodyLength: Buffer.isBuffer(req.body) ? req.body.length : -1,
+            secretTail: (webhookSecret || "").slice(-6),
           },
         });
       }
