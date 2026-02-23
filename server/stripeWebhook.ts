@@ -206,13 +206,13 @@ export function registerStripeWebhook(app: Express): void {
     express.raw({ type: () => true }),
     async (req: Request, res: Response) => {
       const sig = req.headers["stripe-signature"];
-      // Use ONLY process.env.STRIPE_WEBHOOK_SECRET — no ENV fallback — so the
+      // Use ONLY process.env.STRIPE_WEBHOOK_SECRET_V2 — no ENV fallback — so the
       // Manus Secrets panel is the single source of truth and stale cached values
       // from ENV cannot cause signature mismatches.
-      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_V2;
 
       if (!webhookSecret) {
-        console.error("[Stripe] STRIPE_WEBHOOK_SECRET is not configured");
+        console.error("[Stripe] STRIPE_WEBHOOK_SECRET_V2 is not configured");
         return res.status(500).json({ error: "Webhook secret not configured" });
       }
 
@@ -234,9 +234,9 @@ export function registerStripeWebhook(app: Express): void {
             isBuffer: Buffer.isBuffer(req.body),
             bodyLength: Buffer.isBuffer(req.body) ? req.body.length : -1,
             host: String(req.headers["host"] || ""),
-            envHasSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-            secretLen: process.env.STRIPE_WEBHOOK_SECRET ? process.env.STRIPE_WEBHOOK_SECRET.length : 0,
-            secretTail: (process.env.STRIPE_WEBHOOK_SECRET || "").slice(-6),
+            envHasSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET_V2),
+            secretLen: process.env.STRIPE_WEBHOOK_SECRET_V2 ? process.env.STRIPE_WEBHOOK_SECRET_V2.length : 0,
+            secretTail: (process.env.STRIPE_WEBHOOK_SECRET_V2 || "").slice(-6),
           },
         });
       }

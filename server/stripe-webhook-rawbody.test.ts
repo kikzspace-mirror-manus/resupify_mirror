@@ -81,7 +81,9 @@ vi.mock("./email", () => ({
 // Both the test (generateTestHeaderString) and the handler (constructEvent) use
 // the same secret, so signatures always match regardless of environment.
 const RUNTIME_WEBHOOK_SECRET =
-  process.env.STRIPE_WEBHOOK_SECRET || "whsec_test_fallback_for_ci_only";
+  process.env.STRIPE_WEBHOOK_SECRET_V2 ||
+  process.env.STRIPE_WEBHOOK_SECRET ||
+  "whsec_test_fallback_for_ci_only";
 
 // ─── Stripe instance for generating test headers ──────────────────────────────
 const stripeInstance = new Stripe("sk_test_dummy_key_for_header_generation");

@@ -379,10 +379,10 @@ describe("Phase 11A: Stripe Credits Purchase", () => {
     expect(src).toContain("constructEvent");
   });
 
-  it("J2) Webhook uses STRIPE_WEBHOOK_SECRET for signature verification", () => {
+  it("J2) Webhook uses STRIPE_WEBHOOK_SECRET_V2 for signature verification", () => {
     const webhookPath = path.resolve(__dirname, "stripeWebhook.ts");
     const src = fs.readFileSync(webhookPath, "utf-8");
-    expect(src).toContain("STRIPE_WEBHOOK_SECRET");
+    expect(src).toContain("STRIPE_WEBHOOK_SECRET_V2");
     expect(src).toContain("stripe-signature");
   });
 });
