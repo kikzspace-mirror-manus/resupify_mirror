@@ -999,3 +999,21 @@
 - [x] Schema has no separate flags field; Status derived from stage
 - [x] Write acceptance tests A-E (27 tests)
 - [x] All 1320 tests pass, 0 TypeScript errors
+
+## Phase 9E10.5: Outreach CRM — Replace Status with Priority + Truncate Used in (IN PROGRESS)
+- [ ] Remove Status column (no "Active" pills)
+- [ ] Add Priority column (High/Medium/Low from linked job card)
+- [ ] Truncate "Used in" with ellipsis + tooltip
+- [ ] Add resizable "Used in" column with localStorage persistence
+- [ ] Write acceptance tests A-G
+- [ ] All tests pass, 0 TypeScript errors
+
+## Phase 9E10.5: Outreach CRM — Priority Column + Truncate Used in + Resizable Column
+- [x] Remove Status column (derived "Active" pill)
+- [x] Add Priority column showing job priority (high/medium/low) from mostRecentJobCard
+- [x] Add priority to getContactsWithUsage backend query (directJobPriority + thread jobPriority)
+- [x] Truncate "Used in" cell with overflow-hidden + max-w-0 for proper table truncation
+- [x] Add resizable "Used in" column with drag handle (min 180px, max 520px)
+- [x] Persist column width to localStorage (key: outreach-used-in-width)
+- [x] Write acceptance tests A-G (29 tests)
+- [x] All 1349 tests pass, 0 TypeScript errors

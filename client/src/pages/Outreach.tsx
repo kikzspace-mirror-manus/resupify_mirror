@@ -24,7 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Users, Plus, Mail, Linkedin, Search, Clock, Briefcase, ExternalLink, Pencil } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
@@ -50,14 +50,17 @@ function formatStageLabel(stage: string): string {
   return map[stage] ?? stage;
 }
 
-// Derive a "Status" flag from stage: active/archived/rejected
-function deriveStatusFlag(stage: string | null): { label: string; className: string } | null {
-  if (!stage) return null;
-  if (stage === "archived") return { label: "Archived", className: "bg-gray-100 text-gray-500" };
-  if (stage === "rejected") return { label: "Rejected", className: "bg-red-100 text-red-600" };
-  if (stage === "offered") return { label: "Offered", className: "bg-green-100 text-green-700" };
-  // bookmarked, applying, applied, interviewing → Active
-  return { label: "Active", className: "bg-emerald-100 text-emerald-700" };
+function priorityBadgeVariant(priority: string): string {
+  const map: Record<string, string> = {
+    high: "bg-red-100 text-red-700",
+    medium: "bg-amber-100 text-amber-700",
+    low: "bg-slate-100 text-slate-600",
+  };
+  return map[priority] ?? "bg-slate-100 text-slate-600";
+}
+
+function formatPriorityLabel(priority: string): string {
+  return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
 
 function stageBadgeVariant(stage: string): string {
@@ -92,6 +95,7 @@ type ContactWithUsage = {
     company: string | null;
     title: string;
     stage: string;
+    priority: string | null;
     updatedAt: Date | string;
   } | null;
   recentJobCards: {
@@ -99,6 +103,7 @@ type ContactWithUsage = {
     company: string | null;
     title: string;
     stage: string;
+    priority: string | null;
     updatedAt: Date | string;
   }[];
   lastTouchAt: Date | string | null;
@@ -113,6 +118,40 @@ export default function Outreach() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editContact, setEditContact] = useState<ContactWithUsage | null>(null);
+  const USED_IN_MIN = 180;
+  const USED_IN_MAX = 520;
+  const [usedInWidth, setUsedInWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("outreach-used-in-width");
+    const parsed = saved ? parseInt(saved, 10) : NaN;
+    return isNaN(parsed) ? 260 : Math.min(USED_IN_MAX, Math.max(USED_IN_MIN, parsed));
+  });
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = usedInWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = ev.clientX - dragStartX.current;
+      const newWidth = Math.min(USED_IN_MAX, Math.max(USED_IN_MIN, dragStartWidth.current + delta));
+      setUsedInWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isDragging.current = false;
+      setUsedInWidth((w) => {
+        localStorage.setItem("outreach-used-in-width", String(w));
+        return w;
+      });
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, [usedInWidth]);
 
   const filteredContacts = useMemo(() => {
     if (!contacts) return [];
@@ -183,9 +222,9 @@ export default function Outreach() {
                     <col style={{ width: "140px" }} />  {/* Role */}
                     <col style={{ width: "180px" }} />  {/* Email */}
                     <col style={{ width: "60px" }} />   {/* Links */}
-                    <col />                              {/* Used in — flexible */}
+                    <col style={{ width: `${usedInWidth}px` }} data-testid="used-in-col" />  {/* Used in — resizable */}
                     <col style={{ width: "120px" }} />  {/* Stage */}
-                    <col style={{ width: "110px" }} />  {/* Status */}
+                    <col style={{ width: "100px" }} />  {/* Priority */}
                     <col style={{ width: "100px" }} />  {/* Last touch */}
                     <col style={{ width: "100px" }} />  {/* Next touch */}
                     <col style={{ width: "60px" }} />   {/* Actions */}
@@ -196,9 +235,17 @@ export default function Outreach() {
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Role</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Email</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Links</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Used in</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground relative select-none" data-testid="used-in-header">
+                        <span>Used in</span>
+                        <div
+                          className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-primary/20 transition-colors"
+                          onMouseDown={handleResizeMouseDown}
+                          data-testid="used-in-resize-handle"
+                          title="Drag to resize"
+                        />
+                      </th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Stage</th>
-                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Priority</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Last touch</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Next touch</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Actions</th>
@@ -361,8 +408,10 @@ function ContactTableRow({
       </td>
 
       {/* Used in */}
-      <td className="px-3 py-2.5">
-        <UsedInBadge contact={contact} />
+      <td className="px-3 py-2.5 max-w-0 overflow-hidden" data-testid="used-in-cell">
+        <div className="truncate">
+          <UsedInBadge contact={contact} />
+        </div>
       </td>
 
       {/* Stage */}
@@ -376,21 +425,16 @@ function ContactTableRow({
         )}
       </td>
 
-      {/* Status (derived flag) */}
-      {(() => {
-        const statusFlag = deriveStatusFlag(stage);
-        return (
-          <td className="px-3 py-2.5">
-            {statusFlag ? (
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusFlag.className}`}>
-                {statusFlag.label}
-              </span>
-            ) : (
-              <span className="text-muted-foreground/40">—</span>
-            )}
-          </td>
-        );
-      })()}
+      {/* Priority */}
+      <td className="px-3 py-2.5">
+        {contact.mostRecentJobCard?.priority ? (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${priorityBadgeVariant(contact.mostRecentJobCard.priority)}`}>
+            {formatPriorityLabel(contact.mostRecentJobCard.priority)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
 
       {/* Last touch */}
       <td className="px-3 py-2.5">

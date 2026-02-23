@@ -421,6 +421,7 @@ export async function getContactsWithUsage(userId: number) {
       directJobTitle: jobCards.title,
       directJobCompany: jobCards.company,
       directJobStage: jobCards.stage,
+      directJobPriority: jobCards.priority,
       directJobUpdatedAt: jobCards.updatedAt,
       directJobNextTouchAt: jobCards.nextTouchAt,
     })
@@ -439,6 +440,7 @@ export async function getContactsWithUsage(userId: number) {
       jobTitle: jobCards.title,
       jobCompany: jobCards.company,
       jobStage: jobCards.stage,
+      jobPriority: jobCards.priority,
       jobUpdatedAt: jobCards.updatedAt,
       jobNextTouchAt: jobCards.nextTouchAt,
     })
@@ -476,16 +478,15 @@ export async function getContactsWithUsage(userId: number) {
   const contactMap = new Map<number, {
     usedInCount: number;
     jobCardIds: Set<number>;
-    jobCards: { id: number; company: string | null; title: string; stage: string; updatedAt: Date }[];
+     jobCards: { id: number; company: string | null; title: string; stage: string; priority: string | null; updatedAt: Date }[];
     lastTouchAt: Date | null;
     nextTouchAt: Date | null;
   }>();
-
   for (const c of allContacts) {
     const agg = {
       usedInCount: 0,
       jobCardIds: new Set<number>(),
-      jobCards: [] as { id: number; company: string | null; title: string; stage: string; updatedAt: Date }[],
+      jobCards: [] as { id: number; company: string | null; title: string; stage: string; priority: string | null; updatedAt: Date }[],
       lastTouchAt: null as Date | null,
       nextTouchAt: null as Date | null,
     };
@@ -497,6 +498,7 @@ export async function getContactsWithUsage(userId: number) {
         company: c.directJobCompany ?? null,
         title: c.directJobTitle,
         stage: c.directJobStage ?? "bookmarked",
+        priority: c.directJobPriority ?? null,
         updatedAt: c.directJobUpdatedAt ?? new Date(0),
       });
       // Seed nextTouchAt from direct job card
@@ -521,6 +523,7 @@ export async function getContactsWithUsage(userId: number) {
           company: t.jobCompany ?? null,
           title: t.jobTitle,
           stage: t.jobStage ?? "bookmarked",
+          priority: t.jobPriority ?? null,
           updatedAt: t.jobUpdatedAt ?? new Date(0),
         });
       }
