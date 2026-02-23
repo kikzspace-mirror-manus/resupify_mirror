@@ -151,6 +151,7 @@ export default function JobCards() {
   const [filterStage, setFilterStage] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterSeason, setFilterSeason] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
   const [showCreate, setShowCreate] = useState(false);
 
   // ── Drag-and-drop state ──────────────────────────────────────────────
@@ -235,7 +236,7 @@ export default function JobCards() {
 
   const filteredJobs = useMemo(() => {
     if (!jobs) return [];
-    return jobs.filter((job) => {
+    let filtered = jobs.filter((job) => {
       if (filterStage !== "all" && job.stage !== filterStage) return false;
       if (filterPriority !== "all" && job.priority !== filterPriority) return false;
       if (filterSeason !== "all" && job.season !== filterSeason) return false;
@@ -248,7 +249,13 @@ export default function JobCards() {
       }
       return true;
     });
-  }, [jobs, filterStage, filterPriority, filterSeason, search]);
+    if (sortBy === "newest") {
+      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === "oldest") {
+      filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    return filtered;
+  }, [jobs, filterStage, filterPriority, filterSeason, search, sortBy]);
 
   const jobsByStage = useMemo(() => {
     const map: Record<string, typeof filteredJobs> = {};
@@ -350,6 +357,15 @@ export default function JobCards() {
             <SelectItem value="summer">Summer</SelectItem>
             <SelectItem value="year_round">Year Round</SelectItem>
           </SelectContent>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest first</SelectItem>
+            <SelectItem value="oldest">Oldest first</SelectItem>
+          </SelectContent>
+        </Select>
         </Select>
       </div>
 

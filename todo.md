@@ -854,3 +854,20 @@
 - [x] Verify tsc --noEmit returns 0 errors
 - [x] Verify all 1117 tests pass, no regressions
 - [x] Note: LSP warning persists due to Zod type inference cache issue (known TypeScript LSP limitation), but code is correct and compiles cleanly
+
+## Phase 9E8: Job Cards — Sort by Created Date (Newest/Oldest)
+- [ ] Add sortBy state (default: "newest") to JobCards component
+- [ ] Add Sort dropdown in filter bar (Newest first / Oldest first)
+- [ ] Implement client-side sorting by createdAt (ascending/descending)
+- [ ] Apply sorting to list view rows
+- [ ] Apply sorting to Kanban columns (optional, or list view only)
+- [ ] Write acceptance tests A-D
+- [ ] Verify all tests pass, 0 TypeScript errors
+
+## Phase 9E8: Job Cards — Sort by Created Date (Newest/Oldest)
+- [x] Add sortBy state (default: "newest") to JobCards component
+- [x] Add Sort dropdown in filter bar (Newest first / Oldest first)
+- [x] Implement client-side sorting by createdAt (ascending/descending)
+- [x] Apply sorting to list view rows
+- [x] Write acceptance tests A-D (13 tests, all passing)
+- [x] Verify all 1130 tests pass, 0 TypeScript errors
