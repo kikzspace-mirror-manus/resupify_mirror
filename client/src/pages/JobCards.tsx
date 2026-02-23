@@ -385,7 +385,8 @@ export default function JobCards() {
             <Button
               size="sm"
               onClick={() => setBulkArchiveConfirmOpen(true)}
-              disabled={bulkArchiveProgress !== null}
+              disabled={bulkArchiveProgress !== null || Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived")}
+              title={Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived") ? "All selected cards are already archived" : ""}
             >
               {bulkArchiveProgress ? `Archiving ${bulkArchiveProgress.current}/${bulkArchiveProgress.total}...` : "Archive selected"}
             </Button>
@@ -404,6 +405,31 @@ export default function JobCards() {
       {/* List View */}
       {view === "list" && (
         <div className="space-y-2">
+          {/* Header checkbox row */}
+          {!isLoading && filteredJobs.length > 0 && (
+            <div className="flex items-center gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
+              <input
+                type="checkbox"
+                ref={(el) => {
+                  if (el) {
+                    el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredJobs.length;
+                  }
+                }}
+                checked={selectedIds.size === filteredJobs.length && filteredJobs.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    const newSelected = new Set(selectedIds);
+                    filteredJobs.forEach((job) => newSelected.add(job.id));
+                    setSelectedIds(newSelected);
+                  } else {
+                    setSelectedIds(new Set());
+                  }
+                }}
+                className="cursor-pointer shrink-0"
+              />
+              <span>Select all {filteredJobs.length}</span>
+            </div>
+          )}
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />

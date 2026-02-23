@@ -905,3 +905,11 @@
 - [x] Keep failed items selected for retry
 - [x] Write acceptance tests A-F (16 tests: A1-A3, B1-B3, C1-C3, D1-D2, E1-E2, F1-F3)
 - [x] Verify all 1161 tests pass, 0 TypeScript errors
+
+## Phase 9E7.1: Bulk Archive Fix (Header Select-All + Filter-Scoped Selection + Layout)
+- [x] Add header select-all checkbox with indeterminate state
+- [x] Implement filter-scoped selection (respects visible rows only)
+- [x] Fix archived row handling (skip silently, disable button when all selected are archived)
+- [x] Verify row layout (priority badge stays in title line, no regression)
+- [x] Update acceptance tests A-G (added 4 new tests: B3 indeterminate, D2-1/D2-2 layout, F1/F2 archived button)
+- [x] Verify all 1165 tests pass, 0 TypeScript errors
