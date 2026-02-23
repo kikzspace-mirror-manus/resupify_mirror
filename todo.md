@@ -1214,3 +1214,17 @@
 - [x] Update webhook to read STRIPE_WEBHOOK_SECRET lazily from process.env (not cached ENV object)
 - [x] Write 10 acceptance tests with real Stripe-signed payload fixtures (all return 200)
 - [x] All 1825 tests pass, 0 TypeScript errors
+
+## PATCH: Receipt Detail Page + Clickable Rows (Phase 11G)
+- [x] getPurchaseReceiptById DB helper added to server/db.ts
+- [x] credits.getReceipt tRPC procedure with access control (user owns receipt or admin)
+- [x] Billing page: "No receipt" replaced with "View" link to /billing/receipts/:id
+- [x] Billing page: Stripe receipt external link preserved when stripeReceiptUrl present
+- [x] ReceiptDetail page created at client/src/pages/ReceiptDetail.tsx
+- [x] Receipt detail shows: pack name, credits added, amount/currency, purchase date, receipt ID, session reference
+- [x] Receipt detail shows current credit balance
+- [x] Receipt detail shows Stripe receipt link only when stripeReceiptUrl present
+- [x] Receipt detail has Back to Billing and Refund policy links
+- [x] /billing/receipts/:id route registered in App.tsx with DashboardRoute wrapper
+- [x] 34 acceptance tests in server/receipt-detail-11g.test.ts — all pass
+- [x] 1859 total tests passing, 0 TypeScript errors

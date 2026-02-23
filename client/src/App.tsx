@@ -20,6 +20,7 @@ import Resumes from "./pages/Resumes";
 import Outreach from "./pages/Outreach";
 import Analytics from "./pages/Analytics";
 import Billing from "./pages/Billing";
+import ReceiptDetail from "./pages/ReceiptDetail";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import Waitlist from "./pages/Waitlist";
@@ -127,6 +128,9 @@ function Router() {
         </Route>
         <Route path="/billing">
           <DashboardRoute component={Billing} />
+        </Route>
+        <Route path="/billing/receipts/:id">
+          <DashboardRoute component={ReceiptDetail} />
         </Route>
         <Route path="/profile">
           <DashboardRoute component={Profile} />

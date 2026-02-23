@@ -233,19 +233,25 @@ export default function Billing() {
                       )}
                     </p>
                   </div>
-                  {r.stripeReceiptUrl ? (
-                    <a
-                      href={r.stripeReceiptUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/billing/receipts/${r.id}`}
+                      className="text-xs text-primary hover:underline"
                     >
-                      <ExternalLink className="h-3 w-3" />
-                      Receipt
-                    </a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No receipt</span>
-                  )}
+                      View
+                    </Link>
+                    {r.stripeReceiptUrl && (
+                      <a
+                        href={r.stripeReceiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

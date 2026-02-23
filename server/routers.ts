@@ -5,6 +5,7 @@ import { Readability } from "@mozilla/readability";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
@@ -191,6 +192,16 @@ export const appRouter = router({
     listReceipts: protectedProcedure.query(async ({ ctx }) => {
       return db.listPurchaseReceipts(ctx.user.id);
     }),
+    getReceipt: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const receipt = await db.getPurchaseReceiptById(input.id);
+        if (!receipt) throw new TRPCError({ code: "NOT_FOUND", message: "Receipt not found" });
+        if (receipt.userId !== ctx.user.id && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Receipt not found" });
+        }
+        return receipt;
+      }),
   }),
 
   // ─── Resumes ──────────────────────────────────────────────────────

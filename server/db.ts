@@ -1976,3 +1976,22 @@ export async function getPurchaseReceiptBySessionId(
     .limit(1);
   return rows[0] ?? null;
 }
+
+/**
+ * Fetch a single purchase receipt by its internal ID.
+ * Returns null if not found.
+ */
+export async function getPurchaseReceiptById(
+  id: number
+): Promise<PurchaseReceipt | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(purchaseReceipts)
+    .where(eq(purchaseReceipts.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+
