@@ -1017,3 +1017,10 @@
 - [x] Persist column width to localStorage (key: outreach-used-in-width)
 - [x] Write acceptance tests A-G (29 tests)
 - [x] All 1349 tests pass, 0 TypeScript errors
+
+## Phase 9E11: Nav Label Cleanup — Rename "Outreach CRM" to "Contacts"
+- [x] Rename sidebar nav label from "Outreach" to "Contacts" (DashboardLayout.tsx)
+- [x] Rename page header h1 from "Outreach CRM" to "Contacts" (Outreach.tsx)
+- [x] Route /outreach unchanged
+- [x] Write acceptance tests A-D (12 tests)
+- [x] All 1361 tests pass, 0 TypeScript errors

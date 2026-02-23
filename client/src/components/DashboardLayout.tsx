@@ -48,7 +48,7 @@ const menuItems = [
   { icon: CalendarCheck, label: "Today", path: "/today" },
   { icon: Briefcase, label: "Job Cards", path: "/jobs" },
   { icon: FileText, label: "Resumes", path: "/resumes" },
-  { icon: Users, label: "Outreach", path: "/outreach" },
+  { icon: Users, label: "Contacts", path: "/outreach" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
   { icon: UserCircle, label: "Profile", path: "/profile" },

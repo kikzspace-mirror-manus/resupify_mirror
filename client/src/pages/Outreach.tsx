@@ -174,7 +174,7 @@ export default function Outreach() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Outreach CRM</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Contacts</h1>
             <p className="text-muted-foreground text-sm mt-0.5">
               {contacts?.length ?? 0} contacts
             </p>
