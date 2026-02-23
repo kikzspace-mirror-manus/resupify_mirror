@@ -1045,7 +1045,7 @@
 - [ ] Return 429 with RATE_LIMITED code and retry-after seconds
 - [ ] Frontend: show friendly toast for 429, no scary overlay
 - [ ] Write acceptance tests A-E
-- [ ] All tests pass, 0 TypeScript errors
+- [x] All 1815 tests pass (109 test files), 0 TypeScript errors
 
 ## Phase 10A: Rate Limits + Abuse Protection
 - [x] Audit existing endpoints and rate limiter implementation
@@ -1158,7 +1158,7 @@
 - [ ] Review modal: Debit Credits action (with confirmation) and Ignore action (with reason)
 - [ ] Idempotency: same stripe_refund_id cannot create multiple debits
 - [ ] Write Phase 11D acceptance tests
-- [ ] All tests pass, 0 TypeScript errors
+- [x] All 1815 tests pass (109 test files), 0 TypeScript errors
 
 ## Phase 11D: Refund Handling (Admin-only Credit Reversal + Audit Log)
 
@@ -1189,3 +1189,14 @@
 - [x] 27 acceptance tests in server/refund-policy-11e.test.ts
 - [x] Fixed stripe-10c1.test.ts: added mockCreateRefundQueueItem to hoisted mocks
 - [x] All 1782 tests pass (108 test files), 0 TypeScript errors
+
+## Phase 11F: Purchase Confirmation Email (Resend)
+
+- [x] Install resend npm package
+- [x] Schema: add emailSentAt and emailError columns to purchase_receipts table
+- [x] Run pnpm db:push to apply migration
+- [x] Add DB helpers: markReceiptEmailSent, markReceiptEmailError
+- [x] Create server/email.ts with sendPurchaseConfirmationEmail helper (Resend)
+- [x] Update stripeWebhook.ts: call email helper after createPurchaseReceipt with idempotency guard
+- [x] 33 acceptance tests in server/purchase-email-11f.test.ts
+- [x] All 1815 tests pass (109 test files), 0 TypeScript errors

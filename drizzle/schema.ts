@@ -399,6 +399,8 @@ export const purchaseReceipts = mysqlTable("purchase_receipts", {
   stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 128 }),
   stripeReceiptUrl: text("stripeReceiptUrl"),       // Stripe-hosted receipt/invoice URL
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  emailSentAt: timestamp("emailSentAt"),              // set after confirmation email is sent (idempotency)
+  emailError: text("emailError"),                      // last error message if email failed
 });
 export type PurchaseReceipt = typeof purchaseReceipts.$inferSelect;
 export type InsertPurchaseReceipt = typeof purchaseReceipts.$inferInsert;

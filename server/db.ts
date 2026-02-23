@@ -73,6 +73,12 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
 
 // ─── User Profiles ───────────────────────────────────────────────────
 export async function getProfile(userId: number) {
@@ -1926,4 +1932,47 @@ export async function refundQueueItemExists(stripeRefundId: string): Promise<boo
     .where(eq(refundQueue.stripeRefundId, stripeRefundId))
     .limit(1);
   return rows.length > 0;
+}
+
+// ─── Phase 11F: Purchase Email Idempotency Helpers ────────────────────────────
+
+/**
+ * Mark a purchase receipt as having had its confirmation email sent.
+ * Sets emailSentAt to now and clears any previous emailError.
+ */
+export async function markReceiptEmailSent(receiptId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(purchaseReceipts)
+    .set({ emailSentAt: new Date(), emailError: null })
+    .where(eq(purchaseReceipts.id, receiptId));
+}
+
+/**
+ * Record an email error on a purchase receipt so it can be retried later.
+ * Does NOT set emailSentAt so the next webhook replay will attempt again.
+ */
+export async function markReceiptEmailError(receiptId: number, error: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(purchaseReceipts)
+    .set({ emailError: error.slice(0, 1000) })
+    .where(eq(purchaseReceipts.id, receiptId));
+}
+
+/**
+ * Fetch a purchase receipt by its Stripe checkout session ID.
+ * Returns null if not found.
+ */
+export async function getPurchaseReceiptBySessionId(
+  stripeCheckoutSessionId: string
+): Promise<PurchaseReceipt | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(purchaseReceipts)
+    .where(eq(purchaseReceipts.stripeCheckoutSessionId, stripeCheckoutSessionId))
+    .limit(1);
+  return rows[0] ?? null;
 }

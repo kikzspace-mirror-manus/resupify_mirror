@@ -169,6 +169,13 @@
       "when": 1771856542377,
       "tag": "0023_hard_rockslide",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1771867478677,
+      "tag": "0024_green_polaris",
+      "breakpoints": true
     }
   ]
 }

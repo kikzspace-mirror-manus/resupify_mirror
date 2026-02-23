@@ -16,7 +16,8 @@ import Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { ENV } from "./_core/env";
 import * as db from "./db";
-import { createPurchaseReceipt, createRefundQueueItem } from "./db";
+import { createPurchaseReceipt, createRefundQueueItem, getPurchaseReceiptBySessionId, markReceiptEmailSent, markReceiptEmailError } from "./db";
+import { sendPurchaseConfirmationEmail } from "./email";
 import { logAnalyticsEvent } from "./analytics";
 import { EVT_PURCHASE_COMPLETED } from "../shared/analyticsEvents";
 
@@ -75,6 +76,51 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : undefined,
         stripeReceiptUrl: undefined,
       });
+
+      // ── Send purchase confirmation email (idempotent, fire-and-forget) ──────
+      // Fetch the receipt to get the receipt ID and check emailSentAt.
+      // If emailSentAt is already set (e.g. webhook replay), skip the send.
+      void (async () => {
+        try {
+          const receipt = await getPurchaseReceiptBySessionId(session.id);
+          if (!receipt) {
+            console.warn(`[Email] Receipt not found for session ${session.id} — skipping email`);
+            return;
+          }
+          if (receipt.emailSentAt) {
+            console.log(`[Email] Confirmation already sent for receipt ${receipt.id} — skipping`);
+            return;
+          }
+          // Fetch the user's email and current balance
+          const user = await db.getUserById(userId);
+          const balance = await db.getCreditsBalance(userId);
+          if (!user?.email) {
+            console.warn(`[Email] No email on file for user ${userId} — skipping confirmation`);
+            return;
+          }
+          const result = await sendPurchaseConfirmationEmail({
+            toEmail: user.email,
+            receiptId: receipt.id,
+            packId: packId!,
+            creditsAdded: credits,
+            amountCents: receipt.amountCents,
+            currency: receipt.currency,
+            purchasedAt: receipt.createdAt,
+            stripeCheckoutSessionId: session.id,
+            newBalance: balance,
+          });
+          if (result.sent) {
+            await markReceiptEmailSent(receipt.id);
+            console.log(`[Email] Purchase confirmation sent to ${user.email} (receipt ${receipt.id})`);
+          } else {
+            await markReceiptEmailError(receipt.id, result.error);
+            console.error(`[Email] Failed to send confirmation for receipt ${receipt.id}: ${result.error}`);
+          }
+        } catch (emailErr) {
+          const msg = emailErr instanceof Error ? emailErr.message : String(emailErr);
+          console.error(`[Email] Unexpected error in purchase email flow: ${msg}`);
+        }
+      })();
 
       await db.recordStripeEvent({
         stripeEventId: event.id,
