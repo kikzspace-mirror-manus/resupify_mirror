@@ -233,7 +233,10 @@ export function registerStripeWebhook(app: Express): void {
             contentType: String(req.headers["content-type"] || ""),
             isBuffer: Buffer.isBuffer(req.body),
             bodyLength: Buffer.isBuffer(req.body) ? req.body.length : -1,
-            secretTail: (webhookSecret || "").slice(-6),
+            host: String(req.headers["host"] || ""),
+            envHasSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+            secretLen: process.env.STRIPE_WEBHOOK_SECRET ? process.env.STRIPE_WEBHOOK_SECRET.length : 0,
+            secretTail: (process.env.STRIPE_WEBHOOK_SECRET || "").slice(-6),
           },
         });
       }
