@@ -62,7 +62,7 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       }
 
       // Grant credits using the existing approved addCredits helper
-      await db.addCredits(userId, credits, `Credit purchase — ${packId} pack`, "credit_purchase");
+      await db.addCredits(userId, credits, `Purchase: ${packId}`, "credit_purchase");
 
       await db.recordStripeEvent({
         stripeEventId: event.id,

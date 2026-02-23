@@ -1118,3 +1118,12 @@
 - [x] Single source of truth: buildSprintCsv used for both Copy and Download
 - [x] Write acceptance tests (clipboard API, fallback modal, non-empty csvText)
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 11A: Stripe Credits Purchase (Checkout + Webhook, No Credit Logic Changes)
+- [x] Verify credit pack constants (server-owned, never trust client)
+- [x] Verify create-checkout-session endpoint (tRPC stripe.createCheckoutSession)
+- [x] Verify webhook handler at /api/stripe/webhook with signature verification
+- [x] Update ledger description to "Purchase: {pack_id}" per spec
+- [x] Verify idempotency: same checkout.session.id never credits twice
+- [x] Write Phase 11A acceptance tests
+- [x] All tests pass, 0 TypeScript errors
