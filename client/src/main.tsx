@@ -51,6 +51,8 @@ const EXPECTED_FETCH_SUBSTRINGS = [
 function isExpectedFetchError(error: unknown): boolean {
   if (!(error instanceof TRPCClientError)) return false;
   const msg = error.message ?? "";
+  // Suppress rate limit errors — they show as toasts, not scary overlay
+  if ((error.data as any)?.httpStatus === 429 || msg.startsWith("Too many requests")) return true;
   return EXPECTED_FETCH_SUBSTRINGS.some((s) => msg.includes(s));
 }
 

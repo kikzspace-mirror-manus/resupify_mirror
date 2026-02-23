@@ -339,7 +339,7 @@ export type InsertJobCardPersonalizationSource = typeof jobCardPersonalizationSo
 export const operationalEvents = mysqlTable("operational_events", {
   id: int("id").autoincrement().primaryKey(),
   requestId: varchar("requestId", { length: 36 }).notNull(),
-  endpointGroup: mysqlEnum("endpointGroup", ["evidence", "outreach", "kit", "url_fetch", "auth", "waitlist"]).notNull(),
+  endpointGroup: mysqlEnum("endpointGroup", ["evidence", "outreach", "kit", "url_fetch", "auth", "waitlist", "jd_extract"]).notNull(),
   eventType: mysqlEnum("eventType", ["rate_limited", "provider_error", "validation_error", "unknown", "waitlist_joined"]).notNull(),
   statusCode: int("statusCode").notNull(),
   retryAfterSeconds: int("retryAfterSeconds"),

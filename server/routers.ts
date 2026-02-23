@@ -18,7 +18,7 @@ import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
-import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, shortHash } from "./rateLimiter";
+import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, jdExtractRateLimit, shortHash } from "./rateLimiter";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 import { logAnalyticsEvent } from "./analytics";
 import {
@@ -397,7 +397,7 @@ export const appRouter = router({
       return { id };
     }),
     // ─── Real LLM extraction (replaces stub) ──────────────────────────
-    extract: protectedProcedure.input(z.object({
+    extract: protectedProcedure.use(jdExtractRateLimit).input(z.object({
       jobCardId: z.number(),
     })).mutation(async ({ ctx, input }) => {
       const MIN_JD_LENGTH = 200;

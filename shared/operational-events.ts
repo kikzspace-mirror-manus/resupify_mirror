@@ -11,6 +11,7 @@ export const endpointGroupSchema = z.enum([
   "url_fetch",
   "auth",
   "waitlist",
+  "jd_extract",
 ]);
 
 export type EndpointGroup = z.infer<typeof endpointGroupSchema>;
@@ -33,6 +34,7 @@ export const ENDPOINT_GROUPS = [
   "url_fetch",
   "auth",
   "waitlist",
+  "jd_extract",
 ] as const;
 
 export const EVENT_TYPES = [

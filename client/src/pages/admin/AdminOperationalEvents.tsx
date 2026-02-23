@@ -34,6 +34,7 @@ const ENDPOINT_COLORS: Record<EndpointGroup, string> = {
   url_fetch: "bg-cyan-100 text-cyan-800 border-cyan-200",
   auth: "bg-rose-100 text-rose-800 border-rose-200",
   waitlist: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  jd_extract: "bg-teal-100 text-teal-800 border-teal-200",
 };
 
 const STATUS_COLORS: Record<number, string> = {
@@ -104,6 +105,7 @@ export default function AdminOperationalEvents() {
                 <SelectItem value="url_fetch">url_fetch</SelectItem>
                 <SelectItem value="auth">auth</SelectItem>
                 <SelectItem value="waitlist">waitlist</SelectItem>
+                <SelectItem value="jd_extract">jd_extract</SelectItem>
               </SelectContent>
             </Select>
           </div>

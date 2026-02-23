@@ -1032,3 +1032,28 @@
 - [x] Invalidate listWithUsage after delete
 - [x] Write acceptance tests A-D (17 tests)
 - [x] All 1378 tests pass, 0 TypeScript errors
+
+## Phase 10A: Rate Limits + Abuse Protection
+- [ ] Create rate_limits table in schema (userId, endpoint, windowStart, callCount, activeCount)
+- [ ] Push DB migration (pnpm db:push)
+- [ ] Implement rateLimiter helper (sliding window, concurrency guard, admin bypass)
+- [ ] Apply to evidence.scan (AI, 10/10min, concurrency 1)
+- [ ] Apply to applicationKits.generate (AI, 10/10min, concurrency 1)
+- [ ] Apply to outreach.generatePack (AI, 10/10min, concurrency 1)
+- [ ] Apply to jdSnapshots.extract (AI, 10/10min, concurrency 1)
+- [ ] Apply to jdSnapshots.fetchFromUrl (network, 10/hour)
+- [ ] Return 429 with RATE_LIMITED code and retry-after seconds
+- [ ] Frontend: show friendly toast for 429, no scary overlay
+- [ ] Write acceptance tests A-E
+- [ ] All tests pass, 0 TypeScript errors
+
+## Phase 10A: Rate Limits + Abuse Protection
+- [x] Audit existing endpoints and rate limiter implementation
+- [x] Update rateLimiter.ts with admin bypass, concurrency guard, corrected limits (10/10min for all AI)
+- [x] Add jdExtractRateLimit middleware for jdSnapshots.extract
+- [x] Add jd_extract to EndpointGroup enum in schema and shared types
+- [x] Apply jdExtractRateLimit to jdSnapshots.extract procedure
+- [x] Suppress TOO_MANY_REQUESTS errors from frontend console.error overlay
+- [x] Write Phase 10A acceptance tests (rate-limits.test.ts)
+- [x] Update old rate-limiter-10a1.test.ts to match new spec-compliant limits
+- [x] All 1401 tests pass, 0 TypeScript errors
