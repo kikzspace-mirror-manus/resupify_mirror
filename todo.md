@@ -1127,3 +1127,12 @@
 - [x] Verify idempotency: same checkout.session.id never credits twice
 - [x] Write Phase 11A acceptance tests
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 11B: Low-Credit Warning Banner
+- [x] Add LowCreditBanner component to DashboardLayout (credits < 2 threshold)
+- [x] Amber banner with "Low credits. Top up to continue scanning." text
+- [x] "Top up" CTA navigates to /billing
+- [x] 24-hour localStorage dismiss
+- [x] Admin users (role === "admin") do not see banner
+- [x] Write Phase 11B acceptance tests
+- [x] All tests pass, 0 TypeScript errors
