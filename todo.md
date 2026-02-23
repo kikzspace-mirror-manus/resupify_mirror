@@ -1098,3 +1098,13 @@
 - [x] Retry failed uses runAI() + fresh actionIds
 - [x] Write acceptance tests A-F
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 10F: Export Batch Sprint Results to CSV
+- [x] Add csvEscape utility function with proper comma/quote/newline handling
+- [x] Add buildSprintCsv function (8 columns: company, title, score, top_suggestion, status, stage, priority, job_card_url)
+- [x] Add Download CSV button to drawer header (always visible, disabled when 0 rows)
+- [x] Export respects current filter (All vs Failed-only)
+- [x] Filename: batch-sprint-results-YYYY-MM-DD-HHMM.csv
+- [x] Toast "CSV downloaded" after trigger
+- [x] Write acceptance tests A-E
+- [x] All tests pass, 0 TypeScript errors
