@@ -1057,3 +1057,13 @@
 - [x] Write Phase 10A acceptance tests (rate-limits.test.ts)
 - [x] Update old rate-limiter-10a1.test.ts to match new spec-compliant limits
 - [x] All 1401 tests pass, 0 TypeScript errors
+
+## Phase 10B: Concurrency Queue UI (Waiting Spinner + Cancel + No Double-Charge)
+- [x] Create AIConcurrencyContext with busy flag, queue slot, and run helper
+- [x] Integrate context into Evidence+ATS panel scan button
+- [x] Add "Waiting for previous scan..." spinner with Cancel button
+- [x] Auto-run queued action after current completes
+- [x] Prevent double-charge: queue holds at most 1 pending request
+- [x] Friendly inline error when server returns concurrency/rate-limit error
+- [x] Write acceptance tests A-F
+- [x] All tests pass, 0 TypeScript errors

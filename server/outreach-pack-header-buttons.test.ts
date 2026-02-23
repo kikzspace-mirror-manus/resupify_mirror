@@ -114,11 +114,12 @@ describe("Phase 9E2 — Test B: Both buttons are in the Outreach Pack card heade
     expect(copyAllIdx).toBeLessThan(regenIdx);
   });
 
-  it("B5: Regenerate button has disabled={generatePack.isPending} (loading state preserved)", () => {
+  it("B5: Regenerate button has generatePack.isPending in its disabled expression (loading state preserved)", () => {
     const headerStart = jobCardsDetailSource.indexOf('<CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>');
     const cardContentIdx = jobCardsDetailSource.indexOf("<CardContent>", headerStart);
     const headerSection = jobCardsDetailSource.slice(headerStart, cardContentIdx);
-    expect(headerSection).toContain("disabled={generatePack.isPending}");
+    // Phase 10B: disabled may include isBusy in addition to isPending
+    expect(headerSection).toContain("generatePack.isPending");
   });
 });
 

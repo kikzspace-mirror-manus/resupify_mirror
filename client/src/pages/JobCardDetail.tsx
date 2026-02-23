@@ -79,6 +79,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAIConcurrency } from "@/contexts/AIConcurrencyContext";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS, EVIDENCE_GROUP_LABELS } from "../../../shared/regionPacks";
@@ -622,6 +623,8 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
   const [fromVersion, setFromVersion] = useState<number | null>(null);
   const [toVersion, setToVersion] = useState<number | null>(null);
   const utils = trpc.useUtils();
+  // Phase 10B: AI concurrency queue
+  const { isBusy, runAI, markDone } = useAIConcurrency();
 
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
 
@@ -653,9 +656,11 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
       utils.jobCards.list.invalidate();
       setExtractError(null);
       toast.success(`Extracted ${data.count} requirements`);
+      markDone();
     },
     onError: (err) => {
       setExtractError(err.message);
+      markDone();
     },
   });
 
@@ -730,9 +735,9 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
                 size="sm"
                 onClick={() => {
                   setExtractError(null);
-                  extractRequirements.mutate({ jobCardId });
+                  runAI(() => extractRequirements.mutate({ jobCardId }));
                 }}
-                disabled={extractRequirements.isPending}
+                disabled={extractRequirements.isPending || isBusy}
               >
                 {extractRequirements.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Extracting...</>
@@ -944,17 +949,18 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
   const toggleCategory = (group: string) => setOpenCategories((prev) => ({ ...prev, [group]: !prev[group] }));
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
-
+  // Phase 10B: AI concurrency queue
+  const { isBusy, isQueued, runAI, markDone, cancelQueued } = useAIConcurrency();
   // Check if requirements have been extracted for this job card
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
   const hasRequirements = (requirements?.length ?? 0) > 0;
-
   const runEvidence = trpc.evidence.run.useMutation({
     onSuccess: (data) => {
       utils.evidence.runs.invalidate({ jobCardId });
       utils.credits.balance.invalidate();
       utils.tasks.list.invalidate();
       toast.success(`Evidence scan complete! Score: ${data.score}/100 (${data.itemCount} items)`);
+      markDone();
     },
     onError: (error) => {
       if (error.data?.code === "TOO_MANY_REQUESTS") {
@@ -967,9 +973,9 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
       } else {
         toast.error(error.message);
       }
+      markDone();
     },
   });
-
   const { data: evidenceItems } = trpc.evidence.items.useQuery(
     { evidenceRunId: selectedRunId! },
     { enabled: !!selectedRunId }
@@ -1037,10 +1043,11 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
               </Select>
             </div>
             <Button
+              data-testid="run-scan-btn"
               onClick={() => {
                 if (!selectedResumeId) { toast.error("Select a resume first"); return; }
                 if (!hasRequirements) { toast.error("Extract requirements first from the JD Snapshot tab."); return; }
-                runEvidence.mutate({ jobCardId, resumeId: selectedResumeId });
+                runAI(() => runEvidence.mutate({ jobCardId, resumeId: selectedResumeId! }));
               }}
               disabled={runEvidence.isPending || !selectedResumeId}
             >
@@ -1051,7 +1058,26 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
               )}
             </Button>
           </div>
-          {hasRequirements && (
+          {/* Phase 10B: Queue waiting UI */}
+          {isQueued && (
+            <div
+              data-testid="ai-queue-waiting"
+              className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              <Loader2 className="h-4 w-4 animate-spin shrink-0 text-amber-600" />
+              <span className="flex-1">Waiting for previous scan to finish…</span>
+              <Button
+                data-testid="ai-queue-cancel-btn"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-amber-700 hover:bg-amber-100"
+                onClick={cancelQueued}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+          {hasRequirements && !isQueued && (
             <p className="text-xs text-muted-foreground mt-2">
               Costs 1 credit. Analyzes {requirements?.length} extracted requirements against your resume.
             </p>
@@ -1321,6 +1347,8 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
 }) {
   const utils = trpc.useUtils();
   const { user } = useAuth();
+  // Phase 10B: AI concurrency queue
+  const { isBusy, runAI, markDone } = useAIConcurrency();
   const completedRuns = evidenceRuns.filter((r) => r.status === "completed");
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(completedRuns[0]?.id ?? null);
@@ -1338,7 +1366,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
     { enabled: !!selectedResumeId && !!selectedRunId }
   );
   const generateKit = trpc.applicationKits.generate.useMutation({
-    onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); },
+    onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); markDone(); },
     onError: (error) => {
       if (error.data?.code === "TOO_MANY_REQUESTS") {
         const match = error.message.match(/(\d+)s/);
@@ -1352,6 +1380,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
       } else {
         toast.error(error.message);
       }
+      markDone();
     },
   });
   const createTasks = trpc.applicationKits.createTasks.useMutation({
@@ -1550,7 +1579,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       disabled={generateKit.isPending}
                       onClick={() => {
                         setShowConfirmDialog(false);
-                        generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone });
+                        runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone }));
                       }}
                     >
                       {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Replacing...</> : "Replace kit"}
@@ -1566,7 +1595,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                   if (existingKit) {
                     setShowConfirmDialog(true);
                   } else {
-                    generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
+                    runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone }));
                   }
                 }}
                 disabled={generateKit.isPending || !hasRequirements || noRun}
@@ -2152,6 +2181,8 @@ function EditContactDialog({
 
 function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCardId: number; contacts: any[]; outreachPack: any; onSwitchTab?: (tab: string) => void }) {
   const utils = trpc.useUtils();
+  // Phase 10B: AI concurrency queue
+  const { isBusy, runAI, markDone } = useAIConcurrency();
   const [packError, setPackError] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | undefined>(undefined);
   const [editingContact, setEditingContact] = useState<any | null>(null);
@@ -2161,6 +2192,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
       utils.outreach.pack.invalidate({ jobCardId });
       utils.credits.balance.invalidate();
       toast.success("Outreach Pack generated!");
+      markDone();
     },
     onError: (error) => {
       if (error.data?.code === "TOO_MANY_REQUESTS") {
@@ -2176,6 +2208,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           : "Couldn't generate the outreach pack. Try again.";
         setPackError(msg);
       }
+      markDone();
     },
   });
 
@@ -2262,8 +2295,8 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
                   variant="default"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
-                  disabled={generatePack.isPending}
+                  onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId })); }}
+                  disabled={generatePack.isPending || isBusy}
                 >
                   {generatePack.isPending ? (
                     <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Regenerating...</>
@@ -2296,8 +2329,8 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
               <p className="text-sm text-muted-foreground mb-1">No outreach pack yet.</p>
               <p className="text-xs text-muted-foreground mb-3">Creates: recruiter email + LinkedIn DM + 2 follow-ups</p>
               <Button
-                onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
-                disabled={generatePack.isPending}
+                onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId })); }}
+                disabled={generatePack.isPending || isBusy}
               >
                 {generatePack.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating...</>
