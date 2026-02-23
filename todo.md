@@ -1228,3 +1228,23 @@
 - [x] /billing/receipts/:id route registered in App.tsx with DashboardRoute wrapper
 - [x] 34 acceptance tests in server/receipt-detail-11g.test.ts — all pass
 - [x] 1859 total tests passing, 0 TypeScript errors
+
+## PATCH: Admin Retry Purchase Email (Phase 11H)
+- [ ] admin.billing.retryReceiptEmail mutation added to admin router
+- [ ] Mutation loads receipt + user, guards emailSentAt idempotency
+- [ ] Mutation returns status: sent | already_sent | failed
+- [ ] Admin Billing Receipts UI: Retry email button when emailSentAt is null
+- [ ] Toast feedback for all three status outcomes
+- [ ] Acceptance tests in server/admin-retry-email-11h.test.ts
+- [ ] 0 TypeScript errors
+
+## Phase 11H: Admin Retry Purchase Confirmation Email
+- [x] Add adminListPurchaseReceipts DB helper with userId/emailSentAt filters
+- [x] Add getPurchaseReceiptById DB helper
+- [x] Add admin.billing.listReceipts tRPC procedure (admin-only)
+- [x] Add admin.billing.retryReceiptEmail tRPC mutation (admin-only, idempotent)
+- [x] Create AdminBillingReceipts page at /admin/billing-receipts
+- [x] Add Billing Receipts nav item to AdminLayout
+- [x] Register route in App.tsx
+- [x] Write 24 acceptance tests (H1-H20 + I1-I4)
+- [x] Full test suite: 1883 tests passing, 0 TypeScript errors

@@ -8,6 +8,7 @@ import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../../shared/outreachHelpers";
 import { buildToneSystemPrompt, sanitizeTone } from "../../shared/toneGuardrails";
 import { endpointGroupSchema, eventTypeSchema } from "../../shared/operational-events";
+import { sendPurchaseConfirmationEmail } from "../email";
 
 export const adminRouter = router({
   // ─── Dashboard KPIs ──────────────────────────────────────────────
@@ -786,4 +787,65 @@ ${buildToneSystemPrompt()}`
       return { success: true };
     }),
   }),
+  // ─── Admin Billing: Retry purchase confirmation email ────────────────────────
+  billing: router({
+    listReceipts: adminProcedure
+      .input(z.object({
+        userId: z.number().int().positive().optional(),
+        emailSentAt: z.enum(["sent", "unsent"]).optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+        offset: z.number().int().min(0).default(0),
+      }))
+      .query(async ({ input }) => {
+        return db.adminListPurchaseReceipts(
+          { userId: input.userId, emailSentAt: input.emailSentAt },
+          input.limit,
+          input.offset
+        );
+      }),
+    retryReceiptEmail: adminProcedure
+      .input(z.object({ receiptId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const receipt = await db.getPurchaseReceiptById(input.receiptId);
+        if (!receipt) {
+          return { status: "not_found" as const };
+        }
+        // Idempotency guard: already sent
+        if (receipt.emailSentAt !== null) {
+          return { status: "already_sent" as const };
+        }
+        const user = await db.getUserById(receipt.userId);
+        if (!user?.email) {
+          return { status: "failed" as const, error: "User email missing" };
+        }
+        const balance = await db.getCreditsBalance(receipt.userId);
+        const result = await sendPurchaseConfirmationEmail({
+          toEmail: user.email,
+          receiptId: receipt.id,
+          packId: receipt.packId,
+          creditsAdded: receipt.creditsAdded,
+          amountCents: receipt.amountCents,
+          currency: receipt.currency,
+          purchasedAt: receipt.createdAt,
+          stripeCheckoutSessionId: receipt.stripeCheckoutSessionId,
+          newBalance: balance,
+        });
+        if (result.sent) {
+          await db.markReceiptEmailSent(receipt.id);
+          await db.logAdminAction(ctx.user.id, "receipt_email_retried", receipt.userId, {
+            receiptId: receipt.id,
+            status: "sent",
+          });
+          return { status: "sent" as const };
+        } else {
+          await db.markReceiptEmailError(receipt.id, result.error);
+          await db.logAdminAction(ctx.user.id, "receipt_email_retry_failed", receipt.userId, {
+            receiptId: receipt.id,
+            error: result.error,
+          });
+          return { status: "failed" as const, error: result.error };
+        }
+      }),
+  }),
+
 });

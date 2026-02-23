@@ -37,6 +37,7 @@ import AdminStripeEvents from "./pages/admin/AdminStripeEvents";
 import AdminEarlyAccess from "./pages/admin/AdminEarlyAccess";
 import AdminGrowthDashboard from "./pages/admin/AdminGrowthDashboard";
 import AdminRefunds from "./pages/admin/AdminRefunds";
+import AdminBillingReceipts from "./pages/admin/AdminBillingReceipts";
 import RefundPolicy from "./pages/RefundPolicy";
 import { useAuth } from "./_core/hooks/useAuth";
 import { useEffect } from "react";
@@ -150,6 +151,7 @@ function Router() {
         <Route path="/admin/early-access" component={AdminEarlyAccess} />
         <Route path="/admin/growth" component={AdminGrowthDashboard} />
         <Route path="/admin/refunds" component={AdminRefunds} />
+        <Route path="/admin/billing-receipts" component={AdminBillingReceipts} />
 
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

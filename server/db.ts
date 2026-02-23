@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, lte, gte, sql, isNull, or, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, lte, gte, sql, isNull, isNotNull, or, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -1995,3 +1995,35 @@ export async function getPurchaseReceiptById(
 }
 
 
+
+/**
+ * Admin: list all purchase receipts across all users, ordered by most recent first.
+ * Supports optional userId filter and emailSentAt filter.
+ */
+export async function adminListPurchaseReceipts(
+  filters?: { userId?: number; emailSentAt?: "sent" | "unsent" },
+  limit = 100,
+  offset = 0
+): Promise<PurchaseReceipt[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (filters?.userId !== undefined) {
+    conditions.push(eq(purchaseReceipts.userId, filters.userId));
+  }
+  if (filters?.emailSentAt === "unsent") {
+    conditions.push(isNull(purchaseReceipts.emailSentAt));
+  } else if (filters?.emailSentAt === "sent") {
+    conditions.push(isNotNull(purchaseReceipts.emailSentAt));
+  }
+  const query = db
+    .select()
+    .from(purchaseReceipts)
+    .orderBy(desc(purchaseReceipts.createdAt))
+    .limit(limit)
+    .offset(offset);
+  if (conditions.length > 0) {
+    return query.where(and(...conditions));
+  }
+  return query;
+}
