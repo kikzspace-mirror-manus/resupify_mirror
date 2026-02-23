@@ -1086,3 +1086,15 @@
 - [x] Handle markDone in batchSprint onSuccess/onError
 - [x] Write acceptance tests A-F (batch-sprint-concurrency-10d.test.ts)
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 10E: Batch Sprint Results Drawer
+- [x] Enrich batchSprint return with score, topSuggestion per result (additive)
+- [x] Build BatchSprintResultsDrawer component (Sheet, right-side)
+- [x] Auto-open drawer on sprint completion
+- [x] Per-job rows: company+title, score, top suggestion, status, Open link
+- [x] Default sort: lowest score first
+- [x] Filter toggle: All / Failed only
+- [x] Retry failed button with credit cost label
+- [x] Retry failed uses runAI() + fresh actionIds
+- [x] Write acceptance tests A-F
+- [x] All tests pass, 0 TypeScript errors

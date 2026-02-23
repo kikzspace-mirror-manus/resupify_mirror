@@ -1161,7 +1161,7 @@ export const appRouter = router({
       const spent = await db.spendCredits(ctx.user.id, 5, `Batch Sprint for ${input.jobCardIds.length} jobs`, "batch_sprint");
       if (!spent) throw new Error("Failed to spend credits.");
 
-      const results: { jobCardId: number; runId: number | null; error?: string }[] = [];
+      const results: { jobCardId: number; runId: number | null; error?: string; score?: number; topSuggestion?: string; title?: string; company?: string }[] = [];
       for (const jobCardId of input.jobCardIds) {
         try {
           const jdSnapshot = await db.getLatestJdSnapshot(jobCardId);
@@ -1203,9 +1203,26 @@ export const appRouter = router({
           });
           const parsed = JSON.parse(typeof llmResult.choices[0]?.message?.content === "string" ? llmResult.choices[0].message.content : "{}");
           await db.updateEvidenceRun(runId, { overallScore: parsed.overall_score ?? 0, summary: parsed.summary ?? "", status: "completed", completedAt: new Date() });
-          results.push({ jobCardId, runId });
+          // Phase 10E: enrich result with score + top suggestion (additive — existing clients ignore extra fields)
+          const jobCard = await db.getJobCardById(jobCardId, ctx.user.id);
+          results.push({
+            jobCardId,
+            runId,
+            score: parsed.overall_score ?? 0,
+            topSuggestion: (parsed.top_3_changes?.[0] as string | undefined) ?? parsed.summary ?? "",
+            title: jobCard?.title ?? "",
+            company: jobCard?.company ?? "",
+          });
         } catch (error: any) {
-          results.push({ jobCardId, runId: null, error: error.message });
+          // Phase 10E: include title/company even on failure for drawer display
+          let failTitle = "";
+          let failCompany = "";
+          try {
+            const jc = await db.getJobCardById(jobCardId, ctx.user.id);
+            failTitle = jc?.title ?? "";
+            failCompany = jc?.company ?? "";
+          } catch { /* ignore */ }
+          results.push({ jobCardId, runId: null, error: error.message, title: failTitle, company: failCompany });
         }
       }
       return { results };

@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { useAIConcurrency } from "@/contexts/AIConcurrencyContext";
+import BatchSprintResultsDrawer, { type BatchSprintResult } from "@/components/BatchSprintResultsDrawer";
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent } from "@/components/ui/card";
@@ -168,9 +169,14 @@ export default function JobCards() {
   const [bulkArchiveConfirmOpen, setBulkArchiveConfirmOpen] = useState(false);
   const [bulkArchiveProgress, setBulkArchiveProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // ── Batch Sprint state ────────────────────────────────────────────────
+   // ── Batch Sprint state ────────────────────────────────────────────
   const [batchSprintResumeId, setBatchSprintResumeId] = useState<number | null>(null);
   const [showBatchSprintDialog, setShowBatchSprintDialog] = useState(false);
+  // Phase 10E: Results drawer state
+  const [sprintResultsOpen, setSprintResultsOpen] = useState(false);
+  const [sprintResults, setSprintResults] = useState<BatchSprintResult[]>([]);
+  const [sprintResumeIdForRetry, setSprintResumeIdForRetry] = useState<number | null>(null);
+  const [isRetryingFailed, setIsRetryingFailed] = useState(false);
   const { isBusy, isQueued, runAI, markDone, cancelQueued } = useAIConcurrency();
 
   const archiveCard = trpc.jobCards.update.useMutation({
@@ -207,6 +213,9 @@ export default function JobCards() {
       markDone();
       const succeeded = data.results.filter((r) => r.runId !== null).length;
       const failed = data.results.length - succeeded;
+      // Phase 10E: store results and auto-open drawer
+      setSprintResults(data.results as BatchSprintResult[]);
+      setSprintResultsOpen(true);
       if (failed === 0) {
         toast.success(`Batch Sprint complete! ${succeeded} job${succeeded !== 1 ? "s" : ""} scanned.`);
       } else {
@@ -309,6 +318,37 @@ export default function JobCards() {
     }
     return map;
   }, [filteredJobs]);
+
+  // Phase 10E: Retry failed jobs handler
+  const handleRetryFailed = (failedIds: number[], resumeId: number) => {
+    setIsRetryingFailed(true);
+    runAI(() =>
+      batchSprint.mutate(
+        { jobCardIds: failedIds, resumeId },
+        {
+          onSuccess: (data) => {
+            // Merge retry results into existing results
+            setSprintResults((prev) => {
+              const updated = [...prev];
+              for (const newResult of data.results) {
+                const idx = updated.findIndex((r) => r.jobCardId === newResult.jobCardId);
+                if (idx !== -1) {
+                  updated[idx] = newResult as BatchSprintResult;
+                } else {
+                  updated.push(newResult as BatchSprintResult);
+                }
+              }
+              return updated;
+            });
+            setIsRetryingFailed(false);
+          },
+          onError: () => {
+            setIsRetryingFailed(false);
+          },
+        }
+      )
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -441,6 +481,7 @@ export default function JobCards() {
                     const resumeId = batchSprintResumeId ?? resumes[0]?.id;
                     if (!resumeId) return;
                     const ids = Array.from(selectedIds);
+                    setSprintResumeIdForRetry(resumeId); // Phase 10E: store for retry
                     runAI(() => batchSprint.mutate({ jobCardIds: ids, resumeId }));
                   }}
                 >
@@ -832,11 +873,20 @@ export default function JobCards() {
           </DragOverlay>
         </DndContext>
       )}
+
+      {/* Phase 10E: Batch Sprint Results Drawer */}
+      <BatchSprintResultsDrawer
+        open={sprintResultsOpen}
+        onClose={() => setSprintResultsOpen(false)}
+        results={sprintResults}
+        onRetryFailed={handleRetryFailed}
+        resumeId={sprintResumeIdForRetry}
+        isRetrying={isRetryingFailed}
+      />
     </div>
   );
 }
-
-// ─── KanbanColumn ──────────────────────────────────────────────────────────
+// ─── KanbanColumnn ──────────────────────────────────────────────────────────
 function KanbanColumn({
   stage,
   jobs,

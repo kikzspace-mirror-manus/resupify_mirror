@@ -76,7 +76,7 @@ describe("Phase 10D: Batch Sprint Concurrency", () => {
 
     it("C2: markDone() is called in batchSprint onError", () => {
       const batchSprintIdx = jobCardsSource.indexOf("trpc.evidence.batchSprint.useMutation");
-      const mutationBlock = jobCardsSource.slice(batchSprintIdx, batchSprintIdx + 600);
+      const mutationBlock = jobCardsSource.slice(batchSprintIdx, batchSprintIdx + 1000);
       // Should have markDone() in both onSuccess and onError — check it appears at least twice
       const markDoneCount = (mutationBlock.match(/markDone\(\)/g) ?? []).length;
       expect(markDoneCount).toBeGreaterThanOrEqual(2);
