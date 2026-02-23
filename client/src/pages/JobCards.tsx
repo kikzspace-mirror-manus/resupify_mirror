@@ -673,28 +673,6 @@ function CreateJobDialog({
               onChange={(e) => { setTitle(e.target.value); setAutoFilled(false); }}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="company">Company</Label>
-              <Input
-                id="company"
-                placeholder="e.g., Shopify"
-                value={company}
-                maxLength={MAX_LENGTHS.COMPANY}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                placeholder="e.g., Toronto, ON"
-                value={location}
-                maxLength={MAX_LENGTHS.LOCATION}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-            </div>
-          </div>
           <div className="space-y-2">
             <Label htmlFor="url">Job URL</Label>
             <div className="flex gap-2">
@@ -733,6 +711,28 @@ function CreateJobDialog({
             {fetchJdError && (
               <p className="text-xs text-destructive">{fetchJdError}</p>
             )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="company">Company</Label>
+              <Input
+                id="company"
+                placeholder="e.g., Shopify"
+                value={company}
+                maxLength={MAX_LENGTHS.COMPANY}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                placeholder="e.g., Toronto, ON"
+                value={location}
+                maxLength={MAX_LENGTHS.LOCATION}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

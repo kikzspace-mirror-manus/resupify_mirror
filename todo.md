@@ -802,3 +802,9 @@
 - [x] No note shown when no kit exists
 - [x] Write acceptance tests A-C in server/kit-tone-clarity.test.ts
 - [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E1: Create Job Card Modal — URL Fetch Above Company/Location
+- [x] Reorder fields: Title → URL+Fetch → Company+Location → Priority+Season → JD textarea
+- [x] Preserve Enter-on-URL-field triggers fetch
+- [x] Preserve auto-fill non-destructive behavior
+- [x] Write acceptance tests A-C in server/create-job-card-field-order.test.ts
+- [x] Verify all tests pass, 0 TypeScript errors
