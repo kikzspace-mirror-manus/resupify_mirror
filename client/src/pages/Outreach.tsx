@@ -23,7 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Users, Plus, Mail, Linkedin, Search, Clock, Briefcase, CalendarDays, ExternalLink } from "lucide-react";
+import { Users, Plus, Mail, Linkedin, Search, Clock, Briefcase, ExternalLink, Pencil } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -48,6 +48,19 @@ function formatStageLabel(stage: string): string {
     archived: "Archived",
   };
   return map[stage] ?? stage;
+}
+
+function stageBadgeVariant(stage: string): string {
+  const map: Record<string, string> = {
+    bookmarked: "bg-slate-100 text-slate-700",
+    applying: "bg-blue-100 text-blue-700",
+    applied: "bg-indigo-100 text-indigo-700",
+    interviewing: "bg-amber-100 text-amber-700",
+    offered: "bg-green-100 text-green-700",
+    rejected: "bg-red-100 text-red-700",
+    archived: "bg-gray-100 text-gray-500",
+  };
+  return map[stage] ?? "bg-slate-100 text-slate-700";
 }
 
 // ─── Type for enriched contact ────────────────────────────────────────────────
@@ -89,6 +102,7 @@ export default function Outreach() {
   const { data: contacts, isLoading } = trpc.contacts.listWithUsage.useQuery();
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [editContact, setEditContact] = useState<ContactWithUsage | null>(null);
 
   const filteredContacts = useMemo(() => {
     if (!contacts) return [];
@@ -146,31 +160,51 @@ export default function Outreach() {
           </div>
         ) : filteredContacts.length > 0 ? (
           <>
-            {/* Desktop: compact table */}
+            {/* Desktop: compact table with fixed layout */}
             <div className="hidden md:block rounded-lg border overflow-hidden">
-              <table className="w-full text-sm" data-testid="contacts-table">
-                <thead>
-                  <tr className="bg-muted/50 border-b">
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[180px]">Name</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[120px]">Role</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[160px]">Email</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[60px]">Links</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Used in</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[90px]">Last touch</th>
-                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[90px]">Next touch</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredContacts.map((contact, idx) => (
-                    <ContactTableRow
-                      key={contact.id}
-                      contact={contact}
-                      isLast={idx === filteredContacts.length - 1}
-                      onUpdated={() => utils.contacts.listWithUsage.invalidate()}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table
+                  className="w-full text-sm table-fixed"
+                  data-testid="contacts-table"
+                  style={{ minWidth: "900px" }}
+                >
+                  <colgroup>
+                    <col style={{ width: "180px" }} />  {/* Name */}
+                    <col style={{ width: "160px" }} />  {/* Role */}
+                    <col style={{ width: "200px" }} />  {/* Email */}
+                    <col style={{ width: "70px" }} />   {/* Links */}
+                    <col />                              {/* Used in — flexible */}
+                    <col style={{ width: "140px" }} />  {/* Status */}
+                    <col style={{ width: "110px" }} />  {/* Last touch */}
+                    <col style={{ width: "110px" }} />  {/* Next touch */}
+                    <col style={{ width: "60px" }} />   {/* Actions */}
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-muted/50 border-b">
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Role</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Email</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Links</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Used in</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Last touch</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Next touch</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredContacts.map((contact, idx) => (
+                      <ContactTableRow
+                        key={contact.id}
+                        contact={contact}
+                        isLast={idx === filteredContacts.length - 1}
+                        onEdit={() => setEditContact(contact)}
+                        onUpdated={() => utils.contacts.listWithUsage.invalidate()}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Mobile: compact cards */}
@@ -179,6 +213,7 @@ export default function Outreach() {
                 <ContactMobileCard
                   key={contact.id}
                   contact={contact}
+                  onEdit={() => setEditContact(contact)}
                   onUpdated={() => utils.contacts.listWithUsage.invalidate()}
                 />
               ))}
@@ -203,6 +238,19 @@ export default function Outreach() {
             </CardContent>
           </Card>
         )}
+
+        {/* Edit Contact Dialog */}
+        {editContact && (
+          <EditContactDialog
+            contact={editContact}
+            open={!!editContact}
+            onOpenChange={(open) => { if (!open) setEditContact(null); }}
+            onUpdated={() => {
+              utils.contacts.listWithUsage.invalidate();
+              setEditContact(null);
+            }}
+          />
+        )}
       </div>
     </TooltipProvider>
   );
@@ -213,14 +261,17 @@ export default function Outreach() {
 function ContactTableRow({
   contact,
   isLast,
+  onEdit,
   onUpdated: _onUpdated,
 }: {
   contact: ContactWithUsage;
   isLast: boolean;
+  onEdit: () => void;
   onUpdated: () => void;
 }) {
   const lastTouchDate = formatShortDate(contact.lastTouchAt);
   const nextTouchDate = formatShortDate(contact.nextTouchAt);
+  const stage = contact.mostRecentJobCard?.stage ?? null;
 
   return (
     <tr
@@ -237,7 +288,7 @@ function ContactTableRow({
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="font-medium truncate max-w-[130px] block">{contact.name}</span>
+              <span className="font-medium truncate block">{contact.name}</span>
             </TooltipTrigger>
             <TooltipContent side="top">{contact.name}{contact.company ? ` · ${contact.company}` : ""}</TooltipContent>
           </Tooltip>
@@ -249,7 +300,7 @@ function ContactTableRow({
         {contact.role ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="text-muted-foreground truncate max-w-[110px] block">{contact.role}</span>
+              <span className="text-muted-foreground truncate block">{contact.role}</span>
             </TooltipTrigger>
             <TooltipContent side="top">{contact.role}</TooltipContent>
           </Tooltip>
@@ -265,7 +316,7 @@ function ContactTableRow({
             <TooltipTrigger asChild>
               <a
                 href={`mailto:${contact.email}`}
-                className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors truncate max-w-[150px]"
+                className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors min-w-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Mail className="h-3 w-3 shrink-0" />
@@ -279,7 +330,7 @@ function ContactTableRow({
         )}
       </td>
 
-      {/* LinkedIn */}
+      {/* Links */}
       <td className="px-3 py-2.5">
         {contact.linkedinUrl ? (
           <a
@@ -300,6 +351,17 @@ function ContactTableRow({
       {/* Used in */}
       <td className="px-3 py-2.5">
         <UsedInBadge contact={contact} />
+      </td>
+
+      {/* Status */}
+      <td className="px-3 py-2.5">
+        {stage ? (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${stageBadgeVariant(stage)}`}>
+            {formatStageLabel(stage)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
       </td>
 
       {/* Last touch */}
@@ -325,6 +387,18 @@ function ContactTableRow({
           <span className="text-muted-foreground/40">—</span>
         )}
       </td>
+
+      {/* Actions */}
+      <td className="px-3 py-2.5">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          title="Edit contact"
+          data-testid="edit-contact-btn"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </td>
     </tr>
   );
 }
@@ -333,13 +407,16 @@ function ContactTableRow({
 
 function ContactMobileCard({
   contact,
+  onEdit,
   onUpdated: _onUpdated,
 }: {
   contact: ContactWithUsage;
+  onEdit: () => void;
   onUpdated: () => void;
 }) {
   const lastTouchDate = formatShortDate(contact.lastTouchAt);
   const nextTouchDate = formatShortDate(contact.nextTouchAt);
+  const stage = contact.mostRecentJobCard?.stage ?? null;
 
   return (
     <div
@@ -360,6 +437,11 @@ function ContactMobileCard({
           <span className="font-medium text-sm truncate">{contact.name}</span>
           {contact.role && (
             <span className="text-xs text-muted-foreground truncate">{contact.role}</span>
+          )}
+          {stage && (
+            <span className={`inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium ${stageBadgeVariant(stage)}`}>
+              {formatStageLabel(stage)}
+            </span>
           )}
         </div>
 
@@ -404,6 +486,16 @@ function ContactMobileCard({
           )}
         </div>
       </div>
+
+      {/* Edit button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onEdit(); }}
+        className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+        title="Edit contact"
+        data-testid="edit-contact-btn"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -428,14 +520,11 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
     return (
       <button
         onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${jc.id}`); }}
-        className="flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer max-w-[220px] truncate"
-        title={`${jc.company ? `${jc.company} — ` : ""}${jc.title} (${formatStageLabel(jc.stage)})`}
+        className="flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer min-w-0"
+        title={`${jc.company ? `${jc.company} — ` : ""}${jc.title}`}
       >
         <Briefcase className="h-3 w-3 shrink-0" />
         <span className="truncate">{jc.company ? `${jc.company} — ` : ""}{jc.title}</span>
-        <Badge variant="outline" className="text-[10px] py-0 px-1 h-4 shrink-0 ml-0.5">
-          {formatStageLabel(jc.stage)}
-        </Badge>
       </button>
     );
   }
@@ -481,6 +570,130 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// ─── Edit Contact Dialog ──────────────────────────────────────────────────────
+
+function EditContactDialog({
+  contact,
+  open,
+  onOpenChange,
+  onUpdated,
+}: {
+  contact: ContactWithUsage;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdated: () => void;
+}) {
+  const [name, setName] = useState(contact.name);
+  const [company, setCompany] = useState(contact.company ?? "");
+  const [role, setRole] = useState(contact.role ?? "");
+  const [email, setEmail] = useState(contact.email ?? "");
+  const [linkedinUrl, setLinkedinUrl] = useState(contact.linkedinUrl ?? "");
+  const [notes, setNotes] = useState(contact.notes ?? "");
+
+  const updateContact = trpc.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success("Contact updated!");
+      onUpdated();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Contact</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!name.trim()) { toast.error("Name is required"); return; }
+            updateContact.mutate({
+              id: contact.id,
+              name: name.trim(),
+              company: company.trim() || undefined,
+              role: role.trim() || undefined,
+              email: email.trim() || undefined,
+              linkedinUrl: linkedinUrl.trim() || undefined,
+              notes: notes.trim() || undefined,
+            });
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-2">
+            <Label>Name *</Label>
+            <Input
+              placeholder="Full name"
+              value={name}
+              maxLength={MAX_LENGTHS.CONTACT_NAME}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Company</Label>
+              <Input
+                placeholder="Company"
+                value={company}
+                maxLength={MAX_LENGTHS.CONTACT_COMPANY}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Input
+                placeholder="e.g., Recruiter"
+                value={role}
+                maxLength={MAX_LENGTHS.CONTACT_ROLE}
+                onChange={(e) => setRole(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input
+              placeholder="email@example.com"
+              value={email}
+              maxLength={MAX_LENGTHS.CONTACT_EMAIL}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>LinkedIn URL</Label>
+            <Input
+              placeholder="https://linkedin.com/in/..."
+              value={linkedinUrl}
+              maxLength={MAX_LENGTHS.CONTACT_LINKEDIN_URL}
+              onChange={(e) => setLinkedinUrl(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Input
+              placeholder="Optional notes..."
+              value={notes}
+              maxLength={MAX_LENGTHS.CONTACT_NOTES}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1" disabled={updateContact.isPending}>
+              {updateContact.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

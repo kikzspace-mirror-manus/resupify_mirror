@@ -984,3 +984,11 @@
 - [x] Keep existing search/sort behavior
 - [x] Write acceptance tests A-D (22 tests)
 - [x] All 1270 tests pass, 0 TypeScript errors
+
+## Phase 9E10.3: Outreach CRM Table Formatting + Status Column + Edit Action (COMPLETED)
+- [x] Fix table column widths (table-fixed + colgroup, minWidth 900px)
+- [x] Add Status column header and status pills under it
+- [x] Add Edit action per row (Pencil icon, stopPropagation)
+- [x] Edit Contact modal pre-fills all fields and saves via contacts.update
+- [x] Write acceptance tests A-E (23 tests)
+- [x] All 1293 tests pass, 0 TypeScript errors
