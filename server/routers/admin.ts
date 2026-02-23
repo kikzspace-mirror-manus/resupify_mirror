@@ -849,4 +849,19 @@ ${buildToneSystemPrompt()}`
       }),
   }),
 
+  // ─── Ops Status (Phase 12E.1) ─────────────────────────────────────────────
+  ops: router({
+    /** Return the current ops_status row, or null if no events have been processed yet. */
+    getStatus: adminProcedure.query(async () => {
+      const row = await db.getOpsStatus();
+      if (!row) return null;
+      return {
+        lastStripeWebhookSuccessAt: row.lastStripeWebhookSuccessAt ?? null,
+        lastStripeWebhookFailureAt: row.lastStripeWebhookFailureAt ?? null,
+        lastStripeWebhookEventId: row.lastStripeWebhookEventId ?? null,
+        lastStripeWebhookEventType: row.lastStripeWebhookEventType ?? null,
+        updatedAt: row.updatedAt,
+      };
+    }),
+  }),
 });

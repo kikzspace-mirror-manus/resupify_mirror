@@ -428,3 +428,17 @@ export const refundQueue = mysqlTable("refund_queue", {
 });
 export type RefundQueueItem = typeof refundQueue.$inferSelect;
 export type InsertRefundQueueItem = typeof refundQueue.$inferInsert;
+
+// ─── Ops Status ──────────────────────────────────────────────────────────────
+// Single-row table (id=1) tracking last Stripe webhook success/failure.
+// Written by the webhook handler on each processed event.
+// Read by admin.ops.getStatus for operational monitoring.
+export const opsStatus = mysqlTable("ops_status", {
+  id: int("id").primaryKey(),                                           // always 1 (single-row)
+  lastStripeWebhookSuccessAt: timestamp("lastStripeWebhookSuccessAt"),  // last successful event
+  lastStripeWebhookFailureAt: timestamp("lastStripeWebhookFailureAt"),  // last failed event
+  lastStripeWebhookEventId: varchar("lastStripeWebhookEventId", { length: 128 }),
+  lastStripeWebhookEventType: varchar("lastStripeWebhookEventType", { length: 128 }),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+export type OpsStatus = typeof opsStatus.$inferSelect;

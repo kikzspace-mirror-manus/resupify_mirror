@@ -38,6 +38,7 @@ import AdminEarlyAccess from "./pages/admin/AdminEarlyAccess";
 import AdminGrowthDashboard from "./pages/admin/AdminGrowthDashboard";
 import AdminRefunds from "./pages/admin/AdminRefunds";
 import AdminBillingReceipts from "./pages/admin/AdminBillingReceipts";
+import AdminOps from "./pages/admin/AdminOps";
 import RefundPolicy from "./pages/RefundPolicy";
 import { useAuth } from "./_core/hooks/useAuth";
 import { useEffect } from "react";
@@ -152,6 +153,7 @@ function Router() {
         <Route path="/admin/growth" component={AdminGrowthDashboard} />
         <Route path="/admin/refunds" component={AdminRefunds} />
         <Route path="/admin/billing-receipts" component={AdminBillingReceipts} />
+        <Route path="/admin/ops" component={AdminOps} />
 
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

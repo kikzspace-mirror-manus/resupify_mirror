@@ -2064,3 +2064,29 @@ export async function adminListPurchaseReceipts(
   }
   return baseQuery;
 }
+
+// ─── Ops Status helpers (Phase 12E.1) ────────────────────────────────────────
+/** Return the single ops_status row, or null if the table is empty. */
+export async function getOpsStatus() {
+  const db = await getDb();
+  if (!db) return null;
+  const { opsStatus } = await import("../drizzle/schema");
+  const rows = await db.select().from(opsStatus).limit(1);
+  return rows[0] ?? null;
+}
+
+/** Upsert the single ops_status row (id=1). Called by the webhook handler. */
+export async function upsertOpsStatus(patch: {
+  lastStripeWebhookSuccessAt?: Date;
+  lastStripeWebhookFailureAt?: Date;
+  lastStripeWebhookEventId?: string;
+  lastStripeWebhookEventType?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  const { opsStatus } = await import("../drizzle/schema");
+  await db
+    .insert(opsStatus)
+    .values({ id: 1, ...patch, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({ set: { ...patch, updatedAt: new Date() } });
+}

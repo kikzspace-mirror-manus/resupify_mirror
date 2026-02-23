@@ -1270,3 +1270,11 @@
 - [x] Tests: combined query + emailSentAt filter
 - [x] Tests: non-admin cannot access listReceipts
 - [x] Full test suite: 1901 tests passing, 0 TypeScript errors
+
+## Phase 12E.1: Admin Ops Status Visibility
+- [x] Add getOpsStatus DB helper (reads ops_status table, returns null if no row)
+- [x] Add admin.ops.getStatus tRPC procedure (admin-only, returns ops status)
+- [x] Add /admin/ops page with Stripe Webhooks card (last success, last failure, last event)
+- [x] Wire /admin/ops to admin sidebar navigation
+- [x] Write Phase 12E.1 acceptance tests (admin access, non-admin guard, null state)
+- [x] Full test suite passing, 0 TypeScript errors
