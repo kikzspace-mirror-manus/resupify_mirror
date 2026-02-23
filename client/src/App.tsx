@@ -36,6 +36,7 @@ import AdminStripeEvents from "./pages/admin/AdminStripeEvents";
 import AdminEarlyAccess from "./pages/admin/AdminEarlyAccess";
 import AdminGrowthDashboard from "./pages/admin/AdminGrowthDashboard";
 import AdminRefunds from "./pages/admin/AdminRefunds";
+import RefundPolicy from "./pages/RefundPolicy";
 import { useAuth } from "./_core/hooks/useAuth";
 import { useEffect } from "react";
 
@@ -91,6 +92,9 @@ function Router() {
 
         {/* Waitlist / early access holding page */}
         <Route path="/waitlist" component={Waitlist} />
+
+        {/* Refund Policy */}
+        <Route path="/refund-policy" component={RefundPolicy} />
 
         {/* Onboarding */}
         <Route path="/onboarding" component={Onboarding} />

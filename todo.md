@@ -1177,3 +1177,15 @@
 - [x] App.tsx: /admin/refunds route
 - [x] 61 acceptance tests in server/refund-queue-11d.test.ts
 - [x] All 1755 tests pass (107 test files)
+
+## Phase 11E: Refund Policy Link + Policy Page
+
+- [x] Billing page: "Refund policy" link added under credit packs section (Link to /refund-policy)
+- [x] Billing page: imports Link from wouter
+- [x] RefundPolicy.tsx page created at /refund-policy
+- [x] Policy content: 7-day window for unused credits, used credits not refundable, billing error courtesy adjustment, chargeback reversal + negative balance warning, how to request (support email)
+- [x] Policy includes "Last updated" date and support@resupify.com mailto link
+- [x] App.tsx: /refund-policy route added (public, outside EarlyAccessGuard gated prefixes)
+- [x] 27 acceptance tests in server/refund-policy-11e.test.ts
+- [x] Fixed stripe-10c1.test.ts: added mockCreateRefundQueueItem to hoisted mocks
+- [x] All 1782 tests pass (108 test files), 0 TypeScript errors

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,6 +124,15 @@ export default function Billing() {
             Test mode: use card <strong>4242 4242 4242 4242</strong> to simulate a purchase.
           </p>
         )}
+        <p className="text-xs text-muted-foreground mt-2 text-center">
+          Credits are non-transferable.{" "}
+          <Link
+            href="/refund-policy"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Refund policy
+          </Link>
+        </p>
       </div>
 
       {/* Transaction History */}
