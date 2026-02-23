@@ -199,10 +199,16 @@ export function registerStripeWebhook(app: Express): void {
   // requires the raw request body, not the parsed JSON.
   app.post(
     "/api/stripe/webhook",
-    express.raw({ type: "application/json" }),
+    // Use type: () => true to accept ANY Content-Type (including
+    // 'application/json; charset=utf-8' that Stripe sometimes sends).
+    // This guarantees req.body is always a raw Buffer before
+    // stripe.webhooks.constructEvent() is called for signature verification.
+    express.raw({ type: () => true }),
     async (req: Request, res: Response) => {
       const sig = req.headers["stripe-signature"];
-      const webhookSecret = ENV.STRIPE_WEBHOOK_SECRET;
+      // Read lazily from process.env so the secret can be updated without restart
+      // and so tests can set process.env.STRIPE_WEBHOOK_SECRET before each request.
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? ENV.STRIPE_WEBHOOK_SECRET;
 
       if (!webhookSecret) {
         console.error("[Stripe] STRIPE_WEBHOOK_SECRET is not configured");

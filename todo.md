@@ -1200,3 +1200,17 @@
 - [x] Update stripeWebhook.ts: call email helper after createPurchaseReceipt with idempotency guard
 - [x] 33 acceptance tests in server/purchase-email-11f.test.ts
 - [x] All 1815 tests pass (109 test files), 0 TypeScript errors
+
+## PATCH: Stripe Webhook Raw Body Fix
+- [ ] Audit Express middleware order in server/index.ts
+- [ ] Register /api/stripe/webhook with express.raw() BEFORE global express.json()
+- [ ] Verify stripe.webhooks.constructEvent receives raw Buffer
+- [ ] Write acceptance test with signed payload fixture (returns 200)
+- [ ] All tests pass, 0 TypeScript errors
+
+## PATCH: Stripe Webhook Raw Body Fix
+- [x] Audit Express middleware order in server/_core/index.ts
+- [x] Change express.raw({ type: "application/json" }) to express.raw({ type: () => true }) to accept all Content-Type variants (including charset=utf-8)
+- [x] Update webhook to read STRIPE_WEBHOOK_SECRET lazily from process.env (not cached ENV object)
+- [x] Write 10 acceptance tests with real Stripe-signed payload fixtures (all return 200)
+- [x] All 1825 tests pass, 0 TypeScript errors
