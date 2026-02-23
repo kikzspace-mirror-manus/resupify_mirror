@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, lte, gte, sql, isNull, isNotNull, or, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, lte, gte, sql, isNull, isNotNull, or, inArray, ilike } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -1998,15 +1998,17 @@ export async function getPurchaseReceiptById(
 
 /**
  * Admin: list all purchase receipts across all users, ordered by most recent first.
- * Supports optional userId filter and emailSentAt filter.
+ * Supports optional userId filter, emailSentAt filter, and free-text query
+ * (searches user email via LEFT JOIN with users table, or receipt ID if numeric).
  */
 export async function adminListPurchaseReceipts(
-  filters?: { userId?: number; emailSentAt?: "sent" | "unsent" },
+  filters?: { userId?: number; emailSentAt?: "sent" | "unsent"; query?: string },
   limit = 100,
   offset = 0
-): Promise<PurchaseReceipt[]> {
+): Promise<(PurchaseReceipt & { userEmail: string | null })[]> {
   const db = await getDb();
   if (!db) return [];
+  // Build WHERE conditions
   const conditions: ReturnType<typeof eq>[] = [];
   if (filters?.userId !== undefined) {
     conditions.push(eq(purchaseReceipts.userId, filters.userId));
@@ -2016,14 +2018,42 @@ export async function adminListPurchaseReceipts(
   } else if (filters?.emailSentAt === "sent") {
     conditions.push(isNotNull(purchaseReceipts.emailSentAt));
   }
-  const query = db
-    .select()
+  if (filters?.query) {
+    const q = filters.query.trim();
+    const numericId = /^\d+$/.test(q) ? parseInt(q, 10) : null;
+    if (numericId !== null) {
+      // Match by receipt ID exactly
+      conditions.push(eq(purchaseReceipts.id, numericId));
+    } else {
+      // Match by user email (case-insensitive via LIKE on MySQL)
+      const pattern = `%${q}%`;
+      conditions.push(sql`${users.email} LIKE ${pattern}`);
+    }
+  }
+  // LEFT JOIN with users to expose userEmail
+  const baseQuery = db
+    .select({
+      id: purchaseReceipts.id,
+      userId: purchaseReceipts.userId,
+      stripeCheckoutSessionId: purchaseReceipts.stripeCheckoutSessionId,
+      packId: purchaseReceipts.packId,
+      creditsAdded: purchaseReceipts.creditsAdded,
+      amountCents: purchaseReceipts.amountCents,
+      currency: purchaseReceipts.currency,
+      stripePaymentIntentId: purchaseReceipts.stripePaymentIntentId,
+      stripeReceiptUrl: purchaseReceipts.stripeReceiptUrl,
+      createdAt: purchaseReceipts.createdAt,
+      emailSentAt: purchaseReceipts.emailSentAt,
+      emailError: purchaseReceipts.emailError,
+      userEmail: users.email,
+    })
     .from(purchaseReceipts)
+    .leftJoin(users, eq(purchaseReceipts.userId, users.id))
     .orderBy(desc(purchaseReceipts.createdAt))
     .limit(limit)
     .offset(offset);
   if (conditions.length > 0) {
-    return query.where(and(...conditions));
+    return baseQuery.where(and(...conditions));
   }
-  return query;
+  return baseQuery;
 }

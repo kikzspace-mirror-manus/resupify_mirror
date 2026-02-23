@@ -1248,3 +1248,10 @@
 - [x] Register route in App.tsx
 - [x] Write 24 acceptance tests (H1-H20 + I1-I4)
 - [x] Full test suite: 1883 tests passing, 0 TypeScript errors
+
+## Phase 11I: Admin Billing Receipts Search
+- [x] Update adminListPurchaseReceipts DB helper to accept query + emailStatus params with server-side filtering
+- [x] Update admin.billing.listReceipts tRPC procedure to pass query + emailStatus to DB helper
+- [x] Update AdminBillingReceipts UI: add search input (debounced), wire to tRPC query
+- [x] Write 12 acceptance tests (I1-I12)
+- [x] Full test suite: 1895 tests passing, 0 TypeScript errors

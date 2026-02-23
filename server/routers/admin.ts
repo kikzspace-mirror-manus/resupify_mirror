@@ -793,12 +793,13 @@ ${buildToneSystemPrompt()}`
       .input(z.object({
         userId: z.number().int().positive().optional(),
         emailSentAt: z.enum(["sent", "unsent"]).optional(),
+        query: z.string().optional(),
         limit: z.number().int().min(1).max(200).default(100),
         offset: z.number().int().min(0).default(0),
       }))
       .query(async ({ input }) => {
         return db.adminListPurchaseReceipts(
-          { userId: input.userId, emailSentAt: input.emailSentAt },
+          { userId: input.userId, emailSentAt: input.emailSentAt, query: input.query },
           input.limit,
           input.offset
         );
