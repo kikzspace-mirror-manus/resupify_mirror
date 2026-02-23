@@ -657,31 +657,43 @@ export default function JobCards() {
                 let successCount = 0;
                 const failedIds = new Set<number>();
 
-                try {
-                  // Archive with max 3 concurrent
-                  for (let i = 0; i < toArchive.length; i += 3) {
-                    const batch = toArchive.slice(i, i + 3);
-                    await Promise.all(
-                      batch.map((id) =>
-                        new Promise<void>((resolve) => {
-                          archiveCard.mutate(
-                            { id, stage: "archived" as any },
-                            {
-                              onSuccess: () => {
-                                successCount++;
-                                setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
-                                resolve();
-                              },
-                              onError: () => {
-                                failedIds.add(id);
-                                setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
-                                resolve();
-                              },
-                            }
-                          );
-                        })
-                      )
+                // Helper: archive a single item with a 15s timeout
+                const archiveOne = (id: number): Promise<void> =>
+                  new Promise<void>((resolve) => {
+                    const timer = setTimeout(() => {
+                      failedIds.add(id);
+                      setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                      resolve();
+                    }, 15000);
+                    archiveCard.mutate(
+                      { id, stage: "archived" as any },
+                      {
+                        onSuccess: () => {
+                          clearTimeout(timer);
+                          successCount++;
+                          setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                          resolve();
+                        },
+                        onError: () => {
+                          clearTimeout(timer);
+                          failedIds.add(id);
+                          setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                          resolve();
+                        },
+                      }
                     );
+                  });
+
+                try {
+                  // Archive in chunks of 15 with Promise.allSettled per chunk
+                  const CHUNK_SIZE = 15;
+                  for (let i = 0; i < toArchive.length; i += CHUNK_SIZE) {
+                    const chunk = toArchive.slice(i, i + CHUNK_SIZE);
+                    await Promise.allSettled(chunk.map(archiveOne));
+                    // Small delay between chunks to avoid rate limits
+                    if (i + CHUNK_SIZE < toArchive.length) {
+                      await new Promise((r) => setTimeout(r, 200));
+                    }
                   }
 
                   if (failedIds.size > 0) {

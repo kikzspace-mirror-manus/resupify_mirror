@@ -934,3 +934,12 @@
 - [x] Prune selectedIds after list changes to avoid phantom selections
 - [x] Write acceptance tests (11 tests: 1A-1B, 2A-2B, 3A-3D, 4A-4C)
 - [x] Verify all 1187 tests pass, 0 TypeScript errors
+
+## Phase 9E7.4 (v2): Fix 3-item cap + Forever Archiving + Deselect All
+- [x] Remove 3-item cap in bulk archive (archive ALL selected)
+- [x] Implement chunking (15 per chunk) with Promise.allSettled
+- [x] Add 200ms delay between chunks
+- [x] Verify try/catch/finally resets progress state
+- [x] Add 15s request timeout per item with clearTimeout on success/error
+- [x] Write acceptance tests (16 tests: 1A-1D, 2A-2B, 3A-3C, 4A-4D, 5A-5C)
+- [x] Verify all 1203 tests pass, 0 TypeScript errors
