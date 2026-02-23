@@ -1108,3 +1108,13 @@
 - [x] Toast "CSV downloaded" after trigger
 - [x] Write acceptance tests A-E
 - [x] All tests pass, 0 TypeScript errors
+
+## Phase 10G.1: Fix Copy to Clipboard (Robust Fallbacks + Toast)
+- [x] Async handleCopyCsv with try/catch
+- [x] Path 1: navigator.clipboard.writeText + toast "Copied to clipboard"
+- [x] Path 2: textarea + execCommand('copy') fallback + toast
+- [x] Path 3: manual-copy modal with prefilled textarea + Select All helper
+- [x] Copy button disabled when displayResults.length === 0
+- [x] Single source of truth: buildSprintCsv used for both Copy and Download
+- [x] Write acceptance tests (clipboard API, fallback modal, non-empty csvText)
+- [x] All tests pass, 0 TypeScript errors
