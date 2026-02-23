@@ -31,6 +31,7 @@ import {
   Briefcase,
   MapPin,
   Calendar,
+  Clock,
   ExternalLink,
   Search,
   Bell,
@@ -431,6 +432,12 @@ export default function JobCards() {
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {new Date(job.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    {job.createdAt && (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Created: {new Date(job.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     )}
                   </div>

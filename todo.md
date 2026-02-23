@@ -871,3 +871,10 @@
 - [x] Apply sorting to list view rows
 - [x] Write acceptance tests A-D (13 tests, all passing)
 - [x] Verify all 1130 tests pass, 0 TypeScript errors
+
+## Phase 9E9: Job Cards List — Show "Created" Date on Each Row
+- [x] Add created date display to each list row (format: "Created: Feb 23")
+- [x] Placement: subtle/muted, aligned with metadata (company/location/dueDate)
+- [x] Fallback: hide label if createdAt is null
+- [x] Write acceptance tests A-C (15 tests: A1-A3, B1-B4, C1-C5, D1-D3)
+- [x] Verify all 1145 tests pass, 0 TypeScript errors
