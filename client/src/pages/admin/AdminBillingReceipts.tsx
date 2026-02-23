@@ -174,7 +174,7 @@ export default function AdminBillingReceipts() {
               <Input
                 id="receipt-search"
                 data-testid="receipt-search"
-                placeholder="Search by email or receipt ID…"
+                placeholder="Search by email, user ID, or receipt ID…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-8 pr-8 w-64"
@@ -227,7 +227,11 @@ export default function AdminBillingReceipts() {
               <div className="p-8 text-center text-muted-foreground">Loading receipts…</div>
             ) : receipts.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                {isFiltered ? "No receipts match your search." : "No receipts found."}
+                {debouncedQuery
+                  ? `No receipts match "${debouncedQuery}".`
+                  : isFiltered
+                  ? "No receipts match your filter."
+                  : "No receipts found."}
               </div>
             ) : (
               <div className="overflow-x-auto">

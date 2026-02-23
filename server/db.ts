@@ -2020,15 +2020,22 @@ export async function adminListPurchaseReceipts(
   }
   if (filters?.query) {
     const q = filters.query.trim();
-    const numericId = /^\d+$/.test(q) ? parseInt(q, 10) : null;
-    if (numericId !== null) {
-      // Match by receipt ID exactly
-      conditions.push(eq(purchaseReceipts.id, numericId));
-    } else {
-      // Match by user email (case-insensitive via LIKE on MySQL)
+    if (/^\d+$/.test(q)) {
+      // All digits → match userId OR receiptId
+      const numericId = parseInt(q, 10);
+      conditions.push(or(eq(purchaseReceipts.userId, numericId), eq(purchaseReceipts.id, numericId))!);
+    } else if (q.startsWith("#")) {
+      // "#NNN" → match receipt ID exactly (strip # prefix)
+      const receiptId = parseInt(q.slice(1), 10);
+      if (!isNaN(receiptId)) {
+        conditions.push(eq(purchaseReceipts.id, receiptId));
+      }
+    } else if (q.includes("@")) {
+      // Contains "@" → case-insensitive partial email match
       const pattern = `%${q}%`;
       conditions.push(sql`${users.email} LIKE ${pattern}`);
     }
+    // else: unrecognised format → no filter added (spec: "do nothing / show No matches")
   }
   // LEFT JOIN with users to expose userEmail
   const baseQuery = db

@@ -1255,3 +1255,18 @@
 - [x] Update AdminBillingReceipts UI: add search input (debounced), wire to tRPC query
 - [x] Write 12 acceptance tests (I1-I12)
 - [x] Full test suite: 1895 tests passing, 0 TypeScript errors
+
+## Phase 11I (spec-alignment): Admin Billing Receipts Search Refinement
+- [x] DB helper: digit-only query → WHERE userId = q OR id = q (OR, not AND)
+- [x] DB helper: "#NNN" query → WHERE id = NNN (strip # prefix)
+- [x] DB helper: "@"-containing query → JOIN users WHERE email LIKE %q%
+- [x] DB helper: other input → no filter (return empty or all, per spec "do nothing / show No matches")
+- [x] tRPC procedure: pass refined query to DB helper unchanged
+- [x] UI: update placeholder to "Search by email, user ID, or receipt ID…"
+- [x] UI: "No receipts match your search." empty state when search active
+- [x] Tests: digit query matches userId OR receiptId
+- [x] Tests: "#NNN" matches receipt by ID
+- [x] Tests: "@" query matches email LIKE
+- [x] Tests: combined query + emailSentAt filter
+- [x] Tests: non-admin cannot access listReceipts
+- [x] Full test suite: 1901 tests passing, 0 TypeScript errors
