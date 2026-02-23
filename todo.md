@@ -796,3 +796,9 @@
 - [x] Email basic format validation in edit form (blank ok)
 - [x] Write acceptance tests A-D in server/contact-edit.test.ts
 - [x] Verify 1020 tests pass (12 new), 0 TypeScript errors
+## Phase 9E0.1: Application Kit Tone Clarity
+- [x] Show inline note after tone buttons when existingKit exists and tone !== existingKit.tone
+- [x] Note text: "Tone applies when you regenerate. Current kit tone: {existingKit.tone}."
+- [x] No note shown when no kit exists
+- [x] Write acceptance tests A-C in server/kit-tone-clarity.test.ts
+- [x] Verify all tests pass, 0 TypeScript errors
