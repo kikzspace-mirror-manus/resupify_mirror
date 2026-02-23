@@ -243,6 +243,7 @@ export default function JobCards() {
   const filteredJobs = useMemo(() => {
     if (!jobs) return [];
     let filtered = jobs.filter((job) => {
+      if (filterStage === "all" && job.stage === "archived") return false;
       if (filterStage !== "all" && job.stage !== filterStage) return false;
       if (filterPriority !== "all" && job.priority !== filterPriority) return false;
       if (filterSeason !== "all" && job.season !== filterSeason) return false;
@@ -459,14 +460,23 @@ export default function JobCards() {
               <div
                 key={job.id}
                 className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${isSelected ? "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700" : "bg-card hover:bg-accent/30 cursor-pointer"}`}
-                onClick={() => { if (!isSelected) setLocation(`/jobs/${job.id}`); }}
+                onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-bulk-select]') && !isSelected) setLocation(`/jobs/${job.id}`); }}
               >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={(e) => { e.stopPropagation(); const newSelected = new Set(selectedIds); if (e.target.checked) { newSelected.add(job.id); } else { newSelected.delete(job.id); } setSelectedIds(newSelected); }}
-                  className="cursor-pointer shrink-0"
-                />
+                <div
+                  data-bulk-select
+                  className="flex items-center"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => { e.stopPropagation(); const newSelected = new Set(selectedIds); if (e.target.checked) { newSelected.add(job.id); } else { newSelected.delete(job.id); } setSelectedIds(newSelected); }}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="cursor-pointer shrink-0"
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{job.title}</p>

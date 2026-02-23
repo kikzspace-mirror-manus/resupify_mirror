@@ -913,3 +913,15 @@
 - [x] Verify row layout (priority badge stays in title line, no regression)
 - [x] Update acceptance tests A-G (added 4 new tests: B3 indeterminate, D2-1/D2-2 layout, F1/F2 archived button)
 - [x] Verify all 1165 tests pass, 0 TypeScript errors
+
+## Phase 9E7.2: Bulk Archive Fix — Checkbox Click + Hide Archived By Default
+- [x] Fix checkbox click handling with data-bulk-select attribute
+- [x] Add stopPropagation on checkbox wrapper and checkbox element
+- [x] Add stopPropagation on mouseDown to prevent navigation capture
+- [x] Guard row onClick to check if click is within [data-bulk-select]
+- [x] Hide archived items by default in "All Stages" filter
+- [x] Show archived items only when Stage filter = "Archived"
+- [x] Update filtering logic to exclude archived when filterStage === "all"
+- [x] Verify bulk selection respects visible filtered rows
+- [x] Write acceptance tests A-D (11 tests: A1-A3, B1-B3, C1-C3, D1-D2)
+- [x] Verify all 1176 tests pass, 0 TypeScript errors
