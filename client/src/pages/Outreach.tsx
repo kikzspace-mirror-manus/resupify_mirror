@@ -17,10 +17,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Users, Plus, Mail, Linkedin, Search, MessageSquare, Clock, Briefcase, CalendarDays } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Users, Plus, Mail, Linkedin, Search, Clock, Briefcase, CalendarDays, ExternalLink } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 
 // ─── Date formatting helpers ──────────────────────────────────────────────────
 
@@ -100,27 +106,28 @@ export default function Outreach() {
   }, [contacts, search]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Outreach CRM</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {contacts?.length ?? 0} contacts
-          </p>
+    <TooltipProvider delayDuration={400}>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Outreach CRM</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {contacts?.length ?? 0} contacts
+            </p>
+          </div>
+          <CreateContactDialog
+            open={showCreate}
+            onOpenChange={setShowCreate}
+            onCreated={() => {
+              utils.contacts.listWithUsage.invalidate();
+              setShowCreate(false);
+            }}
+          />
         </div>
-        <CreateContactDialog
-          open={showCreate}
-          onOpenChange={setShowCreate}
-          onCreated={() => {
-            utils.contacts.listWithUsage.invalidate();
-            setShowCreate(false);
-          }}
-        />
-      </div>
 
-      {/* Search */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        {/* Search */}
+        <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search contacts..."
@@ -129,144 +136,275 @@ export default function Outreach() {
             className="pl-9"
           />
         </div>
-      </div>
 
-      {/* Contact List */}
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
-      ) : filteredContacts.length > 0 ? (
-        <div className="space-y-2">
-          {filteredContacts.map((contact) => (
-            <ContactRow
-              key={contact.id}
-              contact={contact}
-              onUpdated={() => utils.contacts.listWithUsage.invalidate()}
-            />
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
-            <p className="font-medium">No contacts yet</p>
-            <p className="text-sm mt-1">
-              Add recruiters, hiring managers, and referrals.
-            </p>
-            <Button
-              size="sm"
-              className="mt-4"
-              onClick={() => setShowCreate(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Contact
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+        {/* Contact Table / List */}
+        {isLoading ? (
+          <div className="space-y-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-11 bg-muted rounded animate-pulse" />
+            ))}
+          </div>
+        ) : filteredContacts.length > 0 ? (
+          <>
+            {/* Desktop: compact table */}
+            <div className="hidden md:block rounded-lg border overflow-hidden">
+              <table className="w-full text-sm" data-testid="contacts-table">
+                <thead>
+                  <tr className="bg-muted/50 border-b">
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[180px]">Name</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[120px]">Role</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[160px]">Email</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[60px]">Links</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Used in</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[90px]">Last touch</th>
+                    <th className="text-left px-3 py-2.5 font-medium text-muted-foreground w-[90px]">Next touch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredContacts.map((contact, idx) => (
+                    <ContactTableRow
+                      key={contact.id}
+                      contact={contact}
+                      isLast={idx === filteredContacts.length - 1}
+                      onUpdated={() => utils.contacts.listWithUsage.invalidate()}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile: compact cards */}
+            <div className="md:hidden space-y-1.5" data-testid="contacts-cards">
+              {filteredContacts.map((contact) => (
+                <ContactMobileCard
+                  key={contact.id}
+                  contact={contact}
+                  onUpdated={() => utils.contacts.listWithUsage.invalidate()}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <Users className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+              <p className="font-medium">No contacts yet</p>
+              <p className="text-sm mt-1">
+                Add recruiters, hiring managers, and referrals.
+              </p>
+              <Button
+                size="sm"
+                className="mt-4"
+                onClick={() => setShowCreate(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Contact
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
-// ─── Contact Row ──────────────────────────────────────────────────────────────
+// ─── Desktop Table Row ────────────────────────────────────────────────────────
 
-function ContactRow({
+function ContactTableRow({
   contact,
-  onUpdated,
+  isLast,
+  onUpdated: _onUpdated,
 }: {
   contact: ContactWithUsage;
+  isLast: boolean;
   onUpdated: () => void;
 }) {
-  const createdDate = formatShortDate(contact.createdAt);
   const lastTouchDate = formatShortDate(contact.lastTouchAt);
   const nextTouchDate = formatShortDate(contact.nextTouchAt);
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-            <span className="text-sm font-semibold text-primary">
+    <tr
+      className={`hover:bg-muted/30 transition-colors${isLast ? "" : " border-b"}`}
+      data-testid="contact-table-row"
+    >
+      {/* Name */}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-semibold text-primary">
               {contact.name.charAt(0).toUpperCase()}
             </span>
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="font-medium truncate max-w-[130px] block">{contact.name}</span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{contact.name}{contact.company ? ` · ${contact.company}` : ""}</TooltipContent>
+          </Tooltip>
+        </div>
+      </td>
 
-          {/* Main content */}
-          <div className="flex-1 min-w-0">
-            {/* Name + contact badge */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium truncate">{contact.name}</p>
-              <Badge className="text-xs bg-blue-100 text-blue-700 shrink-0">
-                contact
-              </Badge>
-            </div>
+      {/* Role */}
+      <td className="px-3 py-2.5">
+        {contact.role ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-muted-foreground truncate max-w-[110px] block">{contact.role}</span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{contact.role}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
 
-            {/* Contact details row */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
-              {contact.company && <span>{contact.company}</span>}
-              {contact.role && <span>· {contact.role}</span>}
-              {contact.email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" />{contact.email}
-                </span>
-              )}
-              {contact.linkedinUrl && (
-                <a
-                  href={contact.linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-primary hover:underline"
-                >
-                  <Linkedin className="h-3 w-3" />LinkedIn
-                </a>
-              )}
-            </div>
+      {/* Email */}
+      <td className="px-3 py-2.5">
+        {contact.email ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={`mailto:${contact.email}`}
+                className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors truncate max-w-[150px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Mail className="h-3 w-3 shrink-0" />
+                <span className="truncate">{contact.email}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="top">{contact.email}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
 
-            {/* Metadata row: Created + Used in + Last/Next touch */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-muted-foreground">
-              {/* Created date */}
-              {createdDate && (
-                <span className="flex items-center gap-1">
-                  <CalendarDays className="h-3 w-3" />
-                  Created: {createdDate}
-                </span>
-              )}
+      {/* LinkedIn */}
+      <td className="px-3 py-2.5">
+        {contact.linkedinUrl ? (
+          <a
+            href={contact.linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:text-primary/70 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            title="Open LinkedIn profile"
+          >
+            <Linkedin className="h-3.5 w-3.5" />
+          </a>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
 
-              {/* Used in job cards */}
-              <UsedInBadge contact={contact} />
+      {/* Used in */}
+      <td className="px-3 py-2.5">
+        <UsedInBadge contact={contact} />
+      </td>
 
-              {/* Last touch */}
-              {lastTouchDate && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Last touch: {lastTouchDate}
-                </span>
-              )}
+      {/* Last touch */}
+      <td className="px-3 py-2.5">
+        {lastTouchDate ? (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+            <Clock className="h-3 w-3 shrink-0" />
+            {lastTouchDate}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
 
-              {/* Next touch */}
-              {nextTouchDate && (
-                <span className="flex items-center gap-1 text-amber-600">
-                  <Clock className="h-3 w-3" />
-                  Next touch: {nextTouchDate}
-                </span>
-              )}
-            </div>
-          </div>
+      {/* Next touch */}
+      <td className="px-3 py-2.5">
+        {nextTouchDate ? (
+          <span className="flex items-center gap-1 text-xs text-amber-600 whitespace-nowrap">
+            <Clock className="h-3 w-3 shrink-0" />
+            {nextTouchDate}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
+    </tr>
+  );
+}
 
-          {/* Notes (desktop) */}
-          {contact.notes && (
-            <div className="text-xs text-muted-foreground max-w-[200px] truncate hidden md:block shrink-0">
-              <MessageSquare className="h-3 w-3 inline mr-1" />
-              {contact.notes}
-            </div>
+// ─── Mobile Compact Card ──────────────────────────────────────────────────────
+
+function ContactMobileCard({
+  contact,
+  onUpdated: _onUpdated,
+}: {
+  contact: ContactWithUsage;
+  onUpdated: () => void;
+}) {
+  const lastTouchDate = formatShortDate(contact.lastTouchAt);
+  const nextTouchDate = formatShortDate(contact.nextTouchAt);
+
+  return (
+    <div
+      className="flex items-start gap-3 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+      data-testid="contact-mobile-card"
+    >
+      {/* Avatar */}
+      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+        <span className="text-[11px] font-semibold text-primary">
+          {contact.name.charAt(0).toUpperCase()}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Name + role */}
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="font-medium text-sm truncate">{contact.name}</span>
+          {contact.role && (
+            <span className="text-xs text-muted-foreground truncate">{contact.role}</span>
           )}
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Email + LinkedIn */}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {contact.email && (
+            <a
+              href={`mailto:${contact.email}`}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+            >
+              <Mail className="h-3 w-3" />
+              <span className="truncate max-w-[140px]">{contact.email}</span>
+            </a>
+          )}
+          {contact.linkedinUrl && (
+            <a
+              href={contact.linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <Linkedin className="h-3 w-3" />
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          )}
+        </div>
+
+        {/* Metadata: Used in + touches */}
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+          <UsedInBadge contact={contact} />
+          {lastTouchDate && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {lastTouchDate}
+            </span>
+          )}
+          {nextTouchDate && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <Clock className="h-3 w-3" />
+              Next: {nextTouchDate}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -278,7 +416,7 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
 
   if (contact.usedInCount === 0) {
     return (
-      <span className="flex items-center gap-1 text-muted-foreground/60 italic">
+      <span className="flex items-center gap-1 text-muted-foreground/50 italic text-xs">
         <Briefcase className="h-3 w-3" />
         Not used yet
       </span>
@@ -290,10 +428,14 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
     return (
       <button
         onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${jc.id}`); }}
-        className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+        className="flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer max-w-[220px] truncate"
+        title={`${jc.company ? `${jc.company} — ` : ""}${jc.title} (${formatStageLabel(jc.stage)})`}
       >
-        <Briefcase className="h-3 w-3" />
-        Used in: {jc.company ? `${jc.company} — ` : ""}{jc.title} ({formatStageLabel(jc.stage)})
+        <Briefcase className="h-3 w-3 shrink-0" />
+        <span className="truncate">{jc.company ? `${jc.company} — ` : ""}{jc.title}</span>
+        <Badge variant="outline" className="text-[10px] py-0 px-1 h-4 shrink-0 ml-0.5">
+          {formatStageLabel(jc.stage)}
+        </Badge>
       </button>
     );
   }
@@ -304,10 +446,10 @@ function UsedInBadge({ contact }: { contact: ContactWithUsage }) {
       <PopoverTrigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+          className="flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer whitespace-nowrap"
         >
-          <Briefcase className="h-3 w-3" />
-          Used in: {contact.usedInCount} job cards · View
+          <Briefcase className="h-3 w-3 shrink-0" />
+          {contact.usedInCount} job cards
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">

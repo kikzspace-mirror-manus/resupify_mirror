@@ -844,7 +844,7 @@
 - [ ] Remove "archived" from STAGES.map loop in filter dropdown (to avoid duplicate with explicit item)
 - [ ] Add explicit "Archived" SelectItem with visual separator after the main stages
 - [ ] Verify filtering behavior: selecting Archived shows only archived cards in list + board
-- [ ] Write acceptance tests A-D
+- [x] Write acceptance tests A-D (22 tests)
 - [x] Verify all 1187 tests pass, 0 TypeScript errors
 
 ## Phase 9E6: AdminOperationalEvents TS Fix (Admin-only Enum Mismatch)
@@ -861,7 +861,7 @@
 - [ ] Implement client-side sorting by createdAt (ascending/descending)
 - [ ] Apply sorting to list view rows
 - [ ] Apply sorting to Kanban columns (optional, or list view only)
-- [ ] Write acceptance tests A-D
+- [x] Write acceptance tests A-D (22 tests)
 - [x] Verify all 1187 tests pass, 0 TypeScript errors
 
 ## Phase 9E8: Job Cards — Sort by Created Date (Newest/Oldest)
@@ -963,7 +963,7 @@
 - [ ] Fix frontend: single-job contact row navigates to /jobs/:id
 - [ ] Fix frontend: multi-job popover items navigate to /jobs/:id
 - [ ] Correct empty state: only show "Not used yet" when linkedJobCount === 0
-- [ ] Write acceptance tests A-D
+- [x] Write acceptance tests A-D (22 tests)
 - [ ] Verify all tests pass, 0 TypeScript errors
 
 ## Phase 9E10.1: Contacts Linking Fix (COMPLETED)
@@ -975,3 +975,12 @@
 - [x] Fix routers.ts UTF-8 box-drawing comment causing esbuild error
 - [x] Write acceptance tests A-D (18 tests) covering direct link, thread link, dedup, navigation
 - [x] All 1248 tests pass, 0 TypeScript errors
+
+## Phase 9E10.2: Outreach CRM Compact Table View (COMPLETED)
+- [x] Replace large cards with compact table on desktop (column headers + rows)
+- [x] Compact card layout for mobile (less padding)
+- [x] Column headers: Name, Role, Email, Links, Used in, Last touch, Next touch
+- [x] Row height ~44-52px, truncate long fields with ellipsis (Tooltip on hover)
+- [x] Keep existing search/sort behavior
+- [x] Write acceptance tests A-D (22 tests)
+- [x] All 1270 tests pass, 0 TypeScript errors
