@@ -726,4 +726,64 @@ ${buildToneSystemPrompt()}`
       return { success: true, userId: input.userId, enabled: input.enabled, creditsGranted };
     }),
   }),
+  // ─── Refund Queue (Phase 11D) ──────────────────────────────────────────────────
+  // Admin-only endpoints for reviewing and processing Stripe refunds.
+  refunds: router({
+    // List all refund queue items, optionally filtered by status
+    list: adminProcedure.input(z.object({
+      status: z.enum(["pending", "processed", "ignored"]).optional(),
+    }).optional()).query(async ({ input }) => {
+      return db.listRefundQueueItems(input?.status);
+    }),
+    // Process a refund: debit credits and mark as processed
+    process: adminProcedure.input(z.object({
+      refundQueueId: z.number().int().positive(),
+      debitAmount: z.number().int().min(0).max(1000),
+    })).mutation(async ({ ctx, input }) => {
+      const { refundQueueId, debitAmount } = input;
+      // Fetch the item to build the ledger reason
+      const items = await db.listRefundQueueItems();
+      const item = items.find((r) => r.id === refundQueueId);
+      if (!item) throw new Error(`Refund queue item ${refundQueueId} not found`);
+      if (item.status !== "pending") {
+        return { success: false, alreadyProcessed: true };
+      }
+      const reason = item.packId
+        ? `Refund: ${item.packId} (${item.stripeRefundId})`
+        : `Refund (${item.stripeRefundId})`;
+      const ledgerEntryId = await db.processRefundQueueItem(
+        refundQueueId,
+        ctx.user.id,
+        debitAmount,
+        reason
+      );
+      await db.logAdminAction(ctx.user.id, "refund_processed", item.userId ?? undefined, {
+        refundQueueId,
+        debitAmount,
+        stripeRefundId: item.stripeRefundId,
+        ledgerEntryId,
+      });
+      return { success: true, ledgerEntryId };
+    }),
+    // Ignore a refund queue item with a required reason
+    ignore: adminProcedure.input(z.object({
+      refundQueueId: z.number().int().positive(),
+      reason: z.string().min(1).max(512),
+    })).mutation(async ({ ctx, input }) => {
+      const { refundQueueId, reason } = input;
+      const items = await db.listRefundQueueItems();
+      const item = items.find((r) => r.id === refundQueueId);
+      if (!item) throw new Error(`Refund queue item ${refundQueueId} not found`);
+      if (item.status !== "pending") {
+        return { success: false, alreadyProcessed: true };
+      }
+      await db.ignoreRefundQueueItem(refundQueueId, ctx.user.id, reason);
+      await db.logAdminAction(ctx.user.id, "refund_ignored", item.userId ?? undefined, {
+        refundQueueId,
+        reason,
+        stripeRefundId: item.stripeRefundId,
+      });
+      return { success: true };
+    }),
+  }),
 });

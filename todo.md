@@ -1147,3 +1147,33 @@
 - [x] Add Invoices section to /billing page (reuses receipt data)
 - [x] Write Phase 11C.1 acceptance tests (37 tests)
 - [x] All tests pass (1694), 0 TypeScript errors
+
+## Phase 11D: Refund Handling (Admin-only Credit Reversal + Audit Log)
+- [ ] Add refundQueue table to drizzle/schema.ts
+- [ ] Run pnpm db:push to migrate
+- [ ] Add refundQueue DB helpers (createRefundQueueItem, listRefundQueueItems, processRefundQueueItem, ignoreRefundQueueItem)
+- [ ] Update stripeWebhook.ts to record charge.refunded into refundQueue
+- [ ] Add admin tRPC endpoints: refunds.list, refunds.process, refunds.ignore
+- [ ] Add /admin/refunds page with table and Review modal
+- [ ] Review modal: Debit Credits action (with confirmation) and Ignore action (with reason)
+- [ ] Idempotency: same stripe_refund_id cannot create multiple debits
+- [ ] Write Phase 11D acceptance tests
+- [ ] All tests pass, 0 TypeScript errors
+
+## Phase 11D: Refund Handling (Admin-only Credit Reversal + Audit Log)
+
+- [x] refund_queue table in drizzle/schema.ts with userId, stripeChargeId, stripeRefundId (unique), stripeCheckoutSessionId, amountRefunded, currency, packId, creditsToReverse, status (pending/processed/ignored), adminUserId, ignoreReason, ledgerEntryId, processedAt, createdAt
+- [x] Migration 0023 applied (refund_queue table)
+- [x] DB helpers: createRefundQueueItem, listRefundQueueItems, processRefundQueueItem, ignoreRefundQueueItem, refundQueueItemExists
+- [x] createRefundQueueItem silently ignores ER_DUP_ENTRY (idempotency on stripeRefundId)
+- [x] processRefundQueueItem creates negative ledger entry (balance may go negative), sets ledgerEntryId on queue item
+- [x] ignoreRefundQueueItem requires non-empty reason, sets status to ignored
+- [x] Webhook: charge.refunded case creates pending refund queue item + records manual_review in stripe_events
+- [x] Admin tRPC: admin.refunds.list (with optional status filter)
+- [x] Admin tRPC: admin.refunds.process (debit credits + logAdminAction)
+- [x] Admin tRPC: admin.refunds.ignore (ignore with reason + logAdminAction)
+- [x] AdminRefunds.tsx page: table with status filter, Review modal with debit/ignore flows, confirmation step, empty state
+- [x] AdminLayout: Refunds nav item with RotateCcw icon
+- [x] App.tsx: /admin/refunds route
+- [x] 61 acceptance tests in server/refund-queue-11d.test.ts
+- [x] All 1755 tests pass (107 test files)

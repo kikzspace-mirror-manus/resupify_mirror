@@ -1795,3 +1795,135 @@ export async function purchaseReceiptExists(stripeCheckoutSessionId: string): Pr
     .limit(1);
   return rows.length > 0;
 }
+
+// ─── Refund Queue (Phase 11D) ─────────────────────────────────────────────────
+import {
+  refundQueue, InsertRefundQueueItem, RefundQueueItem,
+} from "../drizzle/schema";
+
+/**
+ * Create a refund queue item from a charge.refunded Stripe event.
+ * Idempotent: if a row with the same stripeRefundId already exists, the insert
+ * is silently ignored (duplicate key on unique constraint).
+ */
+export async function createRefundQueueItem(data: InsertRefundQueueItem): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  try {
+    await db.insert(refundQueue).values(data);
+  } catch (err: any) {
+    if (err?.code === 'ER_DUP_ENTRY' || err?.message?.includes('Duplicate entry')) return;
+    throw err;
+  }
+}
+
+/**
+ * List refund queue items for admin review.
+ * Returns all items ordered by createdAt desc, optionally filtered by status.
+ */
+export async function listRefundQueueItems(
+  status?: "pending" | "processed" | "ignored",
+  limit = 100
+): Promise<RefundQueueItem[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const query = db
+    .select()
+    .from(refundQueue)
+    .orderBy(desc(refundQueue.createdAt))
+    .limit(limit);
+  if (status) {
+    return db
+      .select()
+      .from(refundQueue)
+      .where(eq(refundQueue.status, status))
+      .orderBy(desc(refundQueue.createdAt))
+      .limit(limit);
+  }
+  return query;
+}
+
+/**
+ * Process a refund queue item: apply a negative ledger entry and mark as processed.
+ * Idempotent: if ledgerEntryId is already set, returns false (already processed).
+ * Returns the new ledger entry id on success, or null if already processed.
+ */
+export async function processRefundQueueItem(
+  refundQueueId: number,
+  adminUserId: number,
+  debitAmount: number,
+  reason: string
+): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  // Fetch the item
+  const rows = await db
+    .select()
+    .from(refundQueue)
+    .where(eq(refundQueue.id, refundQueueId))
+    .limit(1);
+  const item = rows[0];
+  if (!item) throw new Error(`Refund queue item ${refundQueueId} not found`);
+
+  // Idempotency: already processed
+  if (item.ledgerEntryId !== null && item.ledgerEntryId !== undefined) return null;
+  if (item.status === "processed") return null;
+
+  const userId = item.userId;
+  if (!userId) throw new Error("Cannot debit credits: no userId on refund queue item");
+
+  // Apply negative ledger entry (allow balance to go negative per spec)
+  const current = await getCreditsBalance(userId);
+  const newBalance = current - debitAmount;
+  await db.update(creditsBalances).set({ balance: newBalance }).where(eq(creditsBalances.userId, userId));
+  const [ledgerResult] = await db.insert(creditsLedger).values({
+    userId,
+    amount: -debitAmount,
+    reason,
+    referenceType: "refund",
+    referenceId: null,
+    balanceAfter: newBalance,
+  });
+  const ledgerEntryId = (ledgerResult as any).insertId as number;
+
+  // Mark as processed
+  await db.update(refundQueue)
+    .set({ status: "processed", adminUserId, ledgerEntryId, processedAt: new Date() })
+    .where(eq(refundQueue.id, refundQueueId));
+
+  return ledgerEntryId;
+}
+
+/**
+ * Ignore a refund queue item (no credits debited).
+ * Requires a non-empty reason string.
+ */
+export async function ignoreRefundQueueItem(
+  refundQueueId: number,
+  adminUserId: number,
+  reason: string
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  if (!reason || reason.trim().length === 0) {
+    throw new Error("Ignore reason is required");
+  }
+  await db.update(refundQueue)
+    .set({ status: "ignored", adminUserId, ignoreReason: reason.trim(), processedAt: new Date() })
+    .where(eq(refundQueue.id, refundQueueId));
+}
+
+/**
+ * Check if a refund queue item already exists for a given Stripe refund ID.
+ */
+export async function refundQueueItemExists(stripeRefundId: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: refundQueue.id })
+    .from(refundQueue)
+    .where(eq(refundQueue.stripeRefundId, stripeRefundId))
+    .limit(1);
+  return rows.length > 0;
+}

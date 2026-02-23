@@ -162,6 +162,13 @@
       "when": 1771855061187,
       "tag": "0022_amazing_morg",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1771856542377,
+      "tag": "0023_hard_rockslide",
+      "breakpoints": true
     }
   ]
 }

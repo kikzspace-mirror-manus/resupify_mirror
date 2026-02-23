@@ -403,3 +403,26 @@ export const purchaseReceipts = mysqlTable("purchase_receipts", {
 export type PurchaseReceipt = typeof purchaseReceipts.$inferSelect;
 export type InsertPurchaseReceipt = typeof purchaseReceipts.$inferInsert;
 
+
+// ─── Refund Queue (Phase 11D) ─────────────────────────────────────────────────
+// One row per charge.refunded Stripe event. Admin reviews each item and either
+// debits credits ("processed") or marks it ignored. Idempotent on stripeRefundId.
+export const refundQueue = mysqlTable("refund_queue", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),                               // null if we can't map the event
+  stripeChargeId: varchar("stripeChargeId", { length: 128 }).notNull(),
+  stripeRefundId: varchar("stripeRefundId", { length: 128 }).notNull().unique(),
+  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 128 }), // if available
+  amountRefunded: int("amountRefunded"),               // in cents, e.g. 999 for $9.99
+  currency: varchar("currency", { length: 8 }),        // e.g. "usd"
+  packId: varchar("packId", { length: 64 }),           // from session metadata if available
+  creditsToReverse: int("creditsToReverse"),           // derived from pack; null = admin must enter
+  status: mysqlEnum("status", ["pending", "processed", "ignored"]).notNull().default("pending"),
+  adminUserId: int("adminUserId"),                     // who processed/ignored it
+  ignoreReason: text("ignoreReason"),                  // required when status = ignored
+  ledgerEntryId: int("ledgerEntryId"),                 // FK to creditLedger row (for idempotency)
+  processedAt: timestamp("processedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type RefundQueueItem = typeof refundQueue.$inferSelect;
+export type InsertRefundQueueItem = typeof refundQueue.$inferInsert;

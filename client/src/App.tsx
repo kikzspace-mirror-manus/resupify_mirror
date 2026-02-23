@@ -35,6 +35,7 @@ import AdminOperationalEvents from "./pages/admin/AdminOperationalEvents";
 import AdminStripeEvents from "./pages/admin/AdminStripeEvents";
 import AdminEarlyAccess from "./pages/admin/AdminEarlyAccess";
 import AdminGrowthDashboard from "./pages/admin/AdminGrowthDashboard";
+import AdminRefunds from "./pages/admin/AdminRefunds";
 import { useAuth } from "./_core/hooks/useAuth";
 import { useEffect } from "react";
 
@@ -140,6 +141,7 @@ function Router() {
         <Route path="/admin/stripe-events" component={AdminStripeEvents} />
         <Route path="/admin/early-access" component={AdminEarlyAccess} />
         <Route path="/admin/growth" component={AdminGrowthDashboard} />
+        <Route path="/admin/refunds" component={AdminRefunds} />
 
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

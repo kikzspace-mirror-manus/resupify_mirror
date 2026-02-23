@@ -16,7 +16,7 @@ import Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { ENV } from "./_core/env";
 import * as db from "./db";
-import { createPurchaseReceipt } from "./db";
+import { createPurchaseReceipt, createRefundQueueItem } from "./db";
 import { logAnalyticsEvent } from "./analytics";
 import { EVT_PURCHASE_COMPLETED } from "../shared/analyticsEvents";
 
@@ -90,13 +90,37 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     }
 
     // ── charge.refunded ─────────────────────────────────────────────────────
-    // We do NOT automatically debit credits on refund — this requires manual
-    // review to avoid edge cases (partial refunds, disputed charges, etc.).
+    // Record into refund_queue for admin review. No automatic credit debit.
     case "charge.refunded": {
       const charge = event.data.object as Stripe.Charge;
-      const userIdStr = (charge.metadata as Record<string, string>)?.user_id;
+      const metadata = charge.metadata as Record<string, string> | undefined;
+      const userIdStr = metadata?.user_id;
       const userId = userIdStr ? parseInt(userIdStr, 10) : null;
 
+      // Extract refund details from the first refund object (most recent)
+      const refund = charge.refunds?.data?.[0] as Stripe.Refund | undefined;
+      const stripeRefundId = refund?.id ?? `refund_${event.id}`;
+      const amountRefunded = refund?.amount ?? charge.amount_refunded ?? null;
+      const currency = refund?.currency ?? charge.currency ?? null;
+
+      // Derive pack info from payment_intent metadata if available
+      const packId = metadata?.pack_id ?? null;
+      const creditsToReverse = packId ? (PACK_CREDITS[packId] ?? null) : null;
+
+      // Record in refund queue for admin review (idempotent on stripeRefundId)
+      await createRefundQueueItem({
+        userId: userId ?? null,
+        stripeChargeId: charge.id,
+        stripeRefundId,
+        stripeCheckoutSessionId: metadata?.checkout_session_id ?? null,
+        amountRefunded: amountRefunded ?? null,
+        currency: currency ?? null,
+        packId: packId ?? null,
+        creditsToReverse: creditsToReverse ?? null,
+        status: "pending",
+      });
+
+      // Also record in stripe_events for audit trail
       await db.recordStripeEvent({
         stripeEventId: event.id,
         eventType: event.type,
@@ -105,7 +129,7 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         status: "manual_review",
       });
 
-      console.log(`[Stripe] charge.refunded recorded for manual review: ${event.id}`);
+      console.log(`[Stripe] charge.refunded queued for admin review: ${event.id} (refund: ${stripeRefundId})`);
       break;
     }
 
