@@ -50,6 +50,16 @@ function formatStageLabel(stage: string): string {
   return map[stage] ?? stage;
 }
 
+// Derive a "Status" flag from stage: active/archived/rejected
+function deriveStatusFlag(stage: string | null): { label: string; className: string } | null {
+  if (!stage) return null;
+  if (stage === "archived") return { label: "Archived", className: "bg-gray-100 text-gray-500" };
+  if (stage === "rejected") return { label: "Rejected", className: "bg-red-100 text-red-600" };
+  if (stage === "offered") return { label: "Offered", className: "bg-green-100 text-green-700" };
+  // bookmarked, applying, applied, interviewing → Active
+  return { label: "Active", className: "bg-emerald-100 text-emerald-700" };
+}
+
 function stageBadgeVariant(stage: string): string {
   const map: Record<string, string> = {
     bookmarked: "bg-slate-100 text-slate-700",
@@ -169,14 +179,15 @@ export default function Outreach() {
                   style={{ minWidth: "900px" }}
                 >
                   <colgroup>
-                    <col style={{ width: "180px" }} />  {/* Name */}
-                    <col style={{ width: "160px" }} />  {/* Role */}
-                    <col style={{ width: "200px" }} />  {/* Email */}
-                    <col style={{ width: "70px" }} />   {/* Links */}
+                    <col style={{ width: "160px" }} />  {/* Name */}
+                    <col style={{ width: "140px" }} />  {/* Role */}
+                    <col style={{ width: "180px" }} />  {/* Email */}
+                    <col style={{ width: "60px" }} />   {/* Links */}
                     <col />                              {/* Used in — flexible */}
-                    <col style={{ width: "140px" }} />  {/* Status */}
-                    <col style={{ width: "110px" }} />  {/* Last touch */}
-                    <col style={{ width: "110px" }} />  {/* Next touch */}
+                    <col style={{ width: "120px" }} />  {/* Stage */}
+                    <col style={{ width: "110px" }} />  {/* Status */}
+                    <col style={{ width: "100px" }} />  {/* Last touch */}
+                    <col style={{ width: "100px" }} />  {/* Next touch */}
                     <col style={{ width: "60px" }} />   {/* Actions */}
                   </colgroup>
                   <thead>
@@ -186,6 +197,7 @@ export default function Outreach() {
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Email</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Links</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Used in</th>
+                      <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Stage</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Status</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Last touch</th>
                       <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Next touch</th>
@@ -353,7 +365,7 @@ function ContactTableRow({
         <UsedInBadge contact={contact} />
       </td>
 
-      {/* Status */}
+      {/* Stage */}
       <td className="px-3 py-2.5">
         {stage ? (
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${stageBadgeVariant(stage)}`}>
@@ -363,6 +375,22 @@ function ContactTableRow({
           <span className="text-muted-foreground/40">—</span>
         )}
       </td>
+
+      {/* Status (derived flag) */}
+      {(() => {
+        const statusFlag = deriveStatusFlag(stage);
+        return (
+          <td className="px-3 py-2.5">
+            {statusFlag ? (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusFlag.className}`}>
+                {statusFlag.label}
+              </span>
+            ) : (
+              <span className="text-muted-foreground/40">—</span>
+            )}
+          </td>
+        );
+      })()}
 
       {/* Last touch */}
       <td className="px-3 py-2.5">

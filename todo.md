@@ -992,3 +992,10 @@
 - [x] Edit Contact modal pre-fills all fields and saves via contacts.update
 - [x] Write acceptance tests A-E (23 tests)
 - [x] All 1293 tests pass, 0 TypeScript errors
+
+## Phase 9E10.4: Outreach CRM — Stage Column + Status as Flags (COMPLETED)
+- [x] Add Stage column header with job card stage pill
+- [x] Update Status column to show derived flags (Active/Archived/Rejected/Offered)
+- [x] Schema has no separate flags field; Status derived from stage
+- [x] Write acceptance tests A-E (27 tests)
+- [x] All 1320 tests pass, 0 TypeScript errors
