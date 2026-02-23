@@ -1,8 +1,10 @@
+import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Clock, Webhook } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, XCircle, Clock, Webhook, RefreshCw } from "lucide-react";
 
 function formatTs(ts: Date | null | undefined): string {
   if (!ts) return "—";
@@ -23,13 +25,48 @@ function AgeLabel({ ts }: { ts: Date | null | undefined }) {
   return <span className="text-muted-foreground text-sm">{label}</span>;
 }
 
+/** Format how long ago a Date was, for the "Last refreshed" label */
+function formatFreshness(ts: Date | null): string {
+  if (!ts) return "";
+  const diffMs = Date.now() - ts.getTime();
+  const diffSec = Math.floor(diffMs / 1_000);
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.round(diffSec / 60);
+  return `${diffMin}m ago`;
+}
+
 export default function AdminOps() {
-  const { data: status, isLoading } = trpc.admin.ops.getStatus.useQuery(undefined, {
-    refetchInterval: 30_000,
-  });
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  // Tick every second so the freshness label updates live
+  const [, setTick] = useState(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    tickRef.current = setInterval(() => setTick(t => t + 1), 1_000);
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
+  }, []);
+
+  const { data: status, isLoading, isFetching, refetch, dataUpdatedAt } =
+    trpc.admin.ops.getStatus.useQuery(undefined, {
+      refetchInterval: 30_000,
+    });
+
+  // Update lastRefreshedAt whenever a successful fetch completes (dataUpdatedAt changes)
+  useEffect(() => {
+    if (dataUpdatedAt > 0) {
+      setLastRefreshedAt(new Date(dataUpdatedAt));
+    }
+  }, [dataUpdatedAt]);
 
   const hasSuccess = !!status?.lastStripeWebhookSuccessAt;
   const hasFailure = !!status?.lastStripeWebhookFailureAt;
+
+  function handleRefresh() {
+    refetch();
+  }
 
   return (
     <AdminLayout>
@@ -47,7 +84,8 @@ export default function AdminOps() {
             <Webhook className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-base">Stripe Webhooks</CardTitle>
             {!isLoading && (
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-3">
+                {/* Status badge */}
                 {status === null ? (
                   <Badge variant="secondary">No data yet</Badge>
                 ) : hasFailure && !hasSuccess ? (
@@ -62,6 +100,27 @@ export default function AdminOps() {
                 ) : (
                   <Badge variant="secondary">No data yet</Badge>
                 )}
+                {/* Freshness label */}
+                {lastRefreshedAt && (
+                  <span
+                    className="text-xs text-muted-foreground whitespace-nowrap"
+                    data-testid="freshness-label"
+                  >
+                    Last refreshed: {formatFreshness(lastRefreshedAt)}
+                  </span>
+                )}
+                {/* Manual refresh button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isFetching}
+                  data-testid="refresh-button"
+                  className="h-7 px-2 text-xs gap-1"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
               </div>
             )}
           </CardHeader>
@@ -69,7 +128,7 @@ export default function AdminOps() {
             {isLoading ? (
               <div className="text-muted-foreground text-sm animate-pulse">Loading…</div>
             ) : status === null ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm" data-testid="no-data-message">
                 No webhook events have been processed yet. Once a live Stripe event arrives, the
                 status will appear here.
               </p>

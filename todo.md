@@ -1294,3 +1294,11 @@
 - [x] Add GET /api/health route to Express server entry point (no auth, no DB)
 - [x] Write Phase 12F acceptance tests (HTTP 200, status=ok, ts is number)
 - [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12G: Ops Page Freshness + Manual Refresh
+- [x] Add lastRefreshedAt state to AdminOps.tsx, updated on each successful fetch
+- [x] Add freshness label: "Last refreshed: just now / Xs ago / Xm ago"
+- [x] Add Refresh button in card header with loading state
+- [x] Keep existing 30s auto-refresh behavior unchanged
+- [x] Write Phase 12G acceptance tests (no-data, label appears, refresh triggers refetch)
+- [x] Full test suite passing, 0 TypeScript errors
