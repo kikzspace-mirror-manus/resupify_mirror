@@ -211,3 +211,39 @@ describe("Phase 9E2 — Test D: buildOutreachCopyAllText output format unchanged
     expect(text).not.toContain("##");
   });
 });
+
+// ─── Phase 9E2.1: Regenerate Pack button is green (variant="default") ─────────
+describe("Phase 9E2.1 — Regenerate Pack button uses primary (default) variant", () => {
+  it("E1: Regenerate Pack button in header uses variant='default' (green)", () => {
+    const headerStart = jobCardsDetailSource.indexOf('<CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>');
+    const cardContentIdx = jobCardsDetailSource.indexOf("<CardContent>", headerStart);
+    const headerSection = jobCardsDetailSource.slice(headerStart, cardContentIdx);
+    // The Regenerate Pack button must use variant="default"
+    const regenIdx = headerSection.indexOf("Regenerate Pack (1 credit)");
+    expect(regenIdx).toBeGreaterThan(0);
+    // Look backwards from the button text to find its variant prop
+    const buttonContext = headerSection.slice(Math.max(0, regenIdx - 600), regenIdx);
+    expect(buttonContext).toContain('variant="default"');
+  });
+
+  it("E2: Copy all button still uses variant='ghost' (not green)", () => {
+    const headerStart = jobCardsDetailSource.indexOf('<CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>');
+    const cardContentIdx = jobCardsDetailSource.indexOf("<CardContent>", headerStart);
+    const headerSection = jobCardsDetailSource.slice(headerStart, cardContentIdx);
+    // The Copy all button must use variant="ghost"
+    const copyIdx = headerSection.indexOf("Copy all");
+    expect(copyIdx).toBeGreaterThan(0);
+    const buttonContext = headerSection.slice(Math.max(0, copyIdx - 1000), copyIdx);
+    expect(buttonContext).toContain('variant="ghost"');
+  });
+
+  it("E3: Regenerate Pack button does NOT use variant='outline'", () => {
+    const headerStart = jobCardsDetailSource.indexOf('<CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>');
+    const cardContentIdx = jobCardsDetailSource.indexOf("<CardContent>", headerStart);
+    const headerSection = jobCardsDetailSource.slice(headerStart, cardContentIdx);
+    const regenIdx = headerSection.indexOf("Regenerate Pack (1 credit)");
+    expect(regenIdx).toBeGreaterThan(0);
+    const buttonContext = headerSection.slice(Math.max(0, regenIdx - 600), regenIdx);
+    expect(buttonContext).not.toContain('variant="outline"');
+  });
+});

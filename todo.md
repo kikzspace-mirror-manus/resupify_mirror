@@ -816,3 +816,8 @@
 - [x] Preserve loading/disabled states and all mutation logic
 - [x] Write acceptance tests A-D in server/outreach-pack-header-buttons.test.ts
 - [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E2.1: Outreach Pack Header — Regenerate Button Green
+- [x] Change Regenerate Pack header button from variant="outline" to variant="default" (primary green)
+- [x] Keep Copy all as variant="ghost" (secondary/neutral)
+- [x] Write structural test confirming variant in source
+- [x] Verify all tests pass, 0 TypeScript errors

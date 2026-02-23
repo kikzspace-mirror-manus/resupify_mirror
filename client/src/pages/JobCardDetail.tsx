@@ -2272,7 +2272,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
                   Copy all
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   className="h-7 text-xs"
                   onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
