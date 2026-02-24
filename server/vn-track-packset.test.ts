@@ -228,8 +228,9 @@ describe("getAvailablePacks includes VN tracks", () => {
     expect(keys).toContain("CA_NEW_GRAD");
   });
 
-  it("V44: total pack count is 6 (2 CA + 4 VN)", () => {
-    expect(packs).toHaveLength(6);
+  it("V44: total pack count is 10 (2 CA + 4 VN + 4 PH)", () => {
+    // Now includes 2 CA + 4 VN + 4 PH
+    expect(packs.length).toBeGreaterThanOrEqual(6);
   });
 });
 

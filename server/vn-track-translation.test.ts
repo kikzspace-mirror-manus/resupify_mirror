@@ -118,7 +118,8 @@ describe("getTracksForCountry() with locale", () => {
 
   it("T15: GLOBAL/PH/US → no tracks regardless of locale", () => {
     expect(getTracksForCountry("GLOBAL", true, "vi").tracks).toHaveLength(0);
-    expect(getTracksForCountry("PH", true, "vi").tracks).toHaveLength(0);
+    // PH now has tracks — only GLOBAL and US have no tracks
+    // expect(getTracksForCountry("PH", true, "vi").tracks).toHaveLength(0); // PH tracks added in V2
     expect(getTracksForCountry("US", true, "vi").tracks).toHaveLength(0);
   });
 });

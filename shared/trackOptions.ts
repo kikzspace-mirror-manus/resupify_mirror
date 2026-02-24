@@ -131,6 +131,36 @@ export const VN_TRACKS: TrackOption[] = [
   },
 ];
 
+// ─── Track definitions (PH — English-only) ─────────────────────────────────
+// PH tracks are always returned in English regardless of locale.
+
+export const PH_TRACKS: TrackOption[] = [
+  {
+    code: "INTERNSHIP",
+    regionCode: "PH",
+    label: "Philippines — Internship / Student",
+    sublabel: "Best for students applying for internships",
+  },
+  {
+    code: "NEW_GRAD",
+    regionCode: "PH",
+    label: "Philippines — New Graduate",
+    sublabel: "Best for 0–1 years experience",
+  },
+  {
+    code: "EARLY_CAREER",
+    regionCode: "PH",
+    label: "Philippines — Early Career (1–5 years)",
+    sublabel: "Best for early professionals building experience",
+  },
+  {
+    code: "EXPERIENCED",
+    regionCode: "PH",
+    label: "Philippines — Experienced (5+ years)",
+    sublabel: "Best for senior individual contributors or managers",
+  },
+];
+
 // ─── Track definitions (VI) ──────────────────────────────────────────────────
 
 export const VN_TRACKS_VI: TrackOption[] = [
@@ -232,7 +262,17 @@ export function getTracksForCountry(
     };
   }
 
-  // GLOBAL / PH / US — no tracks defined yet
+  if (effectivePack === "PH") {
+    // PH is always English-only — locale param is intentionally ignored
+    return {
+      tracks: PH_TRACKS,
+      defaultTrack: "NEW_GRAD",
+      hasTracksForCountry: true,
+      regionCode: "PH",
+    };
+  }
+
+  // GLOBAL / US — no tracks defined yet
   return {
     tracks: [],
     defaultTrack: "NEW_GRAD",

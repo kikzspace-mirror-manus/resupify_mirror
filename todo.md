@@ -1404,3 +1404,9 @@
 - [x] Add EVT_COUNTRY_PACK_SELECTED constant to analytics event constants file
 - [x] Fire event server-side in setCountryPack mutation (after DB commits, fire-and-forget, try/catch)
 - [x] Write tests: success fires once with correct props, failure no fire, analytics throw non-blocking
+
+## V2 — PH Tracks (Config + Track Options, English-only)
+- [x] Add PH/INTERNSHIP, PH/NEW_GRAD, PH/EARLY_CAREER, PH/EXPERIENCED to shared/regionPacks.ts
+- [x] Add PH_TRACKS to shared/trackOptions.ts (English-only labels/sublabels)
+- [x] Update getTracksForCountry() to return PH_TRACKS when countryPackId="PH" (ignore locale)
+- [x] Write tests: weights sum to 1.0, CA/VN counts unchanged, PH locale-invariant
