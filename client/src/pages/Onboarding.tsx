@@ -183,7 +183,7 @@ export default function Onboarding() {
       });
 
       // Only save work auth for CA users (CA-specific eligibility checks)
-      if (effectiveRegionCode === "CA" && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
+      if ((effectiveRegionCode === "CA" || effectiveRegionCode === "US") && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
         await updateWorkStatus.mutateAsync({ workStatus, needsSponsorship });
       }
 
@@ -197,7 +197,18 @@ export default function Onboarding() {
   // For CA/COOP track: show enrollment-related UI
   const isStudentTrack = trackCode === "COOP";
   // For CA tracks: show work auth step
-  const showWorkAuthStep = effectiveRegionCode === "CA";
+  const showWorkAuthStep = effectiveRegionCode === "CA" || effectiveRegionCode === "US";
+
+  // Copy variant for Work Auth step: US uses US-specific labels
+  const workAuthStepCopy = effectiveRegionCode === "US"
+    ? {
+        workStatusLabel: "Work status in the United States",
+        sponsorshipLabel: "Will you now or in the future require employer sponsorship?",
+      }
+    : {
+        workStatusLabel: "Work status in Canada",
+        sponsorshipLabel: "Sponsorship needed?",
+      };
   // Total steps: flag ON adds Step 0; work auth adds Step 3
   const totalSteps = v2CountryPacksEnabled
     ? (showWorkAuthStep ? 4 : 3)
@@ -465,7 +476,7 @@ export default function Onboarding() {
           </Card>
         )}
 
-        {/* Step 3: Work Authorization (CA only) */}
+        {/* Step 3: Work Authorization (CA and US) */}
         {step === 3 && showWorkAuthStep && (
           <Card>
             <CardHeader>
@@ -476,7 +487,7 @@ export default function Onboarding() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Work status in Canada</Label>
+                <Label>{workAuthStepCopy.workStatusLabel}</Label>
                 <Select
                   value={workStatus}
                   onValueChange={(v) => setWorkStatus(v as typeof workStatus)}
@@ -492,7 +503,7 @@ export default function Onboarding() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Sponsorship needed?</Label>
+                <Label>{workAuthStepCopy.sponsorshipLabel}</Label>
                 <Select
                   value={needsSponsorship}
                   onValueChange={(v) => setNeedsSponsorship(v as typeof needsSponsorship)}

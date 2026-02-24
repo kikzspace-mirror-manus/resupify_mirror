@@ -1463,3 +1463,10 @@
 - [x] Extend preselect logic to include US
 - [x] Confirm setCountryPack backend enforces languageMode="en" for non-VN packs
 - [x] Write tests: US card visible, US persists, languageModeSet=false, flag OFF regression
+
+## V2 — Work Authorization: Support CA + US (no schema changes)
+- [x] Update showWorkAuthCard gating to CA || US in Profile.tsx
+- [x] Add US copy variant (US labels/helper text) in Profile.tsx
+- [x] Update showWorkAuthStep gating to CA || US in Onboarding.tsx
+- [x] Add US copy variant in Onboarding.tsx Work Auth step
+- [x] Write tests: CA/US visible, VN/PH/GLOBAL hidden, US copy, CA regression

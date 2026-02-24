@@ -85,11 +85,9 @@ describe("Profile track options: always derived from countryPackId", () => {
     // PH tracks should be identical regardless of locale
     expect(enResult.tracks.map((t) => t.label)).toEqual(viResult.tracks.map((t) => t.label));
   });
-});
+});// ─── Work Authorization card is CA+US ─────────────────────────────────────────────
 
-// ─── Work Authorization card is CA-only ──────────────────────────────────────
-
-describe("Profile Work Authorization card: CA-only gating", () => {
+describe("Profile Work Authorization card: CA+US gating", () => {
   it("P9: showWorkAuthCard uses userCountryPackId === 'CA' directly", () => {
     // The fix: gate on userCountryPackId, not effectiveRegionCode
     expect(profileContent).toContain("userCountryPackId === \"CA\"");
@@ -108,8 +106,9 @@ describe("Profile Work Authorization card: CA-only gating", () => {
     expect(profileContent).toContain("Work Authorization");
   });
 
-  it("P12: Work Authorization card comment says CA only", () => {
-    expect(profileContent).toContain("CA only");
+  it("P12: Work Authorization card comment says CA and US", () => {
+    // Comment updated: now says 'CA and US'
+    expect(profileContent).toContain("CA and US");
   });
 
   it("P13: CA-only logic: userCountryPackId=CA → showWorkAuthCard true", () => {

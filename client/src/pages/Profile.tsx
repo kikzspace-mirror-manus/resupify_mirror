@@ -148,9 +148,24 @@ export default function Profile() {
     );
   }
 
-  // Show work auth card ONLY for CA users — gate on countryPackId directly,
+  // Show work auth card for CA and US users — gate on countryPackId directly,
   // NOT on effectiveRegionCode (which defaults to "CA" in V1 mode for all users).
-  const showWorkAuthCard = userCountryPackId === "CA";
+  const showWorkAuthCard = userCountryPackId === "CA" || userCountryPackId === "US";
+
+  // Copy variant: US uses US-specific labels; CA keeps existing labels.
+  const workAuthCopy = userCountryPackId === "US"
+    ? {
+        workStatusLabel: "Work status in the United States",
+        sponsorshipLabel: "Will you now or in the future require employer sponsorship?",
+        countryPlaceholder: "e.g., United States",
+        noteText: "This information is used only to detect potential eligibility mismatches in job postings (e.g., \"must be authorized to work in the US\", \"no sponsorship\"). It is framed as guidance, not legal advice. You can always change or clear these fields.",
+      }
+    : {
+        workStatusLabel: "Work Status",
+        sponsorshipLabel: "Will you need employer sponsorship?",
+        countryPlaceholder: "e.g., Canada",
+        noteText: "This information is used only to detect potential eligibility mismatches in job postings (e.g., \"must be Citizen/PR\", \"no sponsorship\"). It is framed as guidance, not legal advice. You can always change or clear these fields.",
+      };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
@@ -342,7 +357,7 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* Work Authorization Card — CA only */}
+      {/* Work Authorization Card — CA and US */}
       {showWorkAuthCard && (
         <Card>
           <CardHeader>
@@ -356,7 +371,7 @@ export default function Profile() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label>Work Status</Label>
+              <Label>{workAuthCopy.workStatusLabel}</Label>
               <Select value={workStatus} onValueChange={(v) => setWorkStatus(v as any)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select work status" />
@@ -388,7 +403,7 @@ export default function Profile() {
             )}
 
             <div className="space-y-2">
-              <Label>Will you need employer sponsorship?</Label>
+              <Label>{workAuthCopy.sponsorshipLabel}</Label>
               <Select value={needsSponsorship} onValueChange={(v) => setNeedsSponsorship(v as any)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
@@ -405,7 +420,7 @@ export default function Profile() {
               <Label htmlFor="country">Country of Residence (optional)</Label>
               <Input
                 id="country"
-                placeholder="e.g., Canada"
+                placeholder={workAuthCopy.countryPlaceholder}
                 value={countryOfResidence}
                 maxLength={MAX_LENGTHS.PROFILE_COUNTRY}
                 onChange={(e) => setCountryOfResidence(e.target.value)}
@@ -425,7 +440,7 @@ export default function Profile() {
             </div>
 
             <p className="text-xs text-muted-foreground bg-muted/50 rounded p-3">
-              <strong>Note:</strong> This information is used only to detect potential eligibility mismatches in job postings (e.g., "must be Citizen/PR", "no sponsorship"). It is framed as guidance, not legal advice. You can always change or clear these fields.
+              <strong>Note:</strong> {workAuthCopy.noteText}
             </p>
 
             <Button
