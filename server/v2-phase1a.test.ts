@@ -43,8 +43,8 @@ describe("V2 Phase 1A: DB Fields + Feature Flags", () => {
     const col = (users as any).countryPackId;
     expect(col).toBeDefined();
     // Drizzle enum columns expose their enumValues
-    // GLOBAL added in Phase 1A.1 as the universal fallback
-    expect(col.enumValues).toEqual(["GLOBAL", "VN", "PH", "US"]);
+    // GLOBAL added in Phase 1A.1; CA added in Phase 1C-B
+    expect(col.enumValues).toEqual(["GLOBAL", "CA", "VN", "PH", "US"]);
     // Column must be nullable (no notNull constraint)
     expect(col.notNull).toBeFalsy();
   });
@@ -62,8 +62,8 @@ describe("V2 Phase 1A: DB Fields + Feature Flags", () => {
     const columns = Object.keys(jobCards);
     expect(columns).toContain("countryPackId");
     const col = (jobCards as any).countryPackId;
-    // GLOBAL added in Phase 1A.1 as the universal fallback
-    expect(col.enumValues).toEqual(["GLOBAL", "VN", "PH", "US"]);
+    // GLOBAL added in Phase 1A.1; CA added in Phase 1C-B
+    expect(col.enumValues).toEqual(["GLOBAL", "CA", "VN", "PH", "US"]);
     expect(col.notNull).toBeFalsy();
   });
 

@@ -28,6 +28,7 @@ import { buildToneSystemPrompt, sanitizeTone } from "../shared/toneGuardrails";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
+import { resolvePackContextForGeneration } from "./v2PackContext";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
 import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, jdExtractRateLimit, shortHash } from "./rateLimiter";
@@ -858,8 +859,13 @@ export const appRouter = router({
       const regionCode = profile?.regionCode ?? "CA";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
-
-      // ── 4. Create evidence run row ───────────────────────────────────
+      // ── V2 Phase 1C-C: Resolve country pack context (flag-gated) ─────
+      const v2PackCtx = await resolvePackContextForGeneration({
+        userId: ctx.user.id,
+        jobCardId: input.jobCardId,
+        userLanguageMode: (ctx.user as any).languageMode ?? "en",
+      });
+      // ── 4. Create evidence run row ────────────────────────────────────
       const runId = await db.createEvidenceRun({
         jobCardId: input.jobCardId,
         userId: ctx.user.id,
@@ -910,6 +916,7 @@ export const appRouter = router({
             {
               role: "system",
               content: [
+                ...(v2PackCtx.packPromptPrefix ? [v2PackCtx.packPromptPrefix, ``] : []),
                 `You are an expert ATS resume analyzer for the ${pack.label} track.`,
                 `You will receive a numbered list of job requirements and a resume.`,
                 `For EACH requirement, produce one evidence item that maps the requirement to the resume.`,
@@ -1601,8 +1608,13 @@ ${buildToneSystemPrompt()}`
       const regionCode = profile?.regionCode ?? "CA";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
-
-      // ── Prioritize missing/partial items for top changes ────────────
+      // ── V2 Phase 1C-C: Resolve country pack context (flag-gated) ─────
+      const v2PackCtx = await resolvePackContextForGeneration({
+        userId: ctx.user.id,
+        jobCardId: input.jobCardId,
+        userLanguageMode: (ctx.user as any).languageMode ?? "en",
+      });
+      // ── Prioritize missing/partial items for top changess ────────────
       const typeWeight: Record<string, number> = {
         eligibility: 4, tools: 3, responsibilities: 3, skills: 2, soft_skills: 1,
       };
@@ -1639,6 +1651,7 @@ ${buildToneSystemPrompt()}`
           {
             role: "system",
             content: [
+              ...(v2PackCtx.packPromptPrefix ? [v2PackCtx.packPromptPrefix, ``] : []),
               `You are an expert career coach for ${pack.label} job applications.`,
               `Tone instruction: ${toneInstructions[input.tone] ?? toneInstructions.Human}`,
               `RULES:`,

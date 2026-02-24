@@ -1312,3 +1312,12 @@
 - [x] BrowserCapture.tsx: postMessage same BROWSER_CAPTURE_RESULT format on send
 - [x] Tests: browser-capture.test.ts — blocked state shows textarea; postMessage payload format
 - [x] Full suite regression: all tests pass
+
+## V2 Phase 1C-C — Pack-Aware Generation Wiring
+- [x] server/v2PackContext.ts: resolvePackContextForGeneration({ userId, jobCardId?, overrideCountryPackId? }) helper
+- [x] server/v2PackContext.ts: flag OFF → always return GLOBAL; unknown pack → fallback GLOBAL
+- [x] server/v2PackContext.ts: returns { countryPackId, countryPack, templateStyleKey, languageMode, packPromptPrefix }
+- [x] Evidence Scan: inject packPromptPrefix into LLM prompt (flag-gated, CA-first)
+- [x] Application Kit: inject packPromptPrefix into cover letter, outreach, resume rewrite prompts (flag-gated)
+- [x] Tests: v2-phase1c-c.test.ts — flag OFF no CA markers; flag ON+CA has CA prefix; job card override; unknown pack fallback
+- [x] Full suite regression: all tests pass, 0 TS errors
