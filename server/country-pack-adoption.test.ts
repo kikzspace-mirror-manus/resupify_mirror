@@ -159,8 +159,8 @@ describe("C) Country Pack Adoption card — AdminGrowthDashboard.tsx", () => {
   });
 
   it("C4: range selector buttons (7d, 14d, 30d) are rendered", () => {
-    // The adoption range selector uses the same pattern as the timeline range selector
-    expect(growthUISource).toContain("setAdoptionRange(r)");
+    // The adoption range selector passes setAdoptionRange as onChange to RangeSelector
+    expect(growthUISource).toContain("onChange={setAdoptionRange}");
   });
 
   it("C5: CA line is rendered with red stroke", () => {
@@ -199,8 +199,9 @@ describe("C) Country Pack Adoption card — AdminGrowthDashboard.tsx", () => {
 
   it("C12: analytics-off state shows enable message", () => {
     // When analyticsEnabled is false, shows a message to enable analytics
+    // The analytics-off guard is inside the chart card, ~3000 chars after the section header
     const idx = growthUISource.indexOf("Country Pack Adoption");
-    const snippet = growthUISource.slice(idx, idx + 2000);
+    const snippet = growthUISource.slice(idx, idx + 3500);
     expect(snippet).toContain("V2_ANALYTICS_ENABLED");
   });
 

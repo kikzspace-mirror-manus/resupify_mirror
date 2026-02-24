@@ -1504,3 +1504,11 @@
 - [x] If previous=="VN" AND new!="VN": set languageMode="en", return languageModeReset=true
 - [x] Keep VN one-time default logic unchanged
 - [x] Write tests: VN→US/CA/PH/GLOBAL resets, VN→VN no-op, non-VN→VN no-op
+
+## V2 — Admin Growth: Fix Refresh + UI Hierarchy
+- [x] Fix Refresh button to invalidate all growth queries (kpis, timeline, countryPackAdoption, funnel, outcomes, health)
+- [x] Add spinner + disabled state while refreshing
+- [x] Add "Last updated: HH:MM" timestamp after refresh
+- [x] Improve visual hierarchy: section headers with icons, max-w-[1200px] container
+- [x] Improve KPI cards: icon, stronger number weight, responsive wrap
+- [x] Write tests: Refresh triggers invalidate, button disabled, last updated changes

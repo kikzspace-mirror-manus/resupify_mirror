@@ -176,9 +176,12 @@ describe("F) Regression: existing chart and totals row unchanged", () => {
     expect(dashboardSource).toContain("7, 14, 30");
   });
 
-  it("F9: pack-adoption-kpi-cards appears BEFORE Country Pack Adoption card", () => {
+  it("F9: pack-adoption-kpi-cards appears BEFORE the Adoption Over Time chart card", () => {
+    // KPI cards appear between the section header and the chart card
     const kpiIdx = dashboardSource.indexOf('data-testid="pack-adoption-kpi-cards"');
-    const chartIdx = dashboardSource.indexOf("Country Pack Adoption");
+    const chartIdx = dashboardSource.indexOf("Adoption Over Time");
+    expect(kpiIdx).toBeGreaterThan(-1);
+    expect(chartIdx).toBeGreaterThan(-1);
     expect(kpiIdx).toBeLessThan(chartIdx);
   });
 });
