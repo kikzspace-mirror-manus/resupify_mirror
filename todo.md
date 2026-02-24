@@ -1452,3 +1452,14 @@
 - [x] Add large confirm AlertDialog with "Archive {N} jobs?" title and "You can't undo this from the list view." body
 - [x] Large confirm "Confirm Archive" button triggers the same archive runner
 - [x] Write tests: 101 selected shows large dialog, cancel blocks, confirm proceeds; 100 selected uses existing dialog
+
+## V2 — Onboarding Education Step: Add Highest Education Level Dropdown
+- [x] Restore highestEducationLevel state + useEffect hydration in Profile.tsx (was lost in divergence commit)
+- [x] Restore highestEducationLevel to Profile Education save payload
+- [x] Add highestEducationLevel state variable to Onboarding.tsx Education step
+- [x] Add schoolPlaceholder IIFE (pack-aware) to Onboarding.tsx
+- [x] Add isCoopCA guard to Onboarding.tsx (CA+COOP only for enrollment toggle/co-op copy)
+- [x] Add Highest education level dropdown above School/Institution in Onboarding Education step
+- [x] Update handleComplete to pass highestEducationLevel in upsertProfile payload
+- [x] Rename "Program" label → "Field of study" in Onboarding Education step
+- [x] Write tests: dropdown renders 7 options, value included in mutation payload, regression

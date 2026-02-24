@@ -122,7 +122,16 @@ export default function Onboarding() {
 
   // Step 2: Education
   const [school, setSchool] = useState("");
+  // Pack-aware school placeholder for the Education step
+  const schoolPlaceholder = (() => {
+    if (effectiveCountryPackId === "US") return "e.g., University of California, Berkeley";
+    if (effectiveCountryPackId === "PH") return "e.g., University of the Philippines";
+    if (effectiveCountryPackId === "VN") return "e.g., Vietnam National University";
+    if (effectiveCountryPackId === "CA") return "e.g., University of Waterloo";
+    return "e.g., Your university"; // GLOBAL fallback
+  })();
   const [program, setProgram] = useState("");
+  const [highestEducationLevel, setHighestEducationLevel] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(true);
 
@@ -173,6 +182,7 @@ export default function Onboarding() {
         program: program || undefined,
         graduationDate: graduationDate || undefined,
         currentlyEnrolled: trackCode === "COOP" ? currentlyEnrolled : undefined,
+        highestEducationLevel: highestEducationLevel || undefined,
         onboardingComplete: true,
       });
 
@@ -188,8 +198,9 @@ export default function Onboarding() {
     }
   };
 
-  // For CA/COOP track: show enrollment-related UI
-  const isStudentTrack = trackCode === "COOP";
+  // For CA+COOP track only: show enrollment-related UI and co-op specific copy.
+  // Non-CA packs (VN/PH/US/GLOBAL) must never show CA co-op messaging.
+  const isCoopCA = selectedCountryPackId === "CA" && trackCode === "COOP";
   // For CA tracks: show work auth step
   const showWorkAuthStep = effectiveRegionCode === "CA";
   // Total steps: flag ON adds Step 0; work auth adds Step 3
@@ -375,38 +386,60 @@ export default function Onboarding() {
             <CardHeader>
               <CardTitle>Your education</CardTitle>
               <CardDescription>
-                {isStudentTrack
+                {isCoopCA
                   ? "Co-op employers verify enrollment status."
-                  : "Optional — helps with eligibility checks."}
+                  : "Optional — helps tailor your recommendations."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="highestEducationLevel">
+                  Highest education level <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+                </Label>
+                <select
+                  id="highestEducationLevel"
+                  data-testid="education-level-select"
+                  value={highestEducationLevel}
+                  onChange={(e) => setHighestEducationLevel(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">Select level…</option>
+                  <option value="high_school">High school</option>
+                  <option value="diploma_certificate">Diploma / Certificate</option>
+                  <option value="associate_degree">Associate degree</option>
+                  <option value="bachelors_degree">{"Bachelor's degree"}</option>
+                  <option value="masters_degree">{"Master's degree"}</option>
+                  <option value="doctorate">Doctorate (PhD)</option>
+                  <option value="other">Other / Prefer not to say</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="school">
-                  School / Institution{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  School / Institution{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="school"
-                  placeholder="e.g., University of Waterloo"
+                  data-testid="school-input"
+                  placeholder={schoolPlaceholder}
                   value={school}
                   onChange={(e) => setSchool(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="program">
-                  Program{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  Field of study{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="program"
-                  placeholder="e.g., Computer Science"
+                  placeholder="e.g., Computer Science / Business / Marketing"
                   value={program}
                   onChange={(e) => setProgram(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gradDate">
-                  {isStudentTrack ? "Expected Graduation" : "Graduation Date"}
-                  {!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  {isCoopCA ? "Expected Graduation" : "Graduation Date"}
+                  {!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="gradDate"
@@ -415,7 +448,7 @@ export default function Onboarding() {
                   onChange={(e) => setGraduationDate(e.target.value)}
                 />
               </div>
-              {isStudentTrack && (
+              {isCoopCA && (
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
                     <Label>Currently Enrolled</Label>

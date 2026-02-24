@@ -91,11 +91,17 @@ export async function getProfile(userId: number) {
 export async function upsertProfile(userId: number, data: Partial<InsertUserProfile>) {
   const db = await getDb();
   if (!db) return;
+  // Guard: Drizzle throws "No values to set" if the update payload is empty.
+  // Strip undefined values so the caller can safely pass a sparse object.
+  const clean = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined)
+  ) as Partial<InsertUserProfile>;
+  if (Object.keys(clean).length === 0) return; // nothing to persist
   const existing = await getProfile(userId);
   if (existing) {
-    await db.update(userProfiles).set(data).where(eq(userProfiles.userId, userId));
+    await db.update(userProfiles).set(clean).where(eq(userProfiles.userId, userId));
   } else {
-    await db.insert(userProfiles).values({ userId, ...data } as InsertUserProfile);
+    await db.insert(userProfiles).values({ userId, ...clean } as InsertUserProfile);
   }
 }
 
