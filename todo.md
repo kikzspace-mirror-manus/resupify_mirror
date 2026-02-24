@@ -1375,3 +1375,9 @@
 - [x] Fix vertical/horizontal alignment: center badges, right-align time, left-align ID/Type/User
 - [x] Verify filters, refresh work, no TS errors, no backend changes
 - [x] Full test suite passing (2104 tests), 0 TypeScript errors
+## Phase 12T.2: Operational Events filter bar + table alignment
+- [x] Audit AdminOps.tsx ops status page layout (filters, refresh, table)
+- [x] Create unified page wrapper with aligned filter bar and table (same padding/margins)
+- [x] Ensure filter dropdowns have consistent heights and labels align
+- [x] Verify filters/refresh work, no TS errors, no backend changes
+- [x] Full test suite passing (2104 tests), 0 TypeScript errors

@@ -222,7 +222,12 @@ export default function AdminOps() {
         {/* Recent Stripe Events audit table */}
         <Card data-testid="stripe-events-table-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Recent Stripe Events</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Recent Stripe Events</CardTitle>
+              <span className="text-xs text-muted-foreground">
+                {eventsPage?.items.length ?? 0} event{(eventsPage?.items.length ?? 0) !== 1 ? "s" : ""}
+              </span>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {eventsLoading ? (
