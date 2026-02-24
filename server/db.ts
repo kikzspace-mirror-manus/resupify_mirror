@@ -1562,6 +1562,51 @@ export async function resolveCountryPack(params: {
   return { effectiveCountryPackId: DEFAULT_COUNTRY_PACK_ID, source: "default", userCountryPackId, jobCardCountryPackId };
 }
 
+// ─── V2 Phase 1C-A: User Country Pack / Language Mode / Current Country setters ─
+/**
+ * Update users.countryPackId. Validates against COUNTRY_PACK_IDS.
+ * If countryPackId is not VN, also enforces languageMode = "en".
+ */
+export async function updateUserCountryPack(
+  userId: number,
+  countryPackId: CountryPackId | null
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const setFields: Record<string, unknown> = { countryPackId };
+  // Enforce: non-VN packs must use languageMode "en"
+  if (countryPackId !== "VN") {
+    setFields.languageMode = "en";
+  }
+  await db.update(users).set(setFields as any).where(eq(users.id, userId));
+}
+
+/**
+ * Update users.languageMode. Only valid when countryPackId is VN.
+ * Caller must validate countryPackId before calling this.
+ */
+export async function updateUserLanguageMode(
+  userId: number,
+  languageMode: "en" | "vi" | "bilingual"
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ languageMode }).where(eq(users.id, userId));
+}
+
+/**
+ * Update users.currentCountry (informational only).
+ * Does NOT modify countryPackId or languageMode.
+ */
+export async function updateUserCurrentCountry(
+  userId: number,
+  currentCountry: string | null
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ currentCountry } as any).where(eq(users.id, userId));
+}
+
 // ─── V2 Analytics KPI Helpers (Phase 1B.2) ──────────────────────────────────
 import { analyticsEvents } from "../drizzle/schema";
 import {

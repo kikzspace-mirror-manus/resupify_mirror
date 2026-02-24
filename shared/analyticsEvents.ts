@@ -57,7 +57,27 @@ export const EVT_SUGGESTION_APPLIED = "suggestion_applied";
  */
 export const EVT_OUTCOME_REPORTED = "outcome_reported";
 
-// ─── All event names (for validation) ────────────────────────────────────────
+// ─── V2 Phase 1C-A: Country Pack / Language Mode / Current Country events ───────
+/**
+ * User changed their Country Pack selection.
+ * props: { from: string | null, to: string | null }
+ * No PII — only pack IDs (GLOBAL/VN/PH/US).
+ */
+export const EVT_COUNTRY_PACK_CHANGED = "country_pack_changed";
+/**
+ * User changed their Language Mode selection.
+ * props: { from: string, to: string }
+ * No PII — only mode values (en/vi/bilingual).
+ */
+export const EVT_LANGUAGE_MODE_CHANGED = "language_mode_changed";
+/**
+ * User set or updated their Current Country field.
+ * props: { from: string | null, to: string | null }
+ * No PII — only country name string.
+ */
+export const EVT_PROFILE_CURRENT_COUNTRY_SET = "profile_current_country_set";
+
+// ─── All event names (for validation) ────────────────────────────────────────────
 export const ALL_EVENT_NAMES = [
   EVT_SIGNUP_COMPLETED,
   EVT_JOB_CARD_CREATED,
@@ -70,6 +90,9 @@ export const ALL_EVENT_NAMES = [
   EVT_AI_RUN_COMPLETED,
   EVT_SUGGESTION_APPLIED,
   EVT_OUTCOME_REPORTED,
+  EVT_COUNTRY_PACK_CHANGED,
+  EVT_LANGUAGE_MODE_CHANGED,
+  EVT_PROFILE_CURRENT_COUNTRY_SET,
 ] as const;
 
 export type AnalyticsEventName = (typeof ALL_EVENT_NAMES)[number];

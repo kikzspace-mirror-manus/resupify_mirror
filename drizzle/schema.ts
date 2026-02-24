@@ -19,6 +19,9 @@ export const users = mysqlTable("users", {
   countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "VN", "PH", "US"]),
   // languageMode: output language preference (default "en" = V1 behavior unchanged)
   languageMode: mysqlEnum("languageMode", ["en", "vi", "bilingual"]).default("en").notNull(),
+  // currentCountry: informational only — user's current country of residence
+  // Does NOT affect countryPackId or languageMode. Manual, sticky, never auto-set.
+  currentCountry: varchar("currentCountry", { length: 128 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

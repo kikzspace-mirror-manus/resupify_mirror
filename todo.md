@@ -1410,3 +1410,17 @@
 - [x] server/v2-phase1b1.test.ts: Added 12 new tests (A-I2) for GLOBAL pack, resolveCountryPack fallback, getUserDisplayMapByIds
 - [x] TypeScript: 0 errors
 - [x] Full suite: 2136 tests passing (127 test files)
+
+## V2 Phase 1C-A — Settings/Profile UI: Country Pack + Language Mode + Current Country
+- [x] drizzle/schema.ts: Add currentCountry TEXT (nullable) to users table if missing
+- [x] pnpm db:push: Apply migration
+- [x] server/db.ts: Add updateUserCountryPack, updateUserLanguageMode, updateUserCurrentCountry helpers
+- [x] server/routers.ts or user router: Add user.updateCountryPack, user.updateLanguageMode, user.updateCurrentCountry mutations
+- [x] Server validation: countryPackId must be GLOBAL/VN/PH/US; if != VN force languageMode="en"
+- [x] Profile page: Add "Current Country (for context)" text field
+- [x] Settings page (or Profile page): Add "Country & Language" section gated behind v2CountryPacksEnabled flag
+- [x] Settings: Country Pack dropdown (GLOBAL/VN/PH/US) with sticky save
+- [x] Settings: Language Mode dropdown (en/vi/bilingual) shown only when VN + v2VnTranslationEnabled
+- [x] Analytics: Fire EVT_COUNTRY_PACK_CHANGED, EVT_LANGUAGE_MODE_CHANGED, EVT_PROFILE_CURRENT_COUNTRY_SET (fire-and-forget, flag-gated)
+- [x] Tests: v2-phase1c-a.test.ts — 37 tests passing
+- [x] Full suite regression: 2173 tests pass, 0 TypeScript errors
