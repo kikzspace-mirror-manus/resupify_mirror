@@ -917,6 +917,10 @@ ${buildToneSystemPrompt()}`
       )
       .query(async ({ input }) => {
         const { items, nextCursor } = await db.getStripeEventsPage(input.limit, input.cursor);
+        // Batch-resolve userEmail/userName for all events in one query
+        const rawIds = items.map((e) => e.userId).filter((id): id is number => id != null);
+        const userIds = Array.from(new Set(rawIds));
+        const userMap = await db.getUserDisplayMapByIds(userIds);
         return {
           items: items.map((e) => ({
             eventId: e.stripeEventId,
@@ -925,6 +929,8 @@ ${buildToneSystemPrompt()}`
             userId: e.userId ?? null,
             creditsPurchased: e.creditsPurchased ?? null,
             createdAt: e.createdAt,
+            userEmail: e.userId != null ? (userMap[e.userId]?.email ?? null) : null,
+            userName: e.userId != null ? (userMap[e.userId]?.name ?? null) : null,
           })),
           nextCursor,
         };

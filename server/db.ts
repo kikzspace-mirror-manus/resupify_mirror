@@ -1327,6 +1327,29 @@ export async function recordStripeEvent(
   }
 }
 
+// ─── Admin: User Display Map Helper ─────────────────────────────────────────
+/**
+ * Batch-fetch user display info (email, name) for a list of user IDs.
+ * Returns a map of userId → { email, name } for efficient lookups.
+ * Used by admin procedures that need to enrich event rows with user info.
+ */
+export async function getUserDisplayMapByIds(
+  userIds: number[]
+): Promise<Record<number, { email: string | null; name: string | null }>> {
+  if (userIds.length === 0) return {};
+  const db = await getDb();
+  if (!db) return {};
+  const rows = await db
+    .select({ id: users.id, email: users.email, name: users.name })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  const map: Record<number, { email: string | null; name: string | null }> = {};
+  for (const row of rows) {
+    map[row.id] = { email: row.email ?? null, name: row.name ?? null };
+  }
+  return map;
+}
+
 // ─── Admin: Stripe Events (Phase 10C-2) ──────────────────────────────────────
 /**
  * List stripe_events for the admin view.
@@ -1456,7 +1479,7 @@ export async function adminGetUserByEmail(email: string) {
 
 // ─── V2 Phase 1B: Country Pack Resolver ──────────────────────────────────────
 // Single source of truth for resolving the effective country pack for a user/job.
-// Inheritance: job_cards.countryPackId → users.countryPackId → "US" (default).
+// Inheritance: job_cards.countryPackId → users.countryPackId → DEFAULT_COUNTRY_PACK_ID ("GLOBAL").
 // This helper is safe to call even when V2 flags are OFF — it does not change
 // any V1 runtime behavior; it is only used by V2 procedures.
 
@@ -1479,7 +1502,7 @@ export interface ResolveCountryPackResult {
  * Inheritance order:
  *   1. job_cards.countryPackId (if jobCardId provided and column is non-null)
  *   2. users.countryPackId (if non-null)
- *   3. DEFAULT_COUNTRY_PACK_ID ("US")
+ *   3. DEFAULT_COUNTRY_PACK_ID ("GLOBAL")
  *
  * Never throws — falls back to default on any DB error or missing record.
  */

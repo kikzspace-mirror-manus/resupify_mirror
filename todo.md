@@ -1398,3 +1398,15 @@
 - [x] Use React Fragment (<>) to wrap main row + expanded row
 - [x] Move key prop from div to TableRow
 - [x] Verify no validateDOMNesting errors, expand/collapse works, tests pass (2124/2124)
+
+## V2 Phase 1B.1 — GLOBAL Country Pack Patch
+- [x] shared/countryPacks.ts: GLOBAL already in registry with templateStyleKey="global_english"
+- [x] shared/countryPacks.ts: DEFAULT_COUNTRY_PACK_ID already set to "GLOBAL"
+- [x] server/db.ts: resolveCountryPack fallback already uses DEFAULT_COUNTRY_PACK_ID ("GLOBAL")
+- [x] server/db.ts: Fixed stale comments that still referenced "US" as default
+- [x] server/db.ts: Added getUserDisplayMapByIds batch helper for user display enrichment
+- [x] server/routers/admin.ts: ops.listStripeEvents now includes userEmail/userName via batch lookup
+- [x] server/admin-stripe-events-audit-12h.test.ts: Updated H11 slice size to 900 for new batch-resolve lines
+- [x] server/v2-phase1b1.test.ts: Added 12 new tests (A-I2) for GLOBAL pack, resolveCountryPack fallback, getUserDisplayMapByIds
+- [x] TypeScript: 0 errors
+- [x] Full suite: 2136 tests passing (127 test files)

@@ -103,7 +103,7 @@ describe("H8-H12: admin.ops.listStripeEvents tRPC procedure", () => {
 
   it("H11: admin.ops.listStripeEvents returns items with required fields", () => {
     const idx = adminRouter.indexOf("listStripeEvents");
-    const block = adminRouter.slice(idx, idx + 600);
+    const block = adminRouter.slice(idx, idx + 900); // extended in Phase 1B.1 for batch-resolve lines
     expect(block).toContain("eventId");
     expect(block).toContain("eventType");
     expect(block).toContain("status");
