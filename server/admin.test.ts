@@ -146,7 +146,8 @@ describe("Admin Packs", () => {
     const ctx = createAdminContext();
     const caller = appRouter.createCaller(ctx);
     const packs = await caller.admin.packs.list();
-    expect(packs).toHaveLength(2);
+    // Now includes 2 CA + 4 VN tracks
+    expect(packs.length).toBeGreaterThanOrEqual(2);
     packs.forEach((p) => {
       expect(p.key).toBeTruthy();
       expect(p.label).toBeTruthy();

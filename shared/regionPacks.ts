@@ -276,9 +276,203 @@ const CA_NEW_GRAD: RegionPack = {
   ],
 };
 
+// ─── VN Tracks ──────────────────────────────────────────────────────
+
+const VN_INTERNSHIP: RegionPack = {
+  regionCode: "VN",
+  trackCode: "INTERNSHIP",
+  label: "Vietnam — Internship / Student",
+  resumeDefaults: {
+    sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
+    educationFirst: true,
+    includeObjective: false,
+    maxPages: 1,
+  },
+  copyRules: {
+    noInventedFacts: true,
+    needsConfirmationLabel: "Needs confirmation",
+    noExperienceHelper: true,
+    convertProjectsToExperience: true,
+  },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  scoringWeights: {
+    eligibility: 0.15,
+    tools: 0.20,
+    responsibilities: 0.20,
+    skills: 0.20,
+    softSkills: 0.25,
+  },
+  templates: {
+    coverLetterStyle: "formal-academic",
+    outreachTone: "professional-eager",
+    followUpDays: 5,
+  },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked",
+    stage_applying: "Applying",
+    stage_applied: "Applied",
+    stage_interviewing: "Interviewing",
+    stage_offered: "Offered",
+    stage_rejected: "Rejected",
+    stage_archived: "Archived",
+    track_label: "Internship / Student",
+  },
+  trackTips: [
+    "Highlight academic projects and coursework relevant to the role.",
+    "Include any extracurricular activities or club leadership.",
+    "Keep to 1 page — internship recruiters scan quickly.",
+  ],
+};
+
+const VN_NEW_GRAD: RegionPack = {
+  regionCode: "VN",
+  trackCode: "NEW_GRAD",
+  label: "Vietnam — New Graduate",
+  resumeDefaults: {
+    sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 1,
+  },
+  copyRules: {
+    noInventedFacts: true,
+    needsConfirmationLabel: "Needs confirmation",
+    noExperienceHelper: true,
+    convertProjectsToExperience: true,
+  },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  scoringWeights: {
+    eligibility: 0.15,
+    tools: 0.20,
+    responsibilities: 0.25,
+    skills: 0.20,
+    softSkills: 0.20,
+  },
+  templates: {
+    coverLetterStyle: "professional-concise",
+    outreachTone: "professional-confident",
+    followUpDays: 5,
+  },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked",
+    stage_applying: "Applying",
+    stage_applied: "Applied",
+    stage_interviewing: "Interviewing",
+    stage_offered: "Offered",
+    stage_rejected: "Rejected",
+    stage_archived: "Archived",
+    track_label: "New Graduate",
+  },
+  trackTips: [
+    "Lead with any internship or part-time experience before education.",
+    "Convert capstone projects and hackathons into quantified bullets.",
+    "Include graduation date prominently to confirm new-grad eligibility.",
+  ],
+};
+
+const VN_EARLY_CAREER: RegionPack = {
+  regionCode: "VN",
+  trackCode: "EARLY_CAREER",
+  label: "Vietnam — Early Career (1–5 years)",
+  resumeDefaults: {
+    sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 2,
+  },
+  copyRules: {
+    noInventedFacts: true,
+    needsConfirmationLabel: "Needs confirmation",
+    noExperienceHelper: false,
+    convertProjectsToExperience: false,
+  },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  scoringWeights: {
+    eligibility: 0.15,
+    tools: 0.15,
+    responsibilities: 0.35,
+    skills: 0.20,
+    softSkills: 0.15,
+  },
+  templates: {
+    coverLetterStyle: "professional-concise",
+    outreachTone: "professional-direct",
+    followUpDays: 5,
+  },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked",
+    stage_applying: "Applying",
+    stage_applied: "Applied",
+    stage_interviewing: "Interviewing",
+    stage_offered: "Offered",
+    stage_rejected: "Rejected",
+    stage_archived: "Archived",
+    track_label: "Early Career",
+  },
+  trackTips: [
+    "Lead with your strongest work experience — impact metrics matter.",
+    "2 pages are acceptable if you have 3+ years of relevant experience.",
+    "Highlight promotions or scope expansions to show growth.",
+  ],
+};
+
+const VN_EXPERIENCED: RegionPack = {
+  regionCode: "VN",
+  trackCode: "EXPERIENCED",
+  label: "Vietnam — Experienced (5+ years)",
+  resumeDefaults: {
+    sections: ["experience", "leadership", "achievements", "skills", "education"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 2,
+  },
+  copyRules: {
+    noInventedFacts: true,
+    needsConfirmationLabel: "Needs confirmation",
+    noExperienceHelper: false,
+    convertProjectsToExperience: false,
+  },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  scoringWeights: {
+    eligibility: 0.20,
+    tools: 0.10,
+    responsibilities: 0.40,
+    skills: 0.15,
+    softSkills: 0.15,
+  },
+  templates: {
+    coverLetterStyle: "executive-brief",
+    outreachTone: "professional-executive",
+    followUpDays: 7,
+  },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked",
+    stage_applying: "Applying",
+    stage_applied: "Applied",
+    stage_interviewing: "Interviewing",
+    stage_offered: "Offered",
+    stage_rejected: "Rejected",
+    stage_archived: "Archived",
+    track_label: "Experienced",
+  },
+  trackTips: [
+    "Lead with a concise executive summary (2–3 lines) at the top.",
+    "Focus on leadership impact: team size, budget, business outcomes.",
+    "Trim older roles to 2–3 bullets; keep the last 10 years detailed.",
+  ],
+};
+
 const PACKS: Record<string, RegionPack> = {
   "CA_COOP": CA_COOP,
   "CA_NEW_GRAD": CA_NEW_GRAD,
+  "VN_INTERNSHIP": VN_INTERNSHIP,
+  "VN_NEW_GRAD": VN_NEW_GRAD,
+  "VN_EARLY_CAREER": VN_EARLY_CAREER,
+  "VN_EXPERIENCED": VN_EXPERIENCED,
 };
 
 export function getRegionPack(regionCode: string, trackCode: string): RegionPack {

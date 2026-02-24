@@ -1343,3 +1343,13 @@
 - [x] Wire safeNormalizeJobUrl into jobCards.update mutation (normalize input.url before storing)
 - [x] Add unit tests for normalizeJobUrl/safeNormalizeJobUrl (strips utm_*/gclid/fbclid, removes fragments, lowercases hostname, preserves ATS params, handles invalid URL)
 - [x] Add integration tests (create with tracking URL → stored normalized; update with tracking URL → stored normalized)
+
+## V2 — VN Track PackSet (Config + UI)
+- [x] Add VN/INTERNSHIP track to shared/regionPacks.ts
+- [x] Add VN/NEW_GRAD track to shared/regionPacks.ts
+- [x] Add VN/EARLY_CAREER track to shared/regionPacks.ts
+- [x] Add VN/EXPERIENCED track to shared/regionPacks.ts
+- [x] Add country filter (All/CA/VN) to AdminPacks.tsx Region Packs UI
+- [x] Add getAvailablePacksWithRegion() helper or extend getAvailablePacks() to expose regionCode
+- [x] Write config validation tests for VN tracks
+- [x] Write UI filter tests for AdminPacks.tsx

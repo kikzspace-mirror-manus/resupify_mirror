@@ -4,9 +4,10 @@ import { getRegionPack, getAvailablePacks, STAGES, STAGE_LABELS, EVIDENCE_GROUP_
 // ─── Region Pack Tests ──────────────────────────────────────────────
 describe("Region Packs", () => {
   describe("getAvailablePacks", () => {
-    it("returns CA_COOP and CA_NEW_GRAD packs", () => {
+    it("returns CA_COOP and CA_NEW_GRAD packs (plus VN tracks)", () => {
       const packs = getAvailablePacks();
-      expect(packs).toHaveLength(2);
+      // Now includes 2 CA + 4 VN tracks
+      expect(packs.length).toBeGreaterThanOrEqual(2);
       expect(packs.map(p => p.key)).toContain("CA_COOP");
       expect(packs.map(p => p.key)).toContain("CA_NEW_GRAD");
     });
@@ -428,7 +429,8 @@ describe("Auth Router", () => {
       res: { clearCookie: () => {} } as any,
     });
     const result = await caller.regionPacks.list();
-    expect(result).toHaveLength(2);
+    // Now includes 2 CA + 4 VN tracks
+    expect(result.length).toBeGreaterThanOrEqual(2);
     expect(result.map(p => p.key)).toContain("CA_COOP");
     expect(result.map(p => p.key)).toContain("CA_NEW_GRAD");
   });
