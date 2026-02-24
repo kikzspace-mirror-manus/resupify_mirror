@@ -182,13 +182,13 @@ export default function Profile() {
         workStatusLabel: "Work status in the United States",
         sponsorshipLabel: "Will you now or in the future require employer sponsorship?",
         countryPlaceholder: "e.g., United States",
-        noteText: "This information is used only to detect potential eligibility mismatches in job postings (e.g., \"must be authorized to work in the US\", \"no sponsorship\"). It is framed as guidance, not legal advice. You can always change or clear these fields.",
+        noteText: "This information is used only to match requirements in job postings (e.g., \"must be authorized to work in the US\", \"no sponsorship\"). It is framed as guidance, not legal advice. You can always change or clear these fields.",
       }
     : {
         workStatusLabel: "Work Status",
         sponsorshipLabel: "Will you need employer sponsorship?",
         countryPlaceholder: "e.g., Canada",
-        noteText: "This information is used only to detect potential eligibility mismatches in job postings (e.g., \"must be Citizen/PR\", \"no sponsorship\"). It is framed as guidance, not legal advice. You can always change or clear these fields.",
+        noteText: "This information is used only to match requirements in job postings (e.g., \"must be Citizen/PR\", \"no sponsorship\"). It is framed as guidance, not legal advice. You can always change or clear these fields.",
       };
 
   return (
@@ -196,7 +196,7 @@ export default function Profile() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage your track, education details, and work authorization status.
+          Update your job market, career stage, and preferences.
         </p>
       </div>
 
@@ -216,48 +216,60 @@ export default function Profile() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Globe className="h-4 w-4" />
-              Country Pack
+              Job market
             </CardTitle>
             <CardDescription>
-              Your country pack determines which resume templates and eligibility checks apply.
+              This sets defaults for your market, like formatting and requirements.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="country-pack-select">Current Pack</Label>
-              <Select
-                value={selectedCountryPackId}
-                onValueChange={(v) => {
-                  setSelectedCountryPackId(v as CountryPackId);
-                  setPackDirty(true);
-                }}
-              >
-                <SelectTrigger id="country-pack-select" data-testid="country-pack-select">
-                  <SelectValue placeholder="Select country pack" />
-                </SelectTrigger>
-                <SelectContent data-testid="country-pack-select-content">
-                  {/* Always show the user's current pack even if disabled, as a non-selectable hint */}
-                  {userCountryPackId && !enabledCountryPacks.includes(userCountryPackId) && (
-                    <SelectItem value={userCountryPackId} disabled data-testid={`pack-option-${userCountryPackId}-disabled`}>
-                      {userCountryPackId === "GLOBAL" ? "🌐" : userCountryPackId === "CA" ? "🇨🇦" : userCountryPackId === "VN" ? "🇻🇳" : userCountryPackId === "PH" ? "🇵🇭" : "🇺🇸"} {userCountryPackId} (not currently offered)
-                    </SelectItem>
-                  )}
-                  {enabledCountryPacks.includes("GLOBAL") && <SelectItem value="GLOBAL" data-testid="pack-option-GLOBAL">🌐 Global</SelectItem>}
-                  {enabledCountryPacks.includes("CA") && <SelectItem value="CA" data-testid="pack-option-CA">🇨🇦 Canada</SelectItem>}
-                  {enabledCountryPacks.includes("VN") && <SelectItem value="VN" data-testid="pack-option-VN">🇻🇳 Vietnam</SelectItem>}
-                  {enabledCountryPacks.includes("PH") && <SelectItem value="PH" data-testid="pack-option-PH">🇵🇭 Philippines</SelectItem>}
-                  {enabledCountryPacks.includes("US") && <SelectItem value="US" data-testid="pack-option-US">🇺🇸 United States</SelectItem>}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="country-pack-select">Current market</Label>
+              {/* Disabled market warning banner */}
+              {userCountryPackId && !enabledCountryPacks.includes(userCountryPackId) && (
+                <div
+                  className="rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800"
+                  data-testid="disabled-market-banner"
+                >
+                  This job market is not currently offered. Please switch to an available market.
+                </div>
+              )}
+              {/* Read-only display when only 1 pack is enabled */}
+              {enabledCountryPacks.length === 1 ? (
+                <div className="text-sm text-muted-foreground" data-testid="country-pack-readonly">
+                  {enabledCountryPacks[0] === "GLOBAL" ? "🌐 Global" : enabledCountryPacks[0] === "CA" ? "🇨🇦 Canada" : enabledCountryPacks[0] === "VN" ? "🇻🇳 Vietnam" : enabledCountryPacks[0] === "PH" ? "🇵🇭 Philippines" : "🇺🇸 United States"}
+                </div>
+              ) : (
+                <Select
+                  value={selectedCountryPackId}
+                  onValueChange={(v) => {
+                    setSelectedCountryPackId(v as CountryPackId);
+                    setPackDirty(true);
+                  }}
+                >
+                  <SelectTrigger id="country-pack-select" data-testid="country-pack-select">
+                    <SelectValue placeholder="Select job market" />
+                  </SelectTrigger>
+                  <SelectContent data-testid="country-pack-select-content">
+                    {enabledCountryPacks.includes("GLOBAL") && <SelectItem value="GLOBAL" data-testid="pack-option-GLOBAL">🌐 Global</SelectItem>}
+                    {enabledCountryPacks.includes("CA") && <SelectItem value="CA" data-testid="pack-option-CA">🇨🇦 Canada</SelectItem>}
+                    {enabledCountryPacks.includes("VN") && <SelectItem value="VN" data-testid="pack-option-VN">🇻🇳 Vietnam</SelectItem>}
+                    {enabledCountryPacks.includes("PH") && <SelectItem value="PH" data-testid="pack-option-PH">🇵🇭 Philippines</SelectItem>}
+                    {enabledCountryPacks.includes("US") && <SelectItem value="US" data-testid="pack-option-US">🇺🇸 United States</SelectItem>}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            <Button
-              size="sm"
-              disabled={!packDirty || setCountryPack.isPending}
-              onClick={() => setCountryPack.mutate({ countryPackId: selectedCountryPackId })}
-              data-testid="save-country-pack-btn"
-            >
-              {setCountryPack.isPending ? "Saving..." : "Save Pack"}
-            </Button>
+            {enabledCountryPacks.length > 1 && (
+              <Button
+                size="sm"
+                disabled={!packDirty || setCountryPack.isPending}
+                onClick={() => setCountryPack.mutate({ countryPackId: selectedCountryPackId })}
+                data-testid="save-country-pack-btn"
+              >
+                {setCountryPack.isPending ? "Saving..." : "Save market"}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -267,17 +279,17 @@ export default function Profile() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Layers className="h-4 w-4" />
-            Track
+            Career stage
           </CardTitle>
           <CardDescription>
-            Your track determines which eligibility checks and resume tips apply to you.
+            This tailors the guidance and templates you see.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {hasTracksForCountry ? (
             <>
               <div className="space-y-2" data-testid="track-select-wrapper">
-                <Label htmlFor="track-select">Current Track</Label>
+                <Label htmlFor="track-select">Current career stage</Label>
                 <Select
                   value={trackCode}
                   onValueChange={(v) => {
@@ -286,7 +298,7 @@ export default function Profile() {
                   }}
                 >
                   <SelectTrigger id="track-select" data-testid="track-select">
-                    <SelectValue placeholder="Select track" />
+                    <SelectValue placeholder="Select career stage" />
                   </SelectTrigger>
                   <SelectContent data-testid="track-select-content">
                     {tracks.map((t) => (
@@ -309,7 +321,7 @@ export default function Profile() {
                 }
                 data-testid="save-track-btn"
               >
-                {saveTrack.isPending ? "Saving..." : "Save Track"}
+                {saveTrack.isPending ? "Saving..." : "Save career stage"}
               </Button>
             </>
           ) : (
@@ -336,10 +348,10 @@ export default function Profile() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Languages className="h-4 w-4" />
-              Language
+              Display language
             </CardTitle>
             <CardDescription>
-              Choose the language for track labels and profile copy.
+              Choose the language for labels and guidance.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -381,7 +393,7 @@ export default function Profile() {
             <User className="h-4 w-4" />
             Education
           </CardTitle>
-          <CardDescription>Used for co-op and new grad eligibility checks.</CardDescription>
+          <CardDescription>Optional — helps tailor your recommendations.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -442,7 +454,7 @@ export default function Profile() {
               Work Authorization
             </CardTitle>
             <CardDescription>
-              Used to detect eligibility mismatches in job postings. This information stays private and is never shared.
+              Used to match requirements in job postings. This information stays private and is never shared.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">

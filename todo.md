@@ -1587,3 +1587,18 @@
 - [x] Fix workAuthStepCopy: use selectedCountryPackId === "US" for US branch (not effectiveRegionCode)
 - [x] Fix handleComplete work auth save guard: use selectedCountryPackId === "CA" || "US" (not effectiveRegionCode)
 - [x] Write tests: GLOBAL no work auth, CA shows CA copy, US shows US copy, VN/PH hidden
+
+## V2 — Profile copy cleanup + disabled market behavior
+- [x] Rename "Country Pack" → "Job market" (card title, label, button text)
+- [x] Rename "Track" → "Career stage" (card title, label, button text)
+- [x] Rename "Language" → "Display language" (card title)
+- [x] Update page subtitle: "Manage your track, education details, and work authorization status." → "Update your job market, career stage, and preferences."
+- [x] Update Country Pack helper: "Your country pack determines which resume templates and eligibility checks apply." → "This sets defaults for your market, like formatting and requirements."
+- [x] Update Track helper: "Your track determines which eligibility checks and resume tips apply to you." → "This tailors the guidance and templates you see."
+- [x] Update Language helper: "Choose the language for track labels and profile copy." → "Choose the language for labels and guidance."
+- [x] Remove "eligibility checks" from Education card description
+- [x] Remove "eligibility mismatches" from Work Auth noteText (replace with "requirements")
+- [x] Disabled market: show inline warning banner when userCountryPackId not in enabledCountryPacks
+- [x] Disabled market: show "Current: X (not currently offered)" text above dropdown
+- [x] Single pack: hide dropdown, show read-only display when enabledCountryPacks.length === 1
+- [x] Write tests: copy renames, eligibility checks absent, disabled banner, read-only single pack
