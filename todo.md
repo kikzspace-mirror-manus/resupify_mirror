@@ -1428,3 +1428,8 @@
 - [x] Fix Profile.tsx: Work Authorization card only renders when countryPackId === "CA"
 - [x] Add DEV-only debug line (import.meta.env.DEV guard)
 - [x] Write tests: VN/PH/CA track options, CA-only work auth, debug line gating
+
+## V2 — CA Track Label Fix: NEW_GRAD → "New Graduate"
+- [x] Update CA_TRACKS NEW_GRAD label to "New Graduate" and sublabel to "0–2 years experience"
+- [x] Update affected tests asserting old label "Early-career / General"
+- [x] Regression: full suite green, 0 TS errors
