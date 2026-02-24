@@ -156,7 +156,7 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
   });
 
   it("T16: Onboarding.tsx maps over COUNTRY_OPTIONS to render country cards", () => {
-    expect(content).toContain("COUNTRY_OPTIONS.map");
+    expect(content).toContain("COUNTRY_OPTIONS.filter");
   });
 
   it("T17: Onboarding.tsx has country-continue-btn testid", () => {

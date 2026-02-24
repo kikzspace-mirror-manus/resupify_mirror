@@ -442,3 +442,14 @@ export const opsStatus = mysqlTable("ops_status", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type OpsStatus = typeof opsStatus.$inferSelect;
+
+// ─── Admin Settings ──────────────────────────────────────────────────────────
+// Key-value store for admin-controlled runtime settings.
+// Each row is a single named setting; value_json holds any JSON-serializable value.
+export const adminSettings = mysqlTable("admin_settings", {
+  key: varchar("key", { length: 128 }).primaryKey(),
+  valueJson: text("value_json").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+export type AdminSetting = typeof adminSettings.$inferSelect;
+export type InsertAdminSetting = typeof adminSettings.$inferInsert;

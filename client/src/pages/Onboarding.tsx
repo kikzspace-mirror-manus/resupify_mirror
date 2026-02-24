@@ -83,6 +83,8 @@ export default function Onboarding() {
   // Feature flags from server
   const { data: flags } = trpc.system.featureFlags.useQuery();
   const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
+  // Enabled country packs from admin_settings (falls back to ["CA"] when not set)
+  const enabledCountryPacks: string[] = flags?.enabledCountryPacks ?? ["CA"];
 
   // Determine effective country pack from auth.me user record (preselect if already set)
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
@@ -287,7 +289,7 @@ export default function Onboarding() {
                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"
                 data-testid="country-selector"
               >
-                {COUNTRY_OPTIONS.map((country) => (
+                {COUNTRY_OPTIONS.filter((c) => enabledCountryPacks.includes(c.id)).map((country) => (
                   <Label
                     key={country.id}
                     htmlFor={`country-${country.id}`}

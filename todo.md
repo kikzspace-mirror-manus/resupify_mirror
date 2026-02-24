@@ -1549,3 +1549,15 @@
 - [x] Update preselect logic to include GLOBAL
 - [x] Verify VN languageMode logic remains VN-only (no changes needed if already guarded)
 - [x] Write tests: Global card renders, selection works, VN language guard intact, flag OFF unchanged
+
+## V2 — Admin: enabled country packs toggle
+- [x] Add admin_settings table to drizzle/schema.ts (key, value_json, updated_at)
+- [x] Run pnpm db:push to migrate
+- [x] Add db helpers: getAdminSetting, setAdminSetting, getEnabledCountryPacks
+- [x] Extend system.featureFlags to include enabledCountryPacks: CountryPackId[]
+- [x] Add admin.setEnabledCountryPacks mutation (admin-only, validates subset, non-empty)
+- [x] Wire Onboarding Step 0 to filter COUNTRY_OPTIONS by enabledCountryPacks
+- [x] Wire Profile Country Pack selector to filter options by enabledCountryPacks
+- [x] Build /admin/settings page with Country Pack checkbox toggles + Save button
+- [x] Add /admin/settings route to App.tsx and AdminLayout sidebar nav
+- [x] Write tests: default enabled packs, admin mutation, Onboarding filtering, Profile filtering

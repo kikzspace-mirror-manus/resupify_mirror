@@ -83,7 +83,7 @@ describe("B — Country card sublabel not rendered", () => {
   it("B4) Country card only renders flag + country name (no sublabel div)", () => {
     // After the map, each card should have: flag span + div > div.font-semibold
     // and NOT a second div for sublabel
-    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.map");
+    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.filter");
     const countryMapEnd = content.indexOf("</RadioGroup>", countryMapStart);
     const mapBlock = content.slice(countryMapStart, countryMapEnd);
     // Should have country.label
@@ -97,28 +97,28 @@ describe("B — Country card sublabel not rendered", () => {
 
 describe("C — Country cards still render flag + name", () => {
   it("C1) country.flag is still rendered in each card", () => {
-    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.map");
+    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.filter");
     const countryMapEnd = content.indexOf("</RadioGroup>", countryMapStart);
     const mapBlock = content.slice(countryMapStart, countryMapEnd);
     expect(mapBlock).toContain("{country.flag}");
   });
 
   it("C2) country.label is still rendered in each card", () => {
-    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.map");
+    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.filter");
     const countryMapEnd = content.indexOf("</RadioGroup>", countryMapStart);
     const mapBlock = content.slice(countryMapStart, countryMapEnd);
     expect(mapBlock).toContain("{country.label}");
   });
 
   it("C3) font-semibold class still applied to country name", () => {
-    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.map");
+    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.filter");
     const countryMapEnd = content.indexOf("</RadioGroup>", countryMapStart);
     const mapBlock = content.slice(countryMapStart, countryMapEnd);
     expect(mapBlock).toContain("font-semibold");
   });
 
   it("C4) RadioGroupItem still present for each card (selection behavior unchanged)", () => {
-    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.map");
+    const countryMapStart = content.indexOf("COUNTRY_OPTIONS.filter");
     const countryMapEnd = content.indexOf("</RadioGroup>", countryMapStart);
     const mapBlock = content.slice(countryMapStart, countryMapEnd);
     expect(mapBlock).toContain("<RadioGroupItem");

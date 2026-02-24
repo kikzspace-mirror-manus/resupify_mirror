@@ -28,6 +28,8 @@ export default function Profile() {
   const { data: flags } = trpc.system.featureFlags.useQuery();
   const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
   const v2VnTranslationEnabled = flags?.v2VnTranslationEnabled ?? false;
+  // Enabled country packs from admin_settings (falls back to ["CA"] when not set)
+  const enabledCountryPacks: string[] = flags?.enabledCountryPacks ?? ["CA"];
 
   // Determine effective country pack from auth.me user record
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
@@ -234,11 +236,17 @@ export default function Profile() {
                   <SelectValue placeholder="Select country pack" />
                 </SelectTrigger>
                 <SelectContent data-testid="country-pack-select-content">
-                  <SelectItem value="GLOBAL" data-testid="pack-option-GLOBAL">🌐 Global</SelectItem>
-                  <SelectItem value="CA" data-testid="pack-option-CA">🇨🇦 Canada</SelectItem>
-                  <SelectItem value="VN" data-testid="pack-option-VN">🇻🇳 Vietnam</SelectItem>
-                  <SelectItem value="PH" data-testid="pack-option-PH">🇵🇭 Philippines</SelectItem>
-                  <SelectItem value="US" data-testid="pack-option-US">🇺🇸 United States</SelectItem>
+                  {/* Always show the user's current pack even if disabled, as a non-selectable hint */}
+                  {userCountryPackId && !enabledCountryPacks.includes(userCountryPackId) && (
+                    <SelectItem value={userCountryPackId} disabled data-testid={`pack-option-${userCountryPackId}-disabled`}>
+                      {userCountryPackId === "GLOBAL" ? "🌐" : userCountryPackId === "CA" ? "🇨🇦" : userCountryPackId === "VN" ? "🇻🇳" : userCountryPackId === "PH" ? "🇵🇭" : "🇺🇸"} {userCountryPackId} (not currently offered)
+                    </SelectItem>
+                  )}
+                  {enabledCountryPacks.includes("GLOBAL") && <SelectItem value="GLOBAL" data-testid="pack-option-GLOBAL">🌐 Global</SelectItem>}
+                  {enabledCountryPacks.includes("CA") && <SelectItem value="CA" data-testid="pack-option-CA">🇨🇦 Canada</SelectItem>}
+                  {enabledCountryPacks.includes("VN") && <SelectItem value="VN" data-testid="pack-option-VN">🇻🇳 Vietnam</SelectItem>}
+                  {enabledCountryPacks.includes("PH") && <SelectItem value="PH" data-testid="pack-option-PH">🇵🇭 Philippines</SelectItem>}
+                  {enabledCountryPacks.includes("US") && <SelectItem value="US" data-testid="pack-option-US">🇺🇸 United States</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
