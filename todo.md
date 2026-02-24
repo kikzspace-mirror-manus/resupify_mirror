@@ -1327,3 +1327,9 @@
 - [x] Verify AdminRefunds.tsx UserSearchSelect wired correctly end-to-end
 - [x] Write 12L-MIN acceptance tests (4 cases from spec + 11 structural)
 - [x] Full test suite passing (2027 tests), 0 TypeScript errors
+## Phase 12M: Backfill userId on existing pending refund queue items
+- [x] Add backfillPendingRefundUserIds DB helper (query pending+null userId, call resolveUserIdForCharge, call setRefundQueueItemUserId)
+- [x] Add admin.refunds.backfillUserIds tRPC mutation (admin-only, optional limit, returns scanned/eligible/resolved/unresolved)
+- [x] Add "Backfill user IDs" button to AdminRefunds.tsx header with loading state and result summary
+- [x] Write 12M acceptance tests (20 tests: 4 spec cases + 16 structural)
+- [x] Full test suite passing (2047 tests), 0 TypeScript errors

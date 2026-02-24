@@ -801,6 +801,19 @@ ${buildToneSystemPrompt()}`
       });
       return { success: true };
     }),
+
+    // Phase 12M: Bulk backfill userId for pending items where userId is NULL
+    backfillUserIds: adminProcedure.input(z.object({
+      limit: z.number().int().min(1).max(500).optional().default(200),
+    }).optional()).mutation(async ({ ctx, input }) => {
+      const limit = input?.limit ?? 200;
+      const result = await db.backfillPendingRefundUserIds(limit);
+      await db.logAdminAction(ctx.user.id, "refund_backfill_userids", undefined, {
+        ...result,
+        limit,
+      });
+      return result;
+    }),
   }),
   // ─── Admin Billing: Retry purchase confirmation email ────────────────────────
   billing: router({

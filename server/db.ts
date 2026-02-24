@@ -2168,3 +2168,52 @@ export async function setRefundQueueItemUserId(
     .set({ userId })
     .where(and(eq(refundQueue.id, refundQueueId), isNull(refundQueue.userId)));
 }
+
+// ─── Phase 12M: Bulk backfill userId on pending refund queue items ────────────
+/**
+ * For every pending refund queue item where userId IS NULL, attempt to resolve
+ * the userId via resolveUserIdForCharge (using stripeCheckoutSessionId stored on
+ * the item). If resolved, persist via setRefundQueueItemUserId.
+ *
+ * Idempotent: items that already have userId are skipped.
+ * Does NOT debit credits or change status.
+ *
+ * Returns:
+ *   scanned    — total pending+null items found (up to limit)
+ *   eligible   — same as scanned (all qualify for backfill attempt)
+ *   resolved   — items where userId was successfully resolved and persisted
+ *   unresolved — items where no matching purchaseReceipt was found
+ */
+export async function backfillPendingRefundUserIds(
+  limit = 200
+): Promise<{ scanned: number; eligible: number; resolved: number; unresolved: number }> {
+  const db = await getDb();
+  if (!db) return { scanned: 0, eligible: 0, resolved: 0, unresolved: 0 };
+
+  // Fetch pending items with null userId, oldest first
+  const items = await db
+    .select()
+    .from(refundQueue)
+    .where(and(eq(refundQueue.status, "pending"), isNull(refundQueue.userId)))
+    .orderBy(asc(refundQueue.createdAt))
+    .limit(limit);
+
+  const scanned = items.length;
+  let resolved = 0;
+  let unresolved = 0;
+
+  for (const item of items) {
+    const userId = await resolveUserIdForCharge({
+      stripePaymentIntentId: null, // not stored on refund_queue rows
+      stripeCheckoutSessionId: item.stripeCheckoutSessionId ?? null,
+    });
+    if (userId) {
+      await setRefundQueueItemUserId(item.id, userId);
+      resolved++;
+    } else {
+      unresolved++;
+    }
+  }
+
+  return { scanned, eligible: scanned, resolved, unresolved };
+}

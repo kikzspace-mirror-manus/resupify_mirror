@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, RotateCcw, AlertTriangle, CheckCircle2, XCircle, UserSearch } from "lucide-react";
+import { RefreshCw, RotateCcw, AlertTriangle, CheckCircle2, XCircle, UserSearch, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -416,10 +416,29 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
 export default function AdminRefunds() {
   const [statusFilter, setStatusFilter] = useState<RefundStatus | "all">("all");
   const [reviewItem, setReviewItem] = useState<RefundQueueItem | null>(null);
+  // Phase 12M: backfill result summary
+  const [backfillResult, setBackfillResult] = useState<{
+    scanned: number; eligible: number; resolved: number; unresolved: number;
+  } | null>(null);
 
   const { data: items, isLoading, refetch } = trpc.admin.refunds.list.useQuery(
     { status: statusFilter === "all" ? undefined : statusFilter }
   );
+
+  const backfillMutation = trpc.admin.refunds.backfillUserIds.useMutation({
+    onSuccess: (result) => {
+      setBackfillResult(result);
+      refetch();
+      if (result.resolved > 0) {
+        toast.success(`Backfill complete: resolved ${result.resolved} of ${result.scanned} items.`);
+      } else {
+        toast.info(`Backfill complete: no new items resolved (${result.scanned} scanned).`);
+      }
+    },
+    onError: (err) => {
+      toast.error(`Backfill failed: ${err.message}`);
+    },
+  });
 
   const isEmpty = !isLoading && (!items || items.length === 0);
 
@@ -442,15 +461,29 @@ export default function AdminRefunds() {
               Review Stripe refunds and manually debit credits. All actions are logged.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Phase 12M: Backfill user IDs */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => backfillMutation.mutate({})}
+              disabled={backfillMutation.isPending}
+              className="gap-2"
+              title="Attempt to auto-resolve userId for pending items where userId is NULL"
+            >
+              <Wand2 className="h-4 w-4" />
+              {backfillMutation.isPending ? "Backfilling…" : "Backfill user IDs"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -471,6 +504,29 @@ export default function AdminRefunds() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Phase 12M: Backfill result summary */}
+        {backfillResult && (
+          <div className={`rounded-lg border px-4 py-3 text-sm flex items-start gap-3 ${
+            backfillResult.unresolved > 0
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}>
+            {backfillResult.resolved > 0
+              ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+              : <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />}
+            <div>
+              <span className="font-medium">Backfill result: </span>
+              {backfillResult.scanned} scanned &mdash;&nbsp;
+              <span className="font-medium text-emerald-700">{backfillResult.resolved} resolved</span>
+              {backfillResult.unresolved > 0 && (
+                <>, <span className="font-medium text-amber-700">{backfillResult.unresolved} unresolved</span>
+                  &nbsp;&mdash; some items still require manual selection.
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         <Card>
