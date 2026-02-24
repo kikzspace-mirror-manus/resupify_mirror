@@ -1351,3 +1351,9 @@
 - [x] Add expand/collapse control for details (JSON payload, initially hidden)
 - [x] Verify page loads, entries display correctly, no TS errors, tests pass
 - [x] Full test suite passing (2062 tests), 0 TypeScript errors, no backend changes
+## Phase 12S: Admin Stripe Events table alignment + column layout polish
+- [x] Audit AdminStripeEvents.tsx table layout and current column structure
+- [x] Apply fixed table layout and explicit column widths (Event ID 40%, Type 25%, Status 15%, Credits 8%, Time 12%)
+- [x] Fix vertical/horizontal alignment: center badges, right-align credits/time, left-align ID/Type
+- [x] Verify filters, refresh work, no TS errors, no backend changes
+- [x] Full test suite passing (2062 tests), 0 TypeScript errors

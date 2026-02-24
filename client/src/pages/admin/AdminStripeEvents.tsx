@@ -3,6 +3,8 @@
  *
  * Phase 10C-2: Displays stripe_events table rows with filters for status
  * and eventType. No PII, no free text — only fields in the stripe_events table.
+ *
+ * Phase 12S: Fixed table layout with explicit column widths for consistent alignment.
  */
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -146,58 +148,123 @@ export default function AdminStripeEvents() {
           </div>
         ) : (
           <div className="rounded-lg border overflow-hidden">
-            {/* Table header */}
-            <div className="grid grid-cols-[2fr_2fr_auto_auto_auto] gap-3 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
-              <span>Stripe Event ID</span>
-              <span>Event Type</span>
-              <span>Status</span>
-              <span>Credits</span>
-              <span>Time</span>
-            </div>
-            {/* Rows */}
-            <div className="divide-y">
-              {events?.map((ev) => (
+            {/* Phase 12S: Fixed table layout with explicit column widths */}
+            <div style={{ display: "table", width: "100%", tableLayout: "fixed" }}>
+              {/* Table header */}
+              <div
+                style={{ display: "table-row", backgroundColor: "hsl(var(--muted))" }}
+                className="text-xs font-medium text-muted-foreground border-b"
+              >
+                <div style={{ display: "table-cell", width: "40%", padding: "8px 12px", verticalAlign: "middle" }}>
+                  Stripe Event ID
+                </div>
+                <div style={{ display: "table-cell", width: "25%", padding: "8px 12px", verticalAlign: "middle" }}>
+                  Event Type
+                </div>
+                <div style={{ display: "table-cell", width: "15%", padding: "8px 12px", verticalAlign: "middle", textAlign: "center" }}>
+                  Status
+                </div>
+                <div style={{ display: "table-cell", width: "8%", padding: "8px 12px", verticalAlign: "middle", textAlign: "right" }}>
+                  Credits
+                </div>
+                <div style={{ display: "table-cell", width: "12%", padding: "8px 12px", verticalAlign: "middle", textAlign: "right" }}>
+                  Time
+                </div>
+              </div>
+
+              {/* Rows */}
+              {events?.map((ev, idx) => (
                 <div
                   key={ev.id}
-                  className="grid grid-cols-[2fr_2fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-sm hover:bg-muted/30 transition-colors"
+                  style={{ display: "table-row" }}
+                  className={`text-sm hover:bg-muted/30 transition-colors ${
+                    idx !== events.length - 1 ? "border-b" : ""
+                  }`}
                 >
                   {/* Stripe Event ID (truncated) */}
-                  <span
-                    className="font-mono text-xs text-muted-foreground truncate"
+                  <div
+                    style={{
+                      display: "table-cell",
+                      width: "40%",
+                      padding: "8px 12px",
+                      verticalAlign: "middle",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    className="font-mono text-xs text-muted-foreground"
                     title={ev.stripeEventId}
                   >
                     {ev.stripeEventId.slice(0, 24)}…
-                  </span>
+                  </div>
 
                   {/* Event type */}
-                  <Badge
-                    variant="outline"
-                    className={`text-xs w-fit ${EVENT_TYPE_COLORS[ev.eventType] ?? "bg-gray-100 text-gray-600"}`}
+                  <div
+                    style={{
+                      display: "table-cell",
+                      width: "25%",
+                      padding: "8px 12px",
+                      verticalAlign: "middle",
+                    }}
                   >
-                    {ev.eventType}
-                  </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs w-fit ${EVENT_TYPE_COLORS[ev.eventType] ?? "bg-gray-100 text-gray-600"}`}
+                    >
+                      {ev.eventType}
+                    </Badge>
+                  </div>
 
                   {/* Status */}
-                  <Badge
-                    variant="outline"
-                    className={`text-xs w-fit ${STATUS_COLORS[ev.status as Status] ?? "bg-gray-100 text-gray-600"}`}
+                  <div
+                    style={{
+                      display: "table-cell",
+                      width: "15%",
+                      padding: "8px 12px",
+                      verticalAlign: "middle",
+                      textAlign: "center",
+                    }}
                   >
-                    {ev.status}
-                  </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs w-fit ${STATUS_COLORS[ev.status as Status] ?? "bg-gray-100 text-gray-600"}`}
+                    >
+                      {ev.status}
+                    </Badge>
+                  </div>
 
                   {/* Credits purchased */}
-                  <span className="text-xs tabular-nums text-right">
+                  <div
+                    style={{
+                      display: "table-cell",
+                      width: "8%",
+                      padding: "8px 12px",
+                      verticalAlign: "middle",
+                      textAlign: "right",
+                    }}
+                    className="text-xs tabular-nums"
+                  >
                     {ev.creditsPurchased != null ? (
                       <span className="text-emerald-600 font-medium">+{ev.creditsPurchased}</span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
-                  </span>
+                  </div>
 
                   {/* Timestamp */}
-                  <span className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                  <div
+                    style={{
+                      display: "table-cell",
+                      width: "12%",
+                      padding: "8px 12px",
+                      verticalAlign: "middle",
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                    className="text-xs text-muted-foreground"
+                  >
                     {new Date(ev.createdAt).toLocaleString()}
-                  </span>
+                  </div>
                 </div>
               ))}
             </div>
