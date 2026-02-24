@@ -229,7 +229,7 @@ describe("Phase 11F: Purchase Confirmation Email", () => {
       expect.objectContaining({
         to: ["user@example.com"],
         subject: "Your Resupify credit purchase receipt",
-        from: "noreply@resupify.com",
+        from: "Resupify <noreply@resupify.com>",
       })
     );
   });
