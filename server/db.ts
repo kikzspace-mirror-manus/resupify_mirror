@@ -1778,15 +1778,16 @@ export async function getDailyMetrics(rangeDays: 7 | 14 | 30): Promise<DailyMetr
  * { country_pack_id: "CA" | "VN" | "PH" | ... }.
  *
  * Returns:
- *   - data: Array<{ date: string; CA: number; VN: number; PH: number; OTHER: number }>
+ *   - data: Array<{ date: string; CA: number; VN: number; PH: number; US: number; OTHER: number }>
  *     (zero-filled for all days in range, sorted ascending by date)
- *   - totals: { CA: number; VN: number; PH: number; OTHER: number; total: number }
+ *   - totals: { CA: number; VN: number; PH: number; US: number; OTHER: number; total: number }
  */
 export interface CountryPackAdoptionBucket {
   date: string; // "YYYY-MM-DD"
   CA: number;
   VN: number;
   PH: number;
+  US: number;
   OTHER: number;
 }
 
@@ -1794,6 +1795,7 @@ export interface CountryPackAdoptionTotals {
   CA: number;
   VN: number;
   PH: number;
+  US: number;
   OTHER: number;
   total: number;
 }
@@ -1804,7 +1806,7 @@ export async function getCountryPackAdoption(
   const db = await getDb();
   const empty = (): { data: CountryPackAdoptionBucket[]; totals: CountryPackAdoptionTotals } => ({
     data: [],
-    totals: { CA: 0, VN: 0, PH: 0, OTHER: 0, total: 0 },
+    totals: { CA: 0, VN: 0, PH: 0, US: 0, OTHER: 0, total: 0 },
   });
   if (!db) return empty();
 
@@ -1831,7 +1833,7 @@ export async function getCountryPackAdoption(
   for (let i = rangeDays - 1; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
     const key = d.toISOString().slice(0, 10);
-    buckets.set(key, { date: key, CA: 0, VN: 0, PH: 0, OTHER: 0 });
+    buckets.set(key, { date: key, CA: 0, VN: 0, PH: 0, US: 0, OTHER: 0 });
   }
 
   // Merge rows into buckets
@@ -1843,20 +1845,22 @@ export async function getCountryPackAdoption(
     if (pack === 'CA') b.CA += cnt;
     else if (pack === 'VN') b.VN += cnt;
     else if (pack === 'PH') b.PH += cnt;
+    else if (pack === 'US') b.US += cnt;
     else b.OTHER += cnt;
   }
 
   const data = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
 
   // Compute totals
-  const totals: CountryPackAdoptionTotals = { CA: 0, VN: 0, PH: 0, OTHER: 0, total: 0 };
+  const totals: CountryPackAdoptionTotals = { CA: 0, VN: 0, PH: 0, US: 0, OTHER: 0, total: 0 };
   for (const b of data) {
     totals.CA += b.CA;
     totals.VN += b.VN;
     totals.PH += b.PH;
+    totals.US += b.US;
     totals.OTHER += b.OTHER;
   }
-  totals.total = totals.CA + totals.VN + totals.PH + totals.OTHER;
+  totals.total = totals.CA + totals.VN + totals.PH + totals.US + totals.OTHER;
 
   return { data, totals };
 }

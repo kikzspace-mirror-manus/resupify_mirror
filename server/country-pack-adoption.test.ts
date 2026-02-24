@@ -41,11 +41,12 @@ describe("A) getCountryPackAdoption — server/db.ts", () => {
     expect(dbSource).toContain("GROUP BY");
   });
 
-  it("A6: CountryPackAdoptionBucket interface exported with CA, VN, PH, OTHER fields", () => {
+  it("A6: CountryPackAdoptionBucket interface exported with CA, VN, PH, US, OTHER fields", () => {
     expect(dbSource).toContain("export interface CountryPackAdoptionBucket");
     expect(dbSource).toContain("CA: number");
     expect(dbSource).toContain("VN: number");
     expect(dbSource).toContain("PH: number");
+    expect(dbSource).toContain("US: number");
     expect(dbSource).toContain("OTHER: number");
   });
 
@@ -60,16 +61,18 @@ describe("A) getCountryPackAdoption — server/db.ts", () => {
 
   it("A9: zero-filled buckets are seeded for all days in range", () => {
     expect(dbSource).toContain("for (let i = rangeDays - 1; i >= 0; i--)");
-    expect(dbSource).toContain("CA: 0, VN: 0, PH: 0, OTHER: 0");
+    expect(dbSource).toContain("CA: 0, VN: 0, PH: 0, US: 0, OTHER: 0");
   });
 
-  it("A10: totals.total = sum of CA + VN + PH + OTHER", () => {
-    expect(dbSource).toContain("totals.total = totals.CA + totals.VN + totals.PH + totals.OTHER");
+  it("A10: totals.total = sum of CA + VN + PH + US + OTHER", () => {
+    expect(dbSource).toContain("totals.total = totals.CA + totals.VN + totals.PH + totals.US + totals.OTHER");
   });
 
-  it("A11: unknown pack IDs fall into OTHER bucket", () => {
-    // The logic: if pack !== CA, VN, PH → b.OTHER += cnt
+  it("A11: unknown pack IDs fall into OTHER bucket (not US)", () => {
+    // The logic: if pack !== CA, VN, PH, US → b.OTHER += cnt
     expect(dbSource).toContain("else b.OTHER += cnt");
+    // US gets its own bucket now
+    expect(dbSource).toContain("else if (pack === 'US') b.US += cnt");
   });
 
   it("A12: null country_pack_id falls into OTHER bucket", () => {
@@ -229,6 +232,26 @@ describe("C) Country Pack Adoption card — AdminGrowthDashboard.tsx", () => {
 
   it("C16: adoptionRange is shown in totals label (e.g. 'Totals (30d):')", () => {
     expect(growthUISource).toContain("Totals ({adoptionRange}d):");
+  });
+
+  it("C19: US line is rendered with green stroke", () => {
+    expect(growthUISource).toContain('dataKey="US"');
+    expect(growthUISource).toContain('#22c55e');
+  });
+
+  it("C20: totals row includes US count", () => {
+    expect(growthUISource).toContain("adoptionData.totals.US");
+  });
+
+  it("C21: US line has name='US'", () => {
+    expect(growthUISource).toContain('name="US"');
+  });
+
+  it("C22: US totals dot uses green color", () => {
+    // bg-green-500 for US dot in totals row
+    const idx = growthUISource.indexOf("adoptionData.totals.US");
+    const snippet = growthUISource.slice(Math.max(0, idx - 100), idx + 100);
+    expect(snippet).toContain("green");
   });
 });
 

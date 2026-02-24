@@ -384,6 +384,7 @@ export default function AdminGrowthDashboard() {
                         <Line type="monotone" dataKey="CA" name="CA" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                         <Line type="monotone" dataKey="VN" name="VN" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                         <Line type="monotone" dataKey="PH" name="PH" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="US" name="US" stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                         {adoptionData.totals && adoptionData.totals.OTHER > 0 && (
                           <Line type="monotone" dataKey="OTHER" name="Global" stroke="#6b7280" strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                         )}
@@ -396,6 +397,7 @@ export default function AdminGrowthDashboard() {
                         <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />CA: <strong className="text-foreground">{adoptionData.totals.CA.toLocaleString()}</strong></span>
                         <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />VN: <strong className="text-foreground">{adoptionData.totals.VN.toLocaleString()}</strong></span>
                         <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />PH: <strong className="text-foreground">{adoptionData.totals.PH.toLocaleString()}</strong></span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />US: <strong className="text-foreground">{adoptionData.totals.US.toLocaleString()}</strong></span>
                         {adoptionData.totals.OTHER > 0 && (
                           <span><span className="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1" />Global: <strong className="text-foreground">{adoptionData.totals.OTHER.toLocaleString()}</strong></span>
                         )}

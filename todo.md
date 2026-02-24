@@ -1470,3 +1470,8 @@
 - [x] Update showWorkAuthStep gating to CA || US in Onboarding.tsx
 - [x] Add US copy variant in Onboarding.tsx Work Auth step
 - [x] Write tests: CA/US visible, VN/PH/GLOBAL hidden, US copy, CA regression
+
+## V2 — Admin Growth: Add US series + rename Other→Global
+- [x] Add US series/line to Country Pack Adoption chart in AdminGrowthDashboard.tsx
+- [x] Rename "Other" label to "Global" in chart legend and totals row
+- [x] Update tests: US series renders, Global label present, Other absent
