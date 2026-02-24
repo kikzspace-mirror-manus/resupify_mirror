@@ -19,6 +19,53 @@ const PACK_FILTER_OPTIONS = [
   { value: "US", label: "US" },
 ];
 
+const PACK_ORDER = ["GLOBAL", "CA", "VN", "PH", "US"] as const;
+
+const PACK_LABEL_COLORS: Record<string, string> = {
+  CA: "text-red-700 bg-red-50 border-red-200",
+  VN: "text-yellow-700 bg-yellow-50 border-yellow-200",
+  PH: "text-blue-700 bg-blue-50 border-blue-200",
+  US: "text-indigo-700 bg-indigo-50 border-indigo-200",
+  GLOBAL: "text-gray-600 bg-gray-50 border-gray-200",
+};
+
+export function computePackCounts(users: Array<{ countryPackId?: string | null }>): Record<string, number> {
+  const counts: Record<string, number> = { GLOBAL: 0, CA: 0, VN: 0, PH: 0, US: 0 };
+  for (const u of users) {
+    const pack = (u.countryPackId ?? "GLOBAL") as string;
+    if (pack in counts) counts[pack]++;
+    else counts[pack] = (counts[pack] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function PackDistributionBar({ users }: { users: Array<{ countryPackId?: string | null }> }) {
+  if (users.length === 0) return null;
+  const counts = computePackCounts(users);
+  const total = users.length;
+  const activePacks = PACK_ORDER.filter((p) => (counts[p] ?? 0) > 0);
+  if (activePacks.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border bg-muted/40 text-sm" data-testid="pack-distribution-bar">
+      <span className="text-muted-foreground font-medium text-xs mr-1">All loaded:</span>
+      {activePacks.map((pack) => {
+        const count = counts[pack];
+        const pct = Math.round((count / total) * 100);
+        return (
+          <span
+            key={pack}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${PACK_LABEL_COLORS[pack] ?? "text-gray-600 bg-gray-50 border-gray-200"}`}
+            data-testid={`pack-count-${pack}`}
+          >
+            {pack}: {count} <span className="opacity-60">({pct}%)</span>
+          </span>
+        );
+      })}
+      <span className="ml-auto text-xs text-muted-foreground">{total} total</span>
+    </div>
+  );
+}
+
 const PACK_BADGE_COLORS: Record<string, string> = {
   CA: "text-red-700 border-red-300 bg-red-50",
   VN: "text-yellow-700 border-yellow-300 bg-yellow-50",
@@ -108,6 +155,7 @@ export default function AdminUsers() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* User List */}
           <div className="lg:col-span-2 space-y-2">
+            <PackDistributionBar users={usersData?.users ?? []} />
             <p className="text-sm text-muted-foreground">{filteredUsers.length} of {usersData?.total ?? 0} users</p>
             {isLoading ? (
               <div className="space-y-2">
