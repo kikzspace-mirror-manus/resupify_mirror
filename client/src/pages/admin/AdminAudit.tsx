@@ -66,8 +66,9 @@ export default function AdminAudit() {
               </TableHeader>
               <TableBody>
                 {logs?.map((log, idx) => (
-                  <div key={log.id}>
+                  <>
                     <TableRow
+                      key={log.id}
                       className={`cursor-pointer ${idx % 2 === 0 ? "bg-white hover:bg-muted/30" : "bg-muted/5 hover:bg-muted/30"}`}
                       onClick={() => toggleExpanded(log.id)}
                     >
@@ -104,7 +105,7 @@ export default function AdminAudit() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </div>
+                  </>
                 ))}
               </TableBody>
             </Table>

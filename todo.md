@@ -1393,3 +1393,8 @@
 - [x] Frontend: apply fixed layout, tighter column widths, show user email, reduce row padding
 - [x] Write 12V acceptance tests (20 tests: backend, frontend, integration, regression)
 - [x] Phase 12V tests passing (20/20); TypeScript errors pending (type inference)
+## PATCH: Fix Audit Log DOM nesting (remove div inside TableBody)
+- [x] Remove div wrapper from AdminAudit.tsx TableBody
+- [x] Use React Fragment (<>) to wrap main row + expanded row
+- [x] Move key prop from div to TableRow
+- [x] Verify no validateDOMNesting errors, expand/collapse works, tests pass (2124/2124)
