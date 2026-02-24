@@ -35,6 +35,7 @@ import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, 
 import { checkIdempotency, markStarted, markSucceeded, markFailed, markCreditsCharged } from "./idempotency";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 import { safeNormalizeJobUrl } from "../shared/urlNormalize";
+import { COUNTRY_PACK_IDS } from "../shared/countryPacks";
 import { logAnalyticsEvent } from "./analytics";
 import {
   EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
@@ -175,6 +176,17 @@ export const appRouter = router({
       willingToRelocate: z.boolean().nullable().optional(),
     })).mutation(async ({ ctx, input }) => {
       await db.upsertProfile(ctx.user.id, input as any);
+      return { success: true };
+    }),
+    /**
+     * Self-service: user sets their own countryPackId during onboarding Step 0.
+     * Sticky rule: only updates when the user explicitly calls this mutation.
+     * Accepts only the valid CountryPackId enum values.
+     */
+    setCountryPack: protectedProcedure.input(z.object({
+      countryPackId: z.enum([...COUNTRY_PACK_IDS] as [string, ...string[]]),
+    })).mutation(async ({ ctx, input }) => {
+      await db.updateUserCountryPack(ctx.user.id, input.countryPackId);
       return { success: true };
     }),
   }),

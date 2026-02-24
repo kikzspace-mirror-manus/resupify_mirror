@@ -740,6 +740,13 @@ export async function adminSetDisabled(userId: number, disabled: boolean) {
   await db.update(users).set({ disabled }).where(eq(users.id, userId));
 }
 
+// User: update own countryPackId (self-service, used in onboarding Step 0)
+export async function updateUserCountryPack(userId: number, countryPackId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ countryPackId: countryPackId as any }).where(eq(users.id, userId));
+}
+
 // Admin: grant credits
 export async function adminGrantCredits(userId: number, amount: number, adminUserId: number) {
   const db = await getDb();

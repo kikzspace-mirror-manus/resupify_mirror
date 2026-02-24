@@ -13,12 +13,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, GraduationCap, Briefcase, Zap, Globe } from "lucide-react";
+import { ArrowRight, GraduationCap, Briefcase, Zap, Globe, MapPin } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
 import { getTracksForCountry, type TrackCode } from "@shared/trackOptions";
+
+// ─── Country options shown in Step 0 ─────────────────────────────────────────
+
+interface CountryOption {
+  id: CountryPackId;
+  label: string;
+  sublabel: string;
+  flag: string;
+}
+
+const COUNTRY_OPTIONS: CountryOption[] = [
+  {
+    id: "CA",
+    label: "Canada",
+    sublabel: "Co-op, new grad & early-career roles in Canada",
+    flag: "🇨🇦",
+  },
+  {
+    id: "VN",
+    label: "Vietnam",
+    sublabel: "Internship, new grad & experienced roles in Vietnam",
+    flag: "🇻🇳",
+  },
+];
 
 // ─── Icon map (client-only, not in shared module) ─────────────────────────────
 
@@ -37,19 +61,38 @@ function TrackIcon({ code }: { code: TrackCode }) {
 export default function Onboarding() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
-  const [step, setStep] = useState(1);
 
   // Feature flags from server
   const { data: flags } = trpc.system.featureFlags.useQuery();
   const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
 
-  // Determine effective country pack from auth.me user record
+  // Determine effective country pack from auth.me user record (preselect if already set)
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
 
-  // Compute available tracks based on country pack + flag (shared helper)
+  // Step 0: Country selection (local state — only persisted on explicit Continue)
+  // Preselect existing countryPackId if set; default to CA for V1 compat
+  const [selectedCountryPackId, setSelectedCountryPackId] = useState<CountryPackId>(
+    () => {
+      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN")) {
+        return userCountryPackId;
+      }
+      return "CA";
+    }
+  );
+
+  // Step number: when flag ON, step 0 is the country selector; steps 1/2/3 follow
+  // When flag OFF, start at step 1 (V1 behaviour unchanged)
+  const [step, setStep] = useState(() => v2CountryPacksEnabled ? 0 : 1);
+
+  // The effective country pack for track selection:
+  // - After Step 0 Continue: uses selectedCountryPackId (local state)
+  // - Flag OFF: uses userCountryPackId (V1 behaviour)
+  const effectiveCountryPackId = v2CountryPacksEnabled ? selectedCountryPackId : (userCountryPackId ?? "CA");
+
+  // Compute available tracks based on effective country pack + flag (shared helper)
   const { tracks, defaultTrack, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
-    () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled),
-    [userCountryPackId, v2CountryPacksEnabled]
+    () => getTracksForCountry(effectiveCountryPackId, v2CountryPacksEnabled),
+    [effectiveCountryPackId, v2CountryPacksEnabled]
   );
 
   // Step 1: Track
@@ -68,6 +111,7 @@ export default function Onboarding() {
   const upsertProfile = trpc.profile.upsert.useMutation();
   const updateWorkStatus = trpc.profile.updateWorkStatus.useMutation();
   const skipOnboarding = trpc.profile.skip.useMutation();
+  const setCountryPack = trpc.profile.setCountryPack.useMutation();
 
   if (loading) return null;
 
@@ -77,6 +121,19 @@ export default function Onboarding() {
       setLocation("/dashboard");
     } catch {
       setLocation("/dashboard");
+    }
+  };
+
+  // Step 0 Continue: persist countryPackId, then advance to Step 1
+  const handleCountryPackContinue = async () => {
+    try {
+      await setCountryPack.mutateAsync({ countryPackId: selectedCountryPackId });
+      // Reset trackCode to the default for the newly selected country
+      const { defaultTrack: newDefault } = getTracksForCountry(selectedCountryPackId, true);
+      setTrackCode(newDefault);
+      setStep(1);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save country selection");
     }
   };
 
@@ -108,9 +165,15 @@ export default function Onboarding() {
   const isStudentTrack = trackCode === "COOP";
   // For CA tracks: show work auth step
   const showWorkAuthStep = effectiveRegionCode === "CA";
-  const totalSteps = showWorkAuthStep ? 3 : 2;
+  // Total steps: flag ON adds Step 0; work auth adds Step 3
+  const totalSteps = v2CountryPacksEnabled
+    ? (showWorkAuthStep ? 4 : 3)
+    : (showWorkAuthStep ? 3 : 2);
 
-  const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending;
+  // Display step index for progress bar (0-indexed)
+  const progressStep = step;
+
+  const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending || setCountryPack.isPending;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -128,11 +191,73 @@ export default function Onboarding() {
             <div
               key={i}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                i + 1 <= step ? "bg-primary" : "bg-muted"
+                i <= progressStep ? "bg-primary" : "bg-muted"
               }`}
             />
           ))}
         </div>
+
+        {/* Step 0: Choose Country/Region (flag-gated) */}
+        {step === 0 && v2CountryPacksEnabled && (
+          <Card data-testid="step0-country-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                Where are you applying?
+              </CardTitle>
+              <CardDescription>
+                Choose your primary job market. This helps us show the right tracks and eligibility checks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup
+                value={selectedCountryPackId}
+                onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
+                className="grid grid-cols-2 gap-4"
+                data-testid="country-selector"
+              >
+                {COUNTRY_OPTIONS.map((country) => (
+                  <Label
+                    key={country.id}
+                    htmlFor={`country-${country.id}`}
+                    className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                      selectedCountryPackId === country.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/30"
+                    }`}
+                    data-testid={`country-option-${country.id}`}
+                  >
+                    <RadioGroupItem value={country.id} id={`country-${country.id}`} className="sr-only" />
+                    <span className="text-4xl" role="img" aria-label={country.label}>{country.flag}</span>
+                    <div className="text-center">
+                      <div className="font-semibold">{country.label}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{country.sublabel}</div>
+                    </div>
+                  </Label>
+                ))}
+              </RadioGroup>
+
+              <Button
+                onClick={handleCountryPackContinue}
+                className="w-full mt-4"
+                disabled={isPending}
+                data-testid="country-continue-btn"
+              >
+                {setCountryPack.isPending ? "Saving..." : "Continue"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={handleSkip}
+                disabled={isPending}
+              >
+                Skip for now
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Step 1: Choose Track */}
         {step === 1 && (
@@ -185,14 +310,25 @@ export default function Onboarding() {
                 </div>
               )}
 
-              <Button
-                onClick={() => setStep(2)}
-                className="w-full mt-4"
-                data-testid="track-continue-btn"
-              >
-                Continue
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <div className="flex gap-3">
+                {v2CountryPacksEnabled && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep(0)}
+                    className="flex-1"
+                  >
+                    Back
+                  </Button>
+                )}
+                <Button
+                  onClick={() => setStep(2)}
+                  className={v2CountryPacksEnabled ? "flex-1" : "w-full"}
+                  data-testid="track-continue-btn"
+                >
+                  Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"

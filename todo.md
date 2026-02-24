@@ -1368,3 +1368,11 @@
 - [x] Update Profile.tsx track selector to use getTracksForCountry (country-aware, flag-gated)
 - [x] Show "Tracks coming soon" for GLOBAL/PH/US in Profile
 - [x] Write tests: CA sees CA tracks, VN sees VN tracks, GLOBAL sees coming-soon, persist+reload
+
+## V2 — Onboarding Step 0: Country Pack Self-Selection (Flag-Gated)
+- [x] Verify/add user.updateCountryPack tRPC mutation (protected, own record only, enum validation)
+- [x] Add Step 0 UI to Onboarding.tsx: CA/VN radio cards, preselect existing countryPackId, sticky
+- [x] Persist countryPackId on Continue (call mutation before advancing to Track step)
+- [x] Track step reads selectedCountryPackId (local state) not just auth.me to reflect immediate change
+- [x] Flag OFF: no Step 0, onboarding unchanged
+- [x] Write tests: flag OFF no step 0, flag ON CA/VN saves correctly, sticky preselect, regression
