@@ -1567,3 +1567,9 @@
 - [x] Guard: only call setCountryPack if user.countryPackId !== onlyPack (avoid redundant mutation)
 - [x] Ensure auto-skip does not fight the re-entry guard (already redirects completed users)
 - [x] Write tests: single pack skips Step 0 + auto-selects, two packs shows Step 0, flag OFF unchanged
+
+## Bugfix — Onboarding hooks-order violation
+- [x] Move autoSkipFired useRef and useEffect above if (loading) return null early return
+- [x] Verify all hooks (useState, useMemo, useRef, useEffect, useMutation, useQuery) run before any return null
+- [x] Add test asserting autoSkipFired ref and useEffect are declared before early returns in source
+- [x] Run full suite + 0 TS errors

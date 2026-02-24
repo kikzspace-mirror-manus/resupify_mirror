@@ -168,8 +168,40 @@ describe("F: Re-entry guard still intact", () => {
   });
 });
 
-// ─── G) Progress bar: totalSteps accounts for auto-skip ──────────────────────
-describe("G: Progress bar totalSteps", () => {
+// ─── G) Hooks-order safety: all hooks before early returns ──────────────────
+describe("G: Hooks-order safety", () => {
+  it("G0: autoSkipFired useRef is declared before 'if (loading) return null'", () => {
+    const loadingReturnIdx = onboardingSrc.indexOf("if (loading) return null");
+    const autoSkipRefIdx = onboardingSrc.indexOf("const autoSkipFired = useRef(false)");
+    expect(autoSkipRefIdx).toBeGreaterThan(0);
+    expect(loadingReturnIdx).toBeGreaterThan(0);
+    // autoSkipFired ref MUST appear before the early return
+    expect(autoSkipRefIdx).toBeLessThan(loadingReturnIdx);
+  });
+
+  it("G0b: useEffect (auto-skip) is declared before 'if (loading) return null'", () => {
+    const loadingReturnIdx = onboardingSrc.indexOf("if (loading) return null");
+    // Find the useEffect that contains autoSkipFired.current
+    const autoSkipEffectIdx = onboardingSrc.indexOf("if (autoSkipFired.current) return");
+    expect(autoSkipEffectIdx).toBeGreaterThan(0);
+    expect(autoSkipEffectIdx).toBeLessThan(loadingReturnIdx);
+  });
+
+  it("G0c: all tRPC mutations are declared before 'if (loading) return null'", () => {
+    const loadingReturnIdx = onboardingSrc.indexOf("if (loading) return null");
+    const upsertIdx = onboardingSrc.indexOf("trpc.profile.upsert.useMutation()");
+    const setCountryPackIdx = onboardingSrc.indexOf("trpc.profile.setCountryPack.useMutation()");
+    expect(upsertIdx).toBeLessThan(loadingReturnIdx);
+    expect(setCountryPackIdx).toBeLessThan(loadingReturnIdx);
+  });
+
+  it("G0d: comment marks the early-returns section as being after all hooks", () => {
+    expect(onboardingSrc).toContain("Early returns (AFTER all hooks)");
+  });
+});
+
+// ─── H) Progress bar: totalSteps accounts for auto-skip ──────────────────────
+describe("H: Progress bar totalSteps", () => {
   it("G1: totalSteps is still computed from v2CountryPacksEnabled and showWorkAuthStep", () => {
     expect(onboardingSrc).toContain("const totalSteps = v2CountryPacksEnabled");
   });

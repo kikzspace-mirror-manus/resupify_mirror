@@ -159,6 +159,39 @@ export default function Onboarding() {
   const skipOnboarding = trpc.profile.skip.useMutation();
   const setCountryPack = trpc.profile.setCountryPack.useMutation();
 
+  // ── Auto-skip Step 0 when only 1 country pack is enabled ─────────────────
+  // MUST be declared here (before any early returns) so hook order is stable.
+  // All guard conditions are inside the effect body, not around the hook call.
+  const autoSkipFired = useRef(false);
+  useEffect(() => {
+    if (autoSkipFired.current) return;
+    if (!v2CountryPacksEnabled) return;   // V1: no-op
+    if (!flags) return;                   // flags not loaded yet
+    if (!user) return;                    // user not loaded yet
+    if (step !== 0) return;               // already past Step 0
+    if (enabledCountryPacks.length !== 1) return; // 2+ packs → show Step 0 normally
+    autoSkipFired.current = true;
+    const onlyPack = enabledCountryPacks[0] as CountryPackId;
+    // Update local state immediately so Track step renders with the correct pack
+    setSelectedCountryPackId(onlyPack);
+    const { defaultTrack: newDefault } = getTracksForCountry(onlyPack, true);
+    setTrackCode(newDefault);
+    // Persist only if the user's pack is unset or different
+    const needsPersist = !userCountryPackId || userCountryPackId !== onlyPack;
+    if (needsPersist) {
+      setCountryPack.mutate(
+        { countryPackId: onlyPack },
+        {
+          onSuccess: () => utils.auth.me.invalidate(),
+          onError: (err: any) => toast.error(err.message || "Failed to save country"),
+        }
+      );
+    }
+    // Advance to Track step — no Step 0 UI rendered
+    setStep(1);
+  }, [v2CountryPacksEnabled, flags, user, step, enabledCountryPacks, userCountryPackId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Early returns (AFTER all hooks) ────────────────────────────────────
   if (loading) return null;
 
   // ── V2 Re-entry guard ─────────────────────────────────────────────────────
@@ -245,39 +278,6 @@ export default function Onboarding() {
 
   // Display step index for progress bar (0-indexed)
   const progressStep = step;
-
-  // ── Auto-skip Step 0 when only 1 country pack is enabled ─────────────────
-  // Fires once after flags + user are both loaded. If only one pack is enabled,
-  // auto-select it, persist (if not already set), and advance to the Track step.
-  // A ref prevents the effect from running more than once per mount.
-  const autoSkipFired = useRef(false);
-  useEffect(() => {
-    if (autoSkipFired.current) return;
-    if (!v2CountryPacksEnabled) return;   // V1: no-op
-    if (!flags) return;                   // flags not loaded yet
-    if (!user) return;                    // user not loaded yet
-    if (step !== 0) return;               // already past Step 0
-    if (enabledCountryPacks.length !== 1) return; // 2+ packs → show Step 0 normally
-    autoSkipFired.current = true;
-    const onlyPack = enabledCountryPacks[0] as CountryPackId;
-    // Update local state immediately so Track step renders with the correct pack
-    setSelectedCountryPackId(onlyPack);
-    const { defaultTrack: newDefault } = getTracksForCountry(onlyPack, true);
-    setTrackCode(newDefault);
-    // Persist only if the user's pack is unset or different
-    const needsPersist = !userCountryPackId || userCountryPackId !== onlyPack;
-    if (needsPersist) {
-      setCountryPack.mutate(
-        { countryPackId: onlyPack },
-        {
-          onSuccess: () => utils.auth.me.invalidate(),
-          onError: (err: any) => toast.error(err.message || "Failed to save country"),
-        }
-      );
-    }
-    // Advance to Track step — no Step 0 UI rendered
-    setStep(1);
-  }, [v2CountryPacksEnabled, flags, user, step, enabledCountryPacks, userCountryPackId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending || setCountryPack.isPending;
 
