@@ -1363,3 +1363,9 @@
 - [x] Replace cards with table, wire pagination/search/filters, debounce search
 - [x] Write 13A acceptance tests (42 tests: backend, frontend, integration, regression)
 - [x] Full test suite passing (2104 tests), 0 TypeScript errors
+## Phase 12U: Stripe Events page align filters + header actions
+- [x] Audit AdminStripeEvents.tsx layout and spacing
+- [x] Create unified top toolbar (title + refresh button)
+- [x] Create filter bar aligned to table width (Status, Event Type, Count)
+- [x] Verify filters/refresh work, no TS errors, no backend changes
+- [x] Full test suite passing (2104 tests), 0 TypeScript errors

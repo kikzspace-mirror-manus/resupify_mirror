@@ -5,6 +5,7 @@
  * and eventType. No PII, no free text — only fields in the stripe_events table.
  *
  * Phase 12S: Fixed table layout with explicit column widths for consistent alignment.
+ * Phase 12U: Aligned toolbar and filter bar for clean layout.
  */
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -57,9 +58,9 @@ export default function AdminStripeEvents() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-3">
+        {/* Toolbar: Title + Refresh (aligned top) */}
+        <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl font-bold">Stripe Events</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -70,15 +71,15 @@ export default function AdminStripeEvents() {
             variant="outline"
             size="sm"
             onClick={() => { refetch(); }}
-            className="gap-2"
+            className="gap-2 h-9"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-end gap-4">
+        {/* Filter bar: aligned to table width, consistent heights */}
+        <div className="flex items-center gap-4">
           {/* Status filter */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">Status</label>
@@ -86,7 +87,7 @@ export default function AdminStripeEvents() {
               value={status}
               onValueChange={(v) => setStatus(v as Status | "all")}
             >
-              <SelectTrigger className="w-44 h-9">
+              <SelectTrigger className="w-40 h-9">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -105,7 +106,7 @@ export default function AdminStripeEvents() {
               value={eventType}
               onValueChange={(v) => setEventType(v)}
             >
-              <SelectTrigger className="w-56 h-9">
+              <SelectTrigger className="w-52 h-9">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -116,9 +117,9 @@ export default function AdminStripeEvents() {
             </Select>
           </div>
 
-          {/* Result count */}
+          {/* Result count (right-aligned) */}
           {!isLoading && events && (
-            <div className="flex items-end pb-0.5">
+            <div className="ml-auto flex items-center">
               <span className="text-xs text-muted-foreground">
                 {events.length} event{events.length !== 1 ? "s" : ""}
                 {events.length === 500 ? " (capped at 500)" : ""}
@@ -198,7 +199,7 @@ export default function AdminStripeEvents() {
                     {ev.stripeEventId.slice(0, 24)}…
                   </div>
 
-                  {/* Event type */}
+                  {/* Event Type */}
                   <div
                     style={{
                       display: "table-cell",
@@ -209,7 +210,7 @@ export default function AdminStripeEvents() {
                   >
                     <Badge
                       variant="outline"
-                      className={`text-xs w-fit ${EVENT_TYPE_COLORS[ev.eventType] ?? "bg-gray-100 text-gray-600"}`}
+                      className={`text-xs ${EVENT_TYPE_COLORS[ev.eventType] || "bg-gray-50 text-gray-700 border-gray-200"}`}
                     >
                       {ev.eventType}
                     </Badge>
@@ -227,13 +228,13 @@ export default function AdminStripeEvents() {
                   >
                     <Badge
                       variant="outline"
-                      className={`text-xs w-fit ${STATUS_COLORS[ev.status as Status] ?? "bg-gray-100 text-gray-600"}`}
+                      className={`text-xs ${STATUS_COLORS[ev.status as Status] || "bg-gray-50 text-gray-700 border-gray-200"}`}
                     >
                       {ev.status}
                     </Badge>
                   </div>
 
-                  {/* Credits purchased */}
+                  {/* Credits */}
                   <div
                     style={{
                       display: "table-cell",
@@ -242,16 +243,12 @@ export default function AdminStripeEvents() {
                       verticalAlign: "middle",
                       textAlign: "right",
                     }}
-                    className="text-xs tabular-nums"
+                    className="text-xs font-medium"
                   >
-                    {ev.creditsPurchased != null ? (
-                      <span className="text-emerald-600 font-medium">+{ev.creditsPurchased}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    {ev.creditsPurchased ?? "—"}
                   </div>
 
-                  {/* Timestamp */}
+                  {/* Time */}
                   <div
                     style={{
                       display: "table-cell",
@@ -259,24 +256,21 @@ export default function AdminStripeEvents() {
                       padding: "8px 12px",
                       verticalAlign: "middle",
                       textAlign: "right",
-                      whiteSpace: "nowrap",
                     }}
                     className="text-xs text-muted-foreground"
                   >
-                    {new Date(ev.createdAt).toLocaleString()}
+                    {new Date(ev.createdAt).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
-
-        {/* Privacy notice */}
-        <p className="text-xs text-muted-foreground border-t pt-4">
-          <strong>Privacy:</strong> This table contains only Stripe event IDs, event types,
-          status flags, and credit amounts. No card data, no customer PII, and no webhook
-          payloads are stored. User IDs are stored as internal integer references only.
-        </p>
       </div>
     </AdminLayout>
   );
