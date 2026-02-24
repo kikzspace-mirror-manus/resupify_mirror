@@ -173,7 +173,7 @@ describe("Onboarding Step 0 — US does not set languageMode=vi", () => {
       routersSource.indexOf("setCountryPack:") + 2000
     );
     expect(setCountryPackBlock).toContain("languageModeSet");
-    expect(setCountryPackBlock).toContain("return { success: true, languageModeSet }");
+    expect(setCountryPackBlock).toContain("return { success: true, languageModeSet, languageModeReset }");
   });
 });
 

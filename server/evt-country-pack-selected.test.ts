@@ -43,7 +43,7 @@ describe("routers.ts setCountryPack analytics instrumentation", () => {
   beforeAll(() => {
     content = fs.readFileSync(path.resolve("server/routers.ts"), "utf-8");
     const idx = content.indexOf("setCountryPack:");
-    setCountryPackBlock = content.slice(idx, idx + 1500);
+    setCountryPackBlock = content.slice(idx, idx + 2200);
   });
 
   it("T4: EVT_COUNTRY_PACK_SELECTED is imported in routers.ts", () => {
@@ -89,7 +89,10 @@ describe("routers.ts setCountryPack analytics instrumentation", () => {
 
   it("T11: analytics fires BEFORE the return statement", () => {
     const analyticsIdx = setCountryPackBlock.indexOf("logAnalyticsEvent");
+    // Match both old and new return shapes
     const returnIdx = setCountryPackBlock.lastIndexOf("return { success: true");
+    expect(analyticsIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(-1);
     expect(analyticsIdx).toBeLessThan(returnIdx);
   });
 

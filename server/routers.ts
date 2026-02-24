@@ -190,6 +190,9 @@ export const appRouter = router({
     setCountryPack: protectedProcedure.input(z.object({
       countryPackId: z.enum([...COUNTRY_PACK_IDS] as [string, ...string[]]),
     })).mutation(async ({ ctx, input }) => {
+      // Read previous countryPackId before applying the update
+      const previousCountryPackId = (ctx.user as any).countryPackId ?? "GLOBAL";
+
       await db.updateUserCountryPack(ctx.user.id, input.countryPackId);
 
       // One-time VN languageMode default
@@ -204,6 +207,16 @@ export const appRouter = router({
         await db.updateUserLanguageMode(ctx.user.id, "vi");
       }
 
+      // VN-exit cleanup: if switching away from VN to any non-VN pack, reset languageMode to "en"
+      // This is a one-way cleanup — never runs when staying on VN or switching TO VN.
+      const languageModeReset =
+        previousCountryPackId === "VN" &&
+        input.countryPackId !== "VN";
+
+      if (languageModeReset) {
+        await db.updateUserLanguageMode(ctx.user.id, "en");
+      }
+
       // Fire analytics event after all DB commits — fire-and-forget, never throws
       try {
         logAnalyticsEvent(EVT_COUNTRY_PACK_SELECTED, ctx.user.id, {
@@ -214,7 +227,7 @@ export const appRouter = router({
         // Intentionally swallowed — analytics must never block onboarding
       }
 
-      return { success: true, languageModeSet };
+      return { success: true, languageModeSet, languageModeReset };
     }),
 
     /**

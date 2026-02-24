@@ -1498,3 +1498,9 @@
 - [x] Add US to pack filter options in AdminUsers.tsx (already present from prior session)
 - [x] Confirm filtering logic uses (user.countryPackId ?? "GLOBAL") fallback
 - [x] Write tests: US option present, US filter returns only US users
+
+## V2 — Profile: Reset languageMode on VN Exit
+- [x] Read previous countryPackId before update in setCountryPack
+- [x] If previous=="VN" AND new!="VN": set languageMode="en", return languageModeReset=true
+- [x] Keep VN one-time default logic unchanged
+- [x] Write tests: VN→US/CA/PH/GLOBAL resets, VN→VN no-op, non-VN→VN no-op
