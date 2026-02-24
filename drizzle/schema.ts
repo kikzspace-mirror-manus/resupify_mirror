@@ -32,7 +32,7 @@ export const userProfiles = mysqlTable("user_profiles", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   regionCode: varchar("regionCode", { length: 16 }).notNull().default("CA"),
-  trackCode: mysqlEnum("trackCode", ["COOP", "NEW_GRAD"]).notNull().default("COOP"),
+  trackCode: mysqlEnum("trackCode", ["COOP", "NEW_GRAD", "INTERNSHIP", "EARLY_CAREER", "EXPERIENCED"]).notNull().default("COOP"),
   school: varchar("school", { length: 256 }),
   program: varchar("program", { length: 256 }),
   graduationDate: varchar("graduationDate", { length: 32 }),

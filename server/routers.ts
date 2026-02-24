@@ -151,7 +151,7 @@ export const appRouter = router({
     }),
     upsert: protectedProcedure.input(z.object({
       regionCode: z.string().max(MAX_LENGTHS.PROFILE_REGION_CODE).optional(),
-      trackCode: z.enum(["COOP", "NEW_GRAD"]).optional(),
+      trackCode: z.enum(["COOP", "NEW_GRAD", "INTERNSHIP", "EARLY_CAREER", "EXPERIENCED"]).optional(),
       school: z.string().max(MAX_LENGTHS.PROFILE_SCHOOL, { message: TOO_LONG_MSG }).optional(),
       program: z.string().max(MAX_LENGTHS.PROFILE_PROGRAM, { message: TOO_LONG_MSG }).optional(),
       graduationDate: z.string().max(MAX_LENGTHS.PROFILE_GRADUATION_DATE).optional(),

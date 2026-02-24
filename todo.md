@@ -1353,3 +1353,11 @@
 - [x] Add getAvailablePacksWithRegion() helper or extend getAvailablePacks() to expose regionCode
 - [x] Write config validation tests for VN tracks
 - [x] Write UI filter tests for AdminPacks.tsx
+
+## V2 — Onboarding Track Selector: VN Tracks (Flag-Gated)
+- [x] Add system.featureFlags tRPC query to expose v2CountryPacksEnabled to frontend
+- [x] Update Onboarding.tsx: country-aware track selector (CA→CA tracks, VN→VN tracks, other→hide/default)
+- [x] Update trackCode zod enum in profile.upsert to accept VN track codes
+- [x] Update drizzle schema trackCode enum to accept VN track codes
+- [x] Run pnpm db:push to migrate schema
+- [x] Write tests: flag OFF shows CA tracks only, flag ON shows country-filtered tracks, VN/INTERNSHIP saves correctly

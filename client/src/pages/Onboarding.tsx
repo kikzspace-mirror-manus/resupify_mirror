@@ -13,18 +13,130 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, GraduationCap, Briefcase, Zap } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, GraduationCap, Briefcase, Zap, Globe } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import type { CountryPackId } from "@shared/countryPacks";
+
+// ─── Track definitions ────────────────────────────────────────────────────────
+
+type TrackCode = "COOP" | "NEW_GRAD" | "INTERNSHIP" | "EARLY_CAREER" | "EXPERIENCED";
+
+interface TrackOption {
+  code: TrackCode;
+  regionCode: string;
+  label: string;
+  sublabel: string;
+  icon: React.ReactNode;
+}
+
+const CA_TRACKS: TrackOption[] = [
+  {
+    code: "COOP",
+    regionCode: "CA",
+    label: "Student / Co-op",
+    sublabel: "Currently enrolled",
+    icon: <GraduationCap className="h-8 w-8 text-primary" />,
+  },
+  {
+    code: "NEW_GRAD",
+    regionCode: "CA",
+    label: "Early-career / General",
+    sublabel: "New grad or career changer",
+    icon: <Briefcase className="h-8 w-8 text-primary" />,
+  },
+];
+
+const VN_TRACKS: TrackOption[] = [
+  {
+    code: "INTERNSHIP",
+    regionCode: "VN",
+    label: "Internship / Student",
+    sublabel: "Currently enrolled or seeking internship",
+    icon: <GraduationCap className="h-8 w-8 text-primary" />,
+  },
+  {
+    code: "NEW_GRAD",
+    regionCode: "VN",
+    label: "New Graduate",
+    sublabel: "Recently graduated",
+    icon: <Briefcase className="h-8 w-8 text-primary" />,
+  },
+  {
+    code: "EARLY_CAREER",
+    regionCode: "VN",
+    label: "Early Career",
+    sublabel: "1–5 years of experience",
+    icon: <Briefcase className="h-8 w-8 text-primary" />,
+  },
+  {
+    code: "EXPERIENCED",
+    regionCode: "VN",
+    label: "Experienced",
+    sublabel: "5+ years of experience",
+    icon: <Globe className="h-8 w-8 text-primary" />,
+  },
+];
+
+/**
+ * Returns the list of available tracks and the default track code for a given
+ * country pack, respecting the v2CountryPacksEnabled flag.
+ *
+ * When flag is OFF → always return CA tracks (V1 behavior unchanged).
+ * When flag is ON  → filter by countryPackId:
+ *   CA   → CA tracks, default COOP
+ *   VN   → VN tracks, default NEW_GRAD
+ *   other → empty (selector hidden with "Tracks coming soon" message)
+ */
+function getTracksForCountry(
+  countryPackId: CountryPackId | null | undefined,
+  v2Enabled: boolean
+): { tracks: TrackOption[]; defaultTrack: TrackCode; hasTracksForCountry: boolean } {
+  if (!v2Enabled) {
+    return { tracks: CA_TRACKS, defaultTrack: "COOP", hasTracksForCountry: true };
+  }
+  const effectivePack = countryPackId ?? "GLOBAL";
+  if (effectivePack === "CA") {
+    return { tracks: CA_TRACKS, defaultTrack: "COOP", hasTracksForCountry: true };
+  }
+  if (effectivePack === "VN") {
+    return { tracks: VN_TRACKS, defaultTrack: "NEW_GRAD", hasTracksForCountry: true };
+  }
+  // GLOBAL / PH / US — no tracks yet
+  return { tracks: [], defaultTrack: "NEW_GRAD", hasTracksForCountry: false };
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Onboarding() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
 
+  // Feature flags from server
+  const { data: flags } = trpc.system.featureFlags.useQuery();
+  const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
+
+  // Determine effective country pack from auth.me user record
+  const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
+
+  // Compute available tracks based on country pack + flag
+  const { tracks, defaultTrack, hasTracksForCountry } = useMemo(
+    () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled),
+    [userCountryPackId, v2CountryPacksEnabled]
+  );
+
+  // Effective regionCode for the selected country
+  const effectiveRegionCode = useMemo(() => {
+    if (!v2CountryPacksEnabled) return "CA";
+    const pack = userCountryPackId ?? "GLOBAL";
+    if (pack === "VN") return "VN";
+    return "CA";
+  }, [userCountryPackId, v2CountryPacksEnabled]);
+
   // Step 1: Track
-  const [trackCode, setTrackCode] = useState<"COOP" | "NEW_GRAD">("COOP");
+  const [trackCode, setTrackCode] = useState<TrackCode>(defaultTrack);
 
   // Step 2: Education
   const [school, setSchool] = useState("");
@@ -32,7 +144,7 @@ export default function Onboarding() {
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(true);
 
-  // Step 3: Work Authorization
+  // Step 3: Work Authorization (only shown for CA tracks)
   const [workStatus, setWorkStatus] = useState<"citizen_pr" | "temporary_resident" | "unknown">("unknown");
   const [needsSponsorship, setNeedsSponsorship] = useState<"true" | "false" | "unknown">("unknown");
 
@@ -47,7 +159,6 @@ export default function Onboarding() {
       await skipOnboarding.mutateAsync();
       setLocation("/dashboard");
     } catch {
-      // Even if skip fails, let the user through
       setLocation("/dashboard");
     }
   };
@@ -55,7 +166,7 @@ export default function Onboarding() {
   const handleComplete = async () => {
     try {
       await upsertProfile.mutateAsync({
-        regionCode: "CA",
+        regionCode: effectiveRegionCode,
         trackCode,
         school: school || undefined,
         program: program || undefined,
@@ -64,7 +175,8 @@ export default function Onboarding() {
         onboardingComplete: true,
       });
 
-      if (workStatus !== "unknown" || needsSponsorship !== "unknown") {
+      // Only save work auth for CA users (CA-specific eligibility checks)
+      if (effectiveRegionCode === "CA" && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
         await updateWorkStatus.mutateAsync({ workStatus, needsSponsorship });
       }
 
@@ -75,7 +187,12 @@ export default function Onboarding() {
     }
   };
 
+  // For CA/COOP track: show enrollment-related UI
   const isStudentTrack = trackCode === "COOP";
+  // For CA tracks: show work auth step
+  const showWorkAuthStep = effectiveRegionCode === "CA";
+  const totalSteps = showWorkAuthStep ? 3 : 2;
+
   const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending;
 
   return (
@@ -90,11 +207,11 @@ export default function Onboarding() {
 
         {/* Progress */}
         <div className="flex gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
+          {Array.from({ length: totalSteps }).map((_, i) => (
             <div
-              key={s}
+              key={i}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                s <= step ? "bg-primary" : "bg-muted"
+                i + 1 <= step ? "bg-primary" : "bg-muted"
               }`}
             />
           ))}
@@ -110,51 +227,52 @@ export default function Onboarding() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <RadioGroup
-                value={trackCode}
-                onValueChange={(v) => setTrackCode(v as "COOP" | "NEW_GRAD")}
-                className="grid grid-cols-2 gap-4"
+              {/* Flag ON + country has tracks → show country-aware track selector */}
+              {hasTracksForCountry ? (
+                <RadioGroup
+                  value={trackCode}
+                  onValueChange={(v) => setTrackCode(v as TrackCode)}
+                  className={`grid gap-4 ${tracks.length <= 2 ? "grid-cols-2" : "grid-cols-1"}`}
+                  data-testid="track-selector"
+                >
+                  {tracks.map((track) => (
+                    <Label
+                      key={track.code}
+                      htmlFor={`track-${track.code}`}
+                      className={`flex ${tracks.length <= 2 ? "flex-col items-center gap-3 p-6" : "flex-row items-center gap-4 p-4"} rounded-xl border-2 cursor-pointer transition-all ${
+                        trackCode === track.code
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <RadioGroupItem value={track.code} id={`track-${track.code}`} className="sr-only" />
+                      {track.icon}
+                      <div className={tracks.length <= 2 ? "text-center" : ""}>
+                        <div className="font-semibold">{track.label}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{track.sublabel}</div>
+                      </div>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              ) : (
+                /* Flag ON + no tracks for this country → "Tracks coming soon" */
+                <div
+                  className="rounded-xl border-2 border-dashed border-border p-8 text-center"
+                  data-testid="tracks-coming-soon"
+                >
+                  <Globe className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium text-muted-foreground">Tracks coming soon for this region.</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    We'll use a general profile for now. You can update your track later in Settings.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                onClick={() => setStep(2)}
+                className="w-full mt-4"
+                data-testid="track-continue-btn"
               >
-                <Label
-                  htmlFor="coop"
-                  className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                    trackCode === "COOP"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
-                  }`}
-                >
-                  <RadioGroupItem value="COOP" id="coop" className="sr-only" />
-                  <GraduationCap className="h-8 w-8 text-primary" />
-                  <div className="text-center">
-                    <div className="font-semibold">Student / Co-op</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Currently enrolled
-                    </div>
-                  </div>
-                </Label>
-                <Label
-                  htmlFor="newgrad"
-                  className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                    trackCode === "NEW_GRAD"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/30"
-                  }`}
-                >
-                  <RadioGroupItem
-                    value="NEW_GRAD"
-                    id="newgrad"
-                    className="sr-only"
-                  />
-                  <Briefcase className="h-8 w-8 text-primary" />
-                  <div className="text-center">
-                    <div className="font-semibold">Early-career / General</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      New grad or career changer
-                    </div>
-                  </div>
-                </Label>
-              </RadioGroup>
-              <Button onClick={() => setStep(2)} className="w-full mt-4">
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -179,7 +297,7 @@ export default function Onboarding() {
               <CardDescription>
                 {isStudentTrack
                   ? "Co-op employers verify enrollment status."
-                  : "Optional — helps with new grad eligibility checks."}
+                  : "Optional — helps with eligibility checks."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -239,9 +357,13 @@ export default function Onboarding() {
                 >
                   Back
                 </Button>
-                <Button onClick={() => setStep(3)} className="flex-1">
-                  Continue
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button
+                  onClick={() => showWorkAuthStep ? setStep(3) : handleComplete()}
+                  className="flex-1"
+                  disabled={!showWorkAuthStep && isPending}
+                >
+                  {!showWorkAuthStep ? (isPending ? "Saving..." : "Complete Setup") : "Continue"}
+                  {showWorkAuthStep && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </div>
               <Button
@@ -257,8 +379,8 @@ export default function Onboarding() {
           </Card>
         )}
 
-        {/* Step 3: Work Authorization */}
-        {step === 3 && (
+        {/* Step 3: Work Authorization (CA only) */}
+        {step === 3 && showWorkAuthStep && (
           <Card>
             <CardHeader>
               <CardTitle>Work authorization</CardTitle>
