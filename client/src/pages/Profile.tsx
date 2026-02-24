@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ShieldCheck, User, Layers, Globe } from "lucide-react";
+import { Loader2, ShieldCheck, User, Layers, Globe, Languages } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
@@ -33,15 +33,30 @@ export default function Profile() {
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
   const userLanguageMode = (user as any)?.languageMode as string | null | undefined;
 
-  // Resolve display locale for VN translation (flag-gated)
+  // v2BilingualViewEnabled flag
+  const v2BilingualViewEnabled = flags?.v2BilingualViewEnabled ?? false;
+
+  // Local languageMode state — mirrors user.languageMode; updated optimistically on save
+  const [localLanguageMode, setLocalLanguageMode] = useState<"en" | "vi" | "bilingual">(
+    () => (userLanguageMode as any) ?? "vi"
+  );
+
+  // Sync localLanguageMode when user record loads
+  useEffect(() => {
+    if (userLanguageMode) {
+      setLocalLanguageMode(userLanguageMode as any);
+    }
+  }, [userLanguageMode]);
+
+  // Resolve display locale for VN translation (flag-gated) — uses localLanguageMode for immediate refresh
   const locale: SupportedLocale = useMemo(
     () => resolveLocale({
       countryPackId: userCountryPackId,
-      languageMode: userLanguageMode,
+      languageMode: localLanguageMode,
       browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
       v2VnTranslationEnabled,
     }),
-    [userCountryPackId, userLanguageMode, v2VnTranslationEnabled]
+    [userCountryPackId, localLanguageMode, v2VnTranslationEnabled]
   );
 
   // Compute available tracks based on country pack + flag + locale (shared helper)
@@ -111,6 +126,16 @@ export default function Profile() {
       utils.profile.get.invalidate();
       setTrackDirty(false);
       toast.success("Track saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const setLanguageMode = trpc.profile.setLanguageMode.useMutation({
+    onSuccess: (data) => {
+      // Immediately update local state so locale refreshes without waiting for auth.me refetch
+      setLocalLanguageMode(data.effectiveMode as any);
+      utils.auth.me.invalidate();
+      toast.success("Language preference saved");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -202,6 +227,50 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+
+      {/* Language Card — VN users only, flag-gated */}
+      {v2CountryPacksEnabled && v2VnTranslationEnabled && userCountryPackId === "VN" && (
+        <Card data-testid="language-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Languages className="h-4 w-4" />
+              Language
+            </CardTitle>
+            <CardDescription>
+              Choose the language for track labels and profile copy.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="language-select">Display Language</Label>
+              <Select
+                value={localLanguageMode}
+                onValueChange={(v) => {
+                  const mode = v as "en" | "vi" | "bilingual";
+                  setLocalLanguageMode(mode);
+                  setLanguageMode.mutate({ languageMode: mode });
+                }}
+              >
+                <SelectTrigger id="language-select" data-testid="language-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent data-testid="language-select-content">
+                  <SelectItem value="en" data-testid="lang-option-en">English</SelectItem>
+                  <SelectItem value="vi" data-testid="lang-option-vi">Tiếng Việt</SelectItem>
+                  {v2BilingualViewEnabled && (
+                    <SelectItem value="bilingual" data-testid="lang-option-bilingual">Bilingual</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            {setLanguageMode.isPending && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Education Card */}
       <Card>

@@ -189,6 +189,20 @@ export const appRouter = router({
       await db.updateUserCountryPack(ctx.user.id, input.countryPackId);
       return { success: true };
     }),
+
+    /**
+     * Self-service: user sets their own languageMode.
+     * Non-VN enforcement: if user.countryPackId !== "VN", force "en" regardless of input.
+     */
+    setLanguageMode: protectedProcedure.input(z.object({
+      languageMode: z.enum(["en", "vi", "bilingual"]),
+    })).mutation(async ({ ctx, input }) => {
+      const userCountryPackId = (ctx.user as any).countryPackId ?? "GLOBAL";
+      // Non-VN users are always forced to "en"
+      const effectiveMode = userCountryPackId === "VN" ? input.languageMode : "en";
+      await db.updateUserLanguageMode(ctx.user.id, effectiveMode);
+      return { success: true, effectiveMode };
+    }),
   }),
 
   // ─── Region Packs ─────────────────────────────────────────────────

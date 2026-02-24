@@ -1385,3 +1385,11 @@
 - [x] Wire locale resolution into Profile.tsx track card
 - [x] Translate track step header/helper in Onboarding.tsx when VN+flag ON
 - [x] Write tests: flag OFF=EN, flag ON+VN=VI, flag ON+CA=EN, all 4 tracks covered
+
+## V2 — Profile: Language Mode Toggle (VN Only, Flag-Gated)
+- [x] Check if languageMode column exists in users table (drizzle schema)
+- [x] Add db.updateUserLanguageMode helper to db.ts
+- [x] Add profile.setLanguageMode tRPC mutation (non-VN enforcement: force en)
+- [x] Add Language card to Profile.tsx (VN+flag-gated, bilingual option behind v2BilingualViewEnabled)
+- [x] Immediate locale refresh after languageMode change (local state update)
+- [x] Write tests: visibility (flag OFF hidden, VN visible, CA hidden), save behavior, non-VN enforcement

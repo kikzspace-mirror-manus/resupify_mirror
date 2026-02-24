@@ -747,6 +747,16 @@ export async function updateUserCountryPack(userId: number, countryPackId: strin
   await db.update(users).set({ countryPackId: countryPackId as any }).where(eq(users.id, userId));
 }
 
+/** Update a user's languageMode preference. Non-VN enforcement is handled by the caller. */
+export async function updateUserLanguageMode(
+  userId: number,
+  languageMode: "en" | "vi" | "bilingual"
+) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ languageMode }).where(eq(users.id, userId));
+}
+
 // Admin: grant credits
 export async function adminGrantCredits(userId: number, amount: number, adminUserId: number) {
   const db = await getDb();
