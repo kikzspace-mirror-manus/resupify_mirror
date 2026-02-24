@@ -1,4 +1,5 @@
 import { adminProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { ENV } from "../_core/env";
 import { z } from "zod";
 import * as db from "../db";
@@ -740,7 +741,7 @@ ${buildToneSystemPrompt()}`
     process: adminProcedure.input(z.object({
       refundQueueId: z.number().int().positive(),
       debitAmount: z.number().int().min(0).max(1000),
-      // Phase 12L: optional manual userId override when item.userId is null
+      // Phase 12L-MIN: optional manual userId override when item.userId is null
       overrideUserId: z.number().int().positive().optional(),
     })).mutation(async ({ ctx, input }) => {
       const { refundQueueId, debitAmount, overrideUserId } = input;
@@ -751,20 +752,26 @@ ${buildToneSystemPrompt()}`
       if (item.status !== "pending") {
         return { success: false, alreadyProcessed: true };
       }
-      // Phase 12L: if userId is missing and admin provided an override, persist it first
-      if (!item.userId && overrideUserId) {
-        await db.setRefundQueueItemUserId(refundQueueId, overrideUserId);
+      // Phase 12L-MIN: validate that we have a userId to debit
+      const effectiveUserId = item.userId ?? overrideUserId ?? null;
+      if (!effectiveUserId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cannot debit credits: no userId on refund queue item. Select a user first.",
+        });
       }
       const reason = item.packId
         ? `Refund: ${item.packId} (${item.stripeRefundId})`
         : `Refund (${item.stripeRefundId})`;
+      // Phase 12L-MIN: pass resolvedUserId directly so processRefundQueueItem doesn't need
+      // a second DB round-trip to find the userId (avoids race with setRefundQueueItemUserId)
       const ledgerEntryId = await db.processRefundQueueItem(
         refundQueueId,
         ctx.user.id,
         debitAmount,
-        reason
+        reason,
+        effectiveUserId
       );
-      const effectiveUserId = item.userId ?? overrideUserId;
       await db.logAdminAction(ctx.user.id, "refund_processed", effectiveUserId, {
         refundQueueId,
         debitAmount,

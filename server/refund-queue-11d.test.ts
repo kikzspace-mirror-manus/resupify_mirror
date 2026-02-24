@@ -237,7 +237,7 @@ describe("E: Admin tRPC endpoints", () => {
 
   it("E6 — refunds.process logs admin action", () => {
     const idx = adminRouter.indexOf("refunds: router(");
-    const slice = adminRouter.slice(idx, idx + 2000);
+    const slice = adminRouter.slice(idx, idx + 3500);
     expect(slice).toContain("logAdminAction");
     expect(slice).toContain("refund_processed");
   });

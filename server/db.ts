@@ -1858,7 +1858,9 @@ export async function processRefundQueueItem(
   refundQueueId: number,
   adminUserId: number,
   debitAmount: number,
-  reason: string
+  reason: string,
+  /** Phase 12L-MIN: pass resolved userId directly to avoid a second DB round-trip */
+  resolvedUserId?: number
 ): Promise<number | null> {
   const db = await getDb();
   if (!db) return null;
@@ -1876,7 +1878,8 @@ export async function processRefundQueueItem(
   if (item.ledgerEntryId !== null && item.ledgerEntryId !== undefined) return null;
   if (item.status === "processed") return null;
 
-  const userId = item.userId;
+  // Phase 12L-MIN: use resolvedUserId override if item.userId is null
+  const userId = item.userId ?? resolvedUserId ?? null;
   if (!userId) throw new Error("Cannot debit credits: no userId on refund queue item");
 
   // Apply negative ledger entry (allow balance to go negative per spec)

@@ -86,22 +86,24 @@ describe("L6–L7: Webhook charge.refunded handler", () => {
 describe("L8–L11: Admin refunds.process mutation", () => {
   it("L8 — admin.refunds.process accepts optional overrideUserId", () => {
     const idx = adminRouter.indexOf("refunds:");
-    const slice = adminRouter.slice(idx, idx + 2000);
+    const slice = adminRouter.slice(idx, idx + 3500);
     expect(slice).toContain("overrideUserId");
     expect(slice).toContain("z.number().int().positive().optional()");
   });
 
-  it("L9 — admin.refunds.process calls setRefundQueueItemUserId when item.userId is null", () => {
+  it("L9 — admin.refunds.process computes effectiveUserId and passes it to processRefundQueueItem (Phase 12L-MIN)", () => {
     const idx = adminRouter.indexOf("refunds:");
-    const slice = adminRouter.slice(idx, idx + 2000);
-    expect(slice).toContain("setRefundQueueItemUserId");
-    expect(slice).toContain("!item.userId && overrideUserId");
+    const slice = adminRouter.slice(idx, idx + 3500);
+    // Phase 12L-MIN: uses effectiveUserId directly instead of setRefundQueueItemUserId
+    expect(slice).toContain("effectiveUserId");
+    expect(slice).toContain("item.userId ?? overrideUserId ?? null");
   });
 
-  it("L10 — setRefundQueueItemUserId is only called when item.userId is null", () => {
-    const idx = adminRouter.indexOf("setRefundQueueItemUserId");
-    const slice = adminRouter.slice(Math.max(0, idx - 200), idx + 100);
-    expect(slice).toContain("!item.userId");
+  it("L10 — admin.refunds.process passes effectiveUserId as resolvedUserId to processRefundQueueItem", () => {
+    const idx = adminRouter.indexOf("refunds:");
+    const slice = adminRouter.slice(idx, idx + 3500);
+    expect(slice).toContain("processRefundQueueItem(");
+    expect(slice).toContain("effectiveUserId");
   });
 
   it("L11 — processRefundQueueItem throws 'no userId' if userId still null after update", () => {

@@ -1320,3 +1320,10 @@
 - [x] Write Phase 12L acceptance tests (L1–L20)
 - [x] Fix existing C3/C4/E9 tests: increase slice windows to accommodate new code
 - [x] Full test suite passing (2012 tests), 0 TypeScript errors
+## Phase 12L-MIN: Refund Queue unblock debit when userId null
+- [x] Fix processRefundQueueItem to accept optional resolvedUserId param (bypass DB re-fetch)
+- [x] Update admin.refunds.process to pass resolvedUserId directly (no separate setRefundQueueItemUserId call)
+- [x] Add backend validation: if item.userId null and no overrideUserId, throw clear error
+- [x] Verify AdminRefunds.tsx UserSearchSelect wired correctly end-to-end
+- [x] Write 12L-MIN acceptance tests (4 cases from spec + 11 structural)
+- [x] Full test suite passing (2027 tests), 0 TypeScript errors
