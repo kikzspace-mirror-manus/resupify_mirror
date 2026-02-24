@@ -1357,3 +1357,9 @@
 - [x] Fix vertical/horizontal alignment: center badges, right-align credits/time, left-align ID/Type
 - [x] Verify filters, refresh work, no TS errors, no backend changes
 - [x] Full test suite passing (2062 tests), 0 TypeScript errors
+## Phase 13A: User Management at 10,000 users (table + server-side pagination + search + filters)
+- [x] Audit current AdminUsers.tsx and admin users API
+- [x] Add admin.users.listPaged backend procedure (search, filters, pagination)
+- [x] Replace cards with table, wire pagination/search/filters, debounce search
+- [x] Write 13A acceptance tests (42 tests: backend, frontend, integration, regression)
+- [x] Full test suite passing (2104 tests), 0 TypeScript errors

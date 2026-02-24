@@ -2250,3 +2250,76 @@ export async function backfillPendingRefundUserIds(
 
   return { scanned, eligible: scanned, resolved, unresolved };
 }
+
+// Phase 13A: Admin list users with pagination, search, and filters
+export async function adminListUsersPaged(options: {
+  q?: string;
+  status?: "all" | "active" | "disabled";
+  role?: "all" | "admin";
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+
+  const limit = Math.min(options.limit ?? 25, 100);
+  const offset = options.offset ?? 0;
+
+  // Build WHERE conditions
+  const conditions: any[] = [];
+
+  // Search: name or email
+  if (options.q) {
+    const pattern = `%${options.q}%`;
+    conditions.push(
+      or(
+        sql`${users.name} LIKE ${pattern}`,
+        sql`${users.email} LIKE ${pattern}`
+      )
+    );
+  }
+
+  // Status filter
+  if (options.status === "disabled") {
+    conditions.push(eq(users.disabled, true));
+  } else if (options.status === "active") {
+    conditions.push(eq(users.disabled, false));
+  }
+  // "all" means no filter
+
+  // Role filter
+  if (options.role === "admin") {
+    conditions.push(eq(users.isAdmin, true));
+  }
+  // "all" means no filter
+
+  // Combine conditions
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // Fetch items
+  const items = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      isAdmin: users.isAdmin,
+      disabled: users.disabled,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(whereClause)
+    .orderBy(desc(users.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  // Fetch total count
+  const countResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(users)
+    .where(whereClause);
+
+  return {
+    items,
+    total: Number(countResult[0]?.count ?? 0),
+  };
+}

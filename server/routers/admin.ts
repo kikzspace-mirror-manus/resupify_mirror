@@ -57,6 +57,22 @@ export const adminRouter = router({
       await db.logAdminAction(ctx.user.id, "set_disabled", input.userId, { disabled: input.disabled });
       return { success: true };
     }),
+
+    listPaged: adminProcedure.input(z.object({
+      q: z.string().optional(),
+      status: z.enum(["all", "active", "disabled"]).optional().default("all"),
+      role: z.enum(["all", "admin"]).optional().default("all"),
+      limit: z.number().min(1).max(100).optional().default(25),
+      offset: z.number().min(0).optional().default(0),
+    })).query(async ({ input }) => {
+      return db.adminListUsersPaged({
+        q: input.q,
+        status: input.status,
+        role: input.role,
+        limit: input.limit,
+        offset: input.offset,
+      });
+    }),
   }),
 
   // ─── Runs & Output QA ────────────────────────────────────────────

@@ -1,40 +1,68 @@
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Search, Shield, Coins, Ban, User, Briefcase, FlaskConical, ListTodo } from "lucide-react";
+import { Search, Shield, Coins, Ban, User, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function AdminUsers() {
-  const [search, setSearch] = useState("");
-  const [showDisabledOnly, setShowDisabledOnly] = useState(false);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [status, setStatus] = useState<"all" | "active" | "disabled">("all");
+  const [role, setRole] = useState<"all" | "admin">("all");
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [grantDialog, setGrantDialog] = useState<{ userId: number; name: string } | null>(null);
   const [grantAmount, setGrantAmount] = useState("5");
   const [adminDialog, setAdminDialog] = useState<{ userId: number; name: string; isAdmin: boolean } | null>(null);
 
-  const { data: usersData, isLoading, refetch } = trpc.admin.users.list.useQuery({ search: search || undefined });
-  const { data: userDetail } = trpc.admin.users.detail.useQuery(
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedQ, status, role, pageSize]);
+
+  const { data: listData, isLoading: listLoading, refetch: refetchList } = trpc.admin.users.listPaged.useQuery({
+    q: debouncedQ || undefined,
+    status,
+    role,
+    limit: pageSize,
+    offset: currentPage * pageSize,
+  });
+
+  const { data: userDetail, isLoading: detailLoading } = trpc.admin.users.detail.useQuery(
     { userId: selectedUserId! },
     { enabled: !!selectedUserId }
   );
 
   const grantCreditsMut = trpc.admin.users.grantCredits.useMutation({
-    onSuccess: () => { toast.success("Credits granted"); setGrantDialog(null); refetch(); },
+    onSuccess: () => { toast.success("Credits granted"); setGrantDialog(null); refetchList(); },
     onError: (e) => toast.error(e.message),
   });
   const setAdminMut = trpc.admin.users.setAdmin.useMutation({
-    onSuccess: () => { toast.success("Admin status updated"); setAdminDialog(null); refetch(); },
+    onSuccess: () => { toast.success("Admin status updated"); setAdminDialog(null); refetchList(); },
     onError: (e) => toast.error(e.message),
   });
   const setDisabledMut = trpc.admin.users.setDisabled.useMutation({
-    onSuccess: () => { toast.success("User status updated"); refetch(); },
+    onSuccess: () => { toast.success("User status updated"); refetchList(); },
     onError: (e) => toast.error(e.message),
   });
+
+  const totalPages = Math.ceil((listData?.total ?? 0) / pageSize);
+  const hasNextPage = currentPage < totalPages - 1;
+  const hasPrevPage = currentPage > 0;
 
   return (
     <AdminLayout>
@@ -44,76 +72,136 @@ export default function AdminUsers() {
           <p className="text-muted-foreground">Search users, view profiles, grant credits, manage access</p>
         </div>
 
-        {/* Search + filter */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search + Filters */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="disabled">Disabled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={role} onValueChange={(v) => setRole(v as any)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="admin">Admin Only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Button
-            size="sm"
-            variant={showDisabledOnly ? "destructive" : "outline"}
-            onClick={() => setShowDisabledOnly((v) => !v)}
-            className="shrink-0"
-          >
-            <Ban className="h-4 w-4 mr-2" />
-            {showDisabledOnly ? "Showing disabled only" : "Show disabled only"}
-          </Button>
+
+          {/* Result count + page size */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>{listData?.total ?? 0} users found</span>
+            <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+                <SelectItem value="100">100 per page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* User List */}
-          <div className="lg:col-span-2 space-y-2">
-            <p className="text-sm text-muted-foreground">{usersData?.total ?? 0} users found</p>
-            {isLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>
-                ))}
+          {/* User Table */}
+          <div className="lg:col-span-2 space-y-4">
+            {listLoading ? (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="space-y-2 p-4">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-10 bg-muted rounded animate-pulse" />
+                  ))}
+                </div>
+              </div>
+            ) : (listData?.items.length ?? 0) === 0 ? (
+              <div className="border rounded-lg text-center py-12 text-muted-foreground">
+                <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No users found</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {(usersData?.users ?? []).filter((u) => !showDisabledOnly || u.disabled).map((u) => (
-                  <Card
-                    key={u.id}
-                    className={`cursor-pointer transition-colors ${selectedUserId === u.id ? "border-orange-300 bg-orange-50/50" : "hover:bg-accent/50"}`}
-                    onClick={() => setSelectedUserId(u.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                            {(u.name ?? u.email ?? "?")[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{u.name ?? "Unnamed"}</p>
-                            <p className="text-xs text-muted-foreground">{u.email ?? "No email"}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {u.isAdmin && <Badge variant="outline" className="text-orange-600 border-orange-300">Admin</Badge>}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className="w-[40%]">Name</TableHead>
+                      <TableHead className="w-[30%]">Email</TableHead>
+                      <TableHead className="w-[15%] text-center">Role</TableHead>
+                      <TableHead className="w-[15%] text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {listData?.items.map((u, idx) => (
+                      <TableRow
+                        key={u.id}
+                        className={`cursor-pointer ${
+                          selectedUserId === u.id ? "bg-orange-50/50" : idx % 2 === 0 ? "bg-white" : "bg-muted/5"
+                        } hover:bg-muted/30 transition-colors`}
+                        onClick={() => setSelectedUserId(u.id)}
+                      >
+                        <TableCell className="text-sm font-medium">{u.name ?? "Unnamed"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{u.email ?? "—"}</TableCell>
+                        <TableCell className="text-center">
+                          {u.isAdmin && <Badge className="bg-orange-100 text-orange-700 border-orange-300">Admin</Badge>}
+                        </TableCell>
+                        <TableCell className="text-center">
                           {u.disabled && <Badge variant="destructive">Disabled</Badge>}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(u.lastSignedIn).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {usersData?.users.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">No users found</p>
-                )}
+                          {!u.disabled && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">Active</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {(listData?.total ?? 0) > 0 && (
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    disabled={!hasPrevPage}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                    disabled={!hasNextPage}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>
 
-          {/* User Detail */}
+          {/* User Detail Panel */}
           <div>
             {selectedUserId && userDetail ? (
               <Card className="sticky top-6">
@@ -125,16 +213,6 @@ export default function AdminUsers() {
                   <p className="text-sm text-muted-foreground">{userDetail.email}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Profile */}
-                  {userDetail.profile && (
-                    <div className="space-y-1 text-sm">
-                      <p><span className="text-muted-foreground">Region/Track:</span> {userDetail.profile.regionCode}/{userDetail.profile.trackCode}</p>
-                      <p><span className="text-muted-foreground">School:</span> {userDetail.profile.school ?? "—"}</p>
-                      <p><span className="text-muted-foreground">Program:</span> {userDetail.profile.program ?? "—"}</p>
-                      <p><span className="text-muted-foreground">Graduation:</span> {userDetail.profile.graduationDate ?? "—"}</p>
-                    </div>
-                  )}
-
                   {/* Stats */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-3 bg-muted/50 rounded-lg text-center">
@@ -143,19 +221,8 @@ export default function AdminUsers() {
                       <p className="text-xs text-muted-foreground">Credits</p>
                     </div>
                     <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <Briefcase className="h-4 w-4 mx-auto text-blue-600 mb-1" />
                       <p className="text-lg font-bold">{userDetail.jobCardsCount}</p>
                       <p className="text-xs text-muted-foreground">Job Cards</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <FlaskConical className="h-4 w-4 mx-auto text-orange-600 mb-1" />
-                      <p className="text-lg font-bold">{userDetail.evidenceRunsCount}</p>
-                      <p className="text-xs text-muted-foreground">Runs</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <ListTodo className="h-4 w-4 mx-auto text-green-600 mb-1" />
-                      <p className="text-lg font-bold">{userDetail.tasksCount}</p>
-                      <p className="text-xs text-muted-foreground">Tasks</p>
                     </div>
                   </div>
 
@@ -188,8 +255,7 @@ export default function AdminUsers() {
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    Joined: {new Date(userDetail.createdAt).toLocaleDateString()}<br />
-                    Last active: {new Date(userDetail.lastSignedIn).toLocaleDateString()}
+                    Joined: {new Date(userDetail.createdAt).toLocaleDateString()}
                   </p>
                 </CardContent>
               </Card>
