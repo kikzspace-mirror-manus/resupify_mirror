@@ -52,14 +52,14 @@ describe("A: getTracksForCountry GLOBAL regionCode fix", () => {
     expect(result.regionCode).toBe("GLOBAL");
   });
 
-  it("A5: GLOBAL with v2=true returns empty tracks array", () => {
+  it("A5: GLOBAL with v2=true returns 4 GLOBAL_TRACKS (V2 Global Career Stages)", () => {
     const result = getTracksForCountry("GLOBAL", true);
-    expect(result.tracks).toHaveLength(0);
+    expect(result.tracks).toHaveLength(4);
   });
 
-  it("A6: GLOBAL with v2=true returns hasTracksForCountry=false", () => {
+  it("A6: GLOBAL with v2=true returns hasTracksForCountry=true (V2 Global Career Stages)", () => {
     const result = getTracksForCountry("GLOBAL", true);
-    expect(result.hasTracksForCountry).toBe(false);
+    expect(result.hasTracksForCountry).toBe(true);
   });
 
   it("A7: CA with v2=true still returns regionCode='CA' (unchanged)", () => {
@@ -88,7 +88,7 @@ describe("A: getTracksForCountry GLOBAL regionCode fix", () => {
   });
 
   it("A12: behaviour matrix comment updated to show GLOBAL → GLOBAL", () => {
-    expect(trackOptionsSrc).toContain("| true      | GLOBAL        | any    | []            | NEW_GRAD     | GLOBAL     |");
+    expect(trackOptionsSrc).toContain("| true      | GLOBAL        | any    | GLOBAL_TRACKS | INTERNSHIP   | GLOBAL     |");
   });
 
   it("A13: GLOBAL fallback comment explains the fix", () => {

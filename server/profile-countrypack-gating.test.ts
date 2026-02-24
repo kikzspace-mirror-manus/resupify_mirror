@@ -45,16 +45,18 @@ describe("Profile track options: always derived from countryPackId", () => {
     expect(result.tracks.map((t) => t.code)).toContain("EXPERIENCED");
   });
 
-  it("P4: GLOBAL countryPackId returns empty tracks (coming soon)", () => {
+  it("P4: GLOBAL countryPackId returns 4 GLOBAL_TRACKS (V2 Global Career Stages)", () => {
     const result = getTracksForCountry("GLOBAL" as CountryPackId, true, "en");
-    expect(result.tracks.length).toBe(0);
-    expect(result.hasTracksForCountry).toBe(false);
+    expect(result.tracks.length).toBe(4);
+    expect(result.hasTracksForCountry).toBe(true);
+    expect(result.regionCode).toBe("GLOBAL");
   });
 
-  it("P5: null countryPackId returns empty tracks (coming soon)", () => {
+  it("P5: null countryPackId returns GLOBAL_TRACKS (V2 Global Career Stages)", () => {
     const result = getTracksForCountry(null, true, "en");
-    expect(result.tracks.length).toBe(0);
-    expect(result.hasTracksForCountry).toBe(false);
+    expect(result.tracks.length).toBe(4);
+    expect(result.hasTracksForCountry).toBe(true);
+    expect(result.regionCode).toBe("GLOBAL");
   });
 
   it("P6: flag OFF always returns CA tracks regardless of countryPackId", () => {

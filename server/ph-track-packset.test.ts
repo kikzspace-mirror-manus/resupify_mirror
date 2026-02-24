@@ -176,10 +176,11 @@ describe("PH track options — shared/trackOptions.ts", () => {
     expect(result.tracks[0].label).toBe("Thực tập / Sinh viên");
   });
 
-  it("T30: GLOBAL still returns empty tracks (unchanged)", () => {
+  it("T30: GLOBAL returns 4 GLOBAL_TRACKS (V2 Global Career Stages)", () => {
     const result = getTracksForCountry("GLOBAL", true);
-    expect(result.hasTracksForCountry).toBe(false);
-    expect(result.tracks).toHaveLength(0);
+    expect(result.hasTracksForCountry).toBe(true);
+    expect(result.tracks).toHaveLength(4);
+    expect(result.regionCode).toBe("GLOBAL");
   });
 
   it("T31: PH/INTERNSHIP label and sublabel are correct", () => {

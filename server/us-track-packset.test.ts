@@ -282,16 +282,19 @@ describe("D) Regression — existing CA/VN/PH packs and GLOBAL fallback unchange
     expect(result.regionCode).toBe("PH");
   });
 
-  it("T38: GLOBAL still returns empty tracks (no tracks defined)", () => {
+  it("T38: GLOBAL returns 4 neutral GLOBAL_TRACKS (V2 Global Career Stages)", () => {
     const result = getTracksForCountry("GLOBAL", true, "en");
-    expect(result.tracks).toHaveLength(0);
-    expect(result.hasTracksForCountry).toBe(false);
+    expect(result.tracks).toHaveLength(4);
+    expect(result.hasTracksForCountry).toBe(true);
+    expect(result.regionCode).toBe("GLOBAL");
+    expect(result.defaultTrack).toBe("INTERNSHIP");
   });
 
-  it("T39: null countryPackId still returns empty tracks (GLOBAL fallback)", () => {
+  it("T39: null countryPackId returns GLOBAL_TRACKS (V2 Global Career Stages)", () => {
     const result = getTracksForCountry(null, true, "en");
-    expect(result.tracks).toHaveLength(0);
-    expect(result.hasTracksForCountry).toBe(false);
+    expect(result.tracks).toHaveLength(4);
+    expect(result.hasTracksForCountry).toBe(true);
+    expect(result.regionCode).toBe("GLOBAL");
   });
 
   it("T40: CA/NEW_GRAD weights still sum to 1.0 (unchanged)", () => {

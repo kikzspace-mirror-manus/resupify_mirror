@@ -203,7 +203,38 @@ export const US_TRACKS: TrackOption[] = [
   },
 ];
 
-// ─── Track definitions (VI) ──────────────────────────────────────────────────
+/// ─── Track definitions (GLOBAL — English-only, neutral) ─────────────────────
+// GLOBAL tracks are always English-only. No region-specific eligibility
+// checks or work auth rules apply. Locale param is intentionally ignored.
+
+export const GLOBAL_TRACKS: TrackOption[] = [
+  {
+    code: "INTERNSHIP",
+    regionCode: "GLOBAL",
+    label: "Internship / Student",
+    sublabel: "Students applying for internships",
+  },
+  {
+    code: "NEW_GRAD",
+    regionCode: "GLOBAL",
+    label: "New Graduate",
+    sublabel: "0–2 years experience",
+  },
+  {
+    code: "EARLY_CAREER",
+    regionCode: "GLOBAL",
+    label: "Early Career (1–5 years)",
+    sublabel: "1–5 years experience",
+  },
+  {
+    code: "EXPERIENCED",
+    regionCode: "GLOBAL",
+    label: "Experienced (5+ years)",
+    sublabel: "5+ years (senior IC/manager)",
+  },
+];
+
+// ─── Track definitions (VI) ──────────────────────────────────────────────
 
 export const VN_TRACKS_VI: TrackOption[] = [
   {
@@ -267,8 +298,8 @@ export function getTranslatedTrackStepCopy(locale: SupportedLocale): TrackStepCo
  * | true      | VN            | en     | VN_TRACKS(en) | NEW_GRAD     | VN         |
  * | true      | VN            | vi     | VN_TRACKS(vi) | NEW_GRAD     | VN         |
  * | true      | US            | any    | US_TRACKS(en) | INTERNSHIP   | US         |
- * | true      | GLOBAL        | any    | []            | NEW_GRAD     | GLOBAL     |
- * | true      | null/undefined| any    | []            | NEW_GRAD     | GLOBAL     |
+ * | true      | GLOBAL        | any    | GLOBAL_TRACKS | INTERNSHIP   | GLOBAL     |
+ * | true      | null/undefined| any    | GLOBAL_TRACKS | INTERNSHIP   | GLOBAL     |
  */
 export function getTracksForCountry(
   countryPackId: CountryPackId | null | undefined,
@@ -325,15 +356,14 @@ export function getTracksForCountry(
     };
   }
 
-  // GLOBAL (or unknown pack) — no tracks defined.
+  // GLOBAL (or unknown pack) — return neutral GLOBAL tracks.
   // IMPORTANT: must return regionCode="GLOBAL", NOT "CA".
   // Returning "CA" here caused CA-only gating (Work Auth, co-op copy) to leak
-  // into GLOBAL users. Any consumer that needs a region for LLM/scoring should
-  // treat "GLOBAL" as a neutral fallback and not apply CA-specific rules.
+  // into GLOBAL users. GLOBAL tracks are English-only with no region-specific rules.
   return {
-    tracks: [],
-    defaultTrack: "NEW_GRAD",
-    hasTracksForCountry: false,
+    tracks: GLOBAL_TRACKS,
+    defaultTrack: "INTERNSHIP",
+    hasTracksForCountry: true,
     regionCode: "GLOBAL",
   };
 }

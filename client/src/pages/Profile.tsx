@@ -62,13 +62,11 @@ export default function Profile() {
   );
 
   // Compute available tracks based on country pack + flag + locale (shared helper)
-  const { tracks, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
+  const { tracks, hasTracksForCountry, regionCode: effectiveRegionCode, defaultTrack: defaultTrackForPack } = useMemo(
     () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled, locale),
     [userCountryPackId, v2CountryPacksEnabled, locale]
   );
-
-  // Track selector state — initialised from saved profile
-  const [trackCode, setTrackCode] = useState<TrackCode>("COOP");
+  const [trackCode, setTrackCode] = useState<TrackCode>(defaultTrackForPack);
   const [trackDirty, setTrackDirty] = useState(false);
 
   // Education fields
@@ -103,8 +101,8 @@ export default function Profile() {
 
   useEffect(() => {
     if (profile) {
-      // Restore saved track code — fall back to first available track for the country
-      const savedTrack = (profile.trackCode as TrackCode) ?? "COOP";
+      // Restore saved track code — fall back to country-appropriate default (not hardcoded COOP)
+      const savedTrack = (profile.trackCode as TrackCode) ?? defaultTrackForPack;
       setTrackCode(savedTrack);
       setSchool(profile.school ?? "");
       setProgram(profile.program ?? "");

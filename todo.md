@@ -1692,3 +1692,22 @@
 - [x] GLOBAL packs have empty workAuthRules and eligibilityChecks (no CA-specific rules)
 - [x] Update T16 in ph-track-packset.test.ts to expect 20 packs
 - [x] Write 26 regression tests in server-global-fallback-guard.test.ts
+
+## V2 — Global Career Stages (Remove "Coming Soon")
+- [ ] Add GLOBAL_TRACKS array to trackOptions.ts (4 neutral English tracks)
+- [ ] Update getTracksForCountry("GLOBAL") to return GLOBAL_TRACKS with defaultTrack="INTERNSHIP"
+- [ ] Update behaviour matrix comment in trackOptions.ts
+- [ ] Profile.tsx: GLOBAL now has hasTracksForCountry=true → dropdown renders automatically
+- [ ] Update trackCode default init from "COOP" to "NEW_GRAD" for GLOBAL users
+- [ ] Write tests: getTracksForCountry(GLOBAL) returns 4 tracks, correct labels, regionCode=GLOBAL
+- [ ] Write tests: Profile GLOBAL renders dropdown, not placeholder
+
+## V2 — Global Career Stages (Profile Dropdown)
+- [x] Add GLOBAL_TRACKS array to shared/trackOptions.ts (4 neutral tracks)
+- [x] Update getTracksForCountry("GLOBAL", true) to return GLOBAL_TRACKS with hasTracksForCountry=true
+- [x] Set defaultTrack for GLOBAL to "INTERNSHIP"
+- [x] Ensure regionCode="GLOBAL" (not "CA") for GLOBAL path
+- [x] Update Profile.tsx trackCode useState init to use defaultTrackForPack
+- [x] Update Profile.tsx useEffect profile load to use defaultTrackForPack fallback
+- [x] Write 31 new tests in global-career-stages.test.ts
+- [x] Update 9 stale test assertions across 6 existing test files

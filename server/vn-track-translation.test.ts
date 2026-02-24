@@ -116,8 +116,8 @@ describe("getTracksForCountry() with locale", () => {
     expect(result.tracks).toEqual(VN_TRACKS);
   });
 
-  it("T15: GLOBAL → no tracks regardless of locale (PH and US now have tracks)", () => {
-    expect(getTracksForCountry("GLOBAL", true, "vi").tracks).toHaveLength(0);
+  it("T15: GLOBAL → 4 GLOBAL_TRACKS regardless of locale (V2 Global Career Stages)", () => {
+    expect(getTracksForCountry("GLOBAL", true, "vi").tracks).toHaveLength(4);
     // PH now has 4 tracks (V2 PH expansion)
     expect(getTracksForCountry("PH", true, "vi").tracks).toHaveLength(4);
     // US now has 4 tracks (V2 US Expansion Step 1) — English-only, locale ignored

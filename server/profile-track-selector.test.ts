@@ -105,17 +105,20 @@ describe("getTracksForCountry — flag ON, VN", () => {
 });
 
 describe("getTracksForCountry — flag ON, GLOBAL/PH/US", () => {
-  const unsupportedPacks: (CountryPackId | null | undefined)[] = [
+  // GLOBAL now has 4 neutral tracks (V2 Global Career Stages)
+  const globalPacks: (CountryPackId | null | undefined)[] = [
     "GLOBAL",
     null,
     undefined,
   ];
 
-  for (const pack of unsupportedPacks) {
-    it(`T13-${pack ?? "null"}: flag ON + ${pack ?? "null"} → empty tracks, hasTracksForCountry=false`, () => {
+  for (const pack of globalPacks) {
+    it(`T13-${pack ?? "null"}: flag ON + ${pack ?? "null"} → GLOBAL_TRACKS (4), hasTracksForCountry=true`, () => {
       const result = getTracksForCountry(pack, true);
-      expect(result.tracks).toHaveLength(0);
-      expect(result.hasTracksForCountry).toBe(false);
+      expect(result.tracks).toHaveLength(4);
+      expect(result.hasTracksForCountry).toBe(true);
+      expect(result.regionCode).toBe("GLOBAL");
+      expect(result.defaultTrack).toBe("INTERNSHIP");
     });
   }
 
