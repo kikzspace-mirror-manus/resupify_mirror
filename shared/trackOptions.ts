@@ -173,6 +173,36 @@ export const PH_TRACKS: TrackOption[] = [
   },
 ];
 
+// ─── Track definitions (US — English-only) ─────────────────────────────────
+// US tracks are always returned in English regardless of locale.
+
+export const US_TRACKS: TrackOption[] = [
+  {
+    code: "INTERNSHIP",
+    regionCode: "US",
+    label: "United States — Internship / Student",
+    sublabel: "Students applying for internships",
+  },
+  {
+    code: "NEW_GRAD",
+    regionCode: "US",
+    label: "United States — New Graduate",
+    sublabel: "0–2 years experience",
+  },
+  {
+    code: "EARLY_CAREER",
+    regionCode: "US",
+    label: "United States — Early Career (1–5 years)",
+    sublabel: "1–5 years experience",
+  },
+  {
+    code: "EXPERIENCED",
+    regionCode: "US",
+    label: "United States — Experienced (5+ years)",
+    sublabel: "5+ years (senior IC/manager)",
+  },
+];
+
 // ─── Track definitions (VI) ──────────────────────────────────────────────────
 
 export const VN_TRACKS_VI: TrackOption[] = [
@@ -236,7 +266,8 @@ export function getTranslatedTrackStepCopy(locale: SupportedLocale): TrackStepCo
  * | true      | CA            | any    | CA_TRACKS(en) | COOP         | CA         |
  * | true      | VN            | en     | VN_TRACKS(en) | NEW_GRAD     | VN         |
  * | true      | VN            | vi     | VN_TRACKS(vi) | NEW_GRAD     | VN         |
- * | true      | GLOBAL/PH/US  | any    | []            | NEW_GRAD     | CA         |
+ * | true      | US            | any    | US_TRACKS(en) | INTERNSHIP   | US         |
+ * | true      | GLOBAL        | any    | []            | NEW_GRAD     | CA         |
  * | true      | null/undefined| any    | []            | NEW_GRAD     | CA         |
  */
 export function getTracksForCountry(
@@ -284,7 +315,17 @@ export function getTracksForCountry(
     };
   }
 
-  // GLOBAL / US — no tracks defined yet
+  if (effectivePack === "US") {
+    // US is always English-only — locale param is intentionally ignored
+    return {
+      tracks: US_TRACKS,
+      defaultTrack: "INTERNSHIP",
+      hasTracksForCountry: true,
+      regionCode: "US",
+    };
+  }
+
+  // GLOBAL — no tracks defined
   return {
     tracks: [],
     defaultTrack: "NEW_GRAD",

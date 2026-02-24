@@ -1450,3 +1450,9 @@
 - [x] Rename legend/series label from "Other" to "Global" in AdminGrowthDashboard.tsx
 - [x] Rename totals row label from "Other" to "Global" in AdminGrowthDashboard.tsx
 - [x] Update test assertion in country-pack-adoption.test.ts (C15 / OTHER → Global)
+
+## V2 — US Pack Expansion Step 1 (EN only, no onboarding UI)
+- [x] Add US/INTERNSHIP, US/NEW_GRAD, US/EARLY_CAREER, US/EXPERIENCED to shared/regionPacks.ts
+- [x] Add US_TRACKS to shared/trackOptions.ts (English-only labels)
+- [x] Update getTracksForCountry("US") to return US_TRACKS regardless of locale
+- [x] Write tests: weights sum 1.0, labels correct, locale-agnostic, regression

@@ -85,8 +85,8 @@ describe("PH pack definitions — shared/regionPacks.ts", () => {
     expect(vnKeys.sort()).toEqual(["VN_EARLY_CAREER", "VN_EXPERIENCED", "VN_INTERNSHIP", "VN_NEW_GRAD"]);
   });
 
-  it("T16: Total pack count is 12 (4 CA + 4 VN + 4 PH)", () => {
-    expect(getAvailablePacks().length).toBe(12);
+  it("T16: Total pack count is 16 (4 CA + 4 VN + 4 PH + 4 US)", () => {
+    expect(getAvailablePacks().length).toBe(16);
   });
 
   it("T17: CA/COOP weights are unchanged", () => {

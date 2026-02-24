@@ -116,11 +116,17 @@ describe("getTracksForCountry() with locale", () => {
     expect(result.tracks).toEqual(VN_TRACKS);
   });
 
-  it("T15: GLOBAL/PH/US → no tracks regardless of locale", () => {
+  it("T15: GLOBAL → no tracks regardless of locale (PH and US now have tracks)", () => {
     expect(getTracksForCountry("GLOBAL", true, "vi").tracks).toHaveLength(0);
-    // PH now has tracks — only GLOBAL and US have no tracks
-    // expect(getTracksForCountry("PH", true, "vi").tracks).toHaveLength(0); // PH tracks added in V2
-    expect(getTracksForCountry("US", true, "vi").tracks).toHaveLength(0);
+    // PH now has 4 tracks (V2 PH expansion)
+    expect(getTracksForCountry("PH", true, "vi").tracks).toHaveLength(4);
+    // US now has 4 tracks (V2 US Expansion Step 1) — English-only, locale ignored
+    expect(getTracksForCountry("US", true, "vi").tracks).toHaveLength(4);
+    // US tracks are English even when locale=vi
+    const usTracks = getTracksForCountry("US", true, "vi").tracks;
+    for (const t of usTracks) {
+      expect(t.label).toMatch(/^United States/);
+    }
   });
 });
 

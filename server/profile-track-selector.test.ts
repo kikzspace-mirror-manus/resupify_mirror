@@ -107,8 +107,6 @@ describe("getTracksForCountry — flag ON, VN", () => {
 describe("getTracksForCountry — flag ON, GLOBAL/PH/US", () => {
   const unsupportedPacks: (CountryPackId | null | undefined)[] = [
     "GLOBAL",
-
-    "US",
     null,
     undefined,
   ];
@@ -120,6 +118,14 @@ describe("getTracksForCountry — flag ON, GLOBAL/PH/US", () => {
       expect(result.hasTracksForCountry).toBe(false);
     });
   }
+
+  // US now has tracks (V2 US Expansion Step 1)
+  it("T13-US: flag ON + US → 4 tracks, hasTracksForCountry=true", () => {
+    const result = getTracksForCountry("US", true);
+    expect(result.tracks).toHaveLength(4);
+    expect(result.hasTracksForCountry).toBe(true);
+    expect(result.regionCode).toBe("US");
+  });
 });
 
 // ─── Structural tests: shared/trackOptions.ts ────────────────────────────────
