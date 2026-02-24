@@ -1445,3 +1445,8 @@
 - [x] Add admin.countryPackAdoption.daily tRPC query to server/routers/admin.ts
 - [x] Add Country Pack Adoption card to AdminGrowthDashboard.tsx (line chart + totals row)
 - [x] Write tests: backend query shape, totals, empty state, regression
+
+## V2 — Admin Growth: Rename "Other" → "Global" in Country Pack Adoption chart
+- [x] Rename legend/series label from "Other" to "Global" in AdminGrowthDashboard.tsx
+- [x] Rename totals row label from "Other" to "Global" in AdminGrowthDashboard.tsx
+- [x] Update test assertion in country-pack-adoption.test.ts (C15 / OTHER → Global)

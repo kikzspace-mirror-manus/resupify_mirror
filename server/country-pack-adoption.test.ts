@@ -214,6 +214,19 @@ describe("C) Country Pack Adoption card — AdminGrowthDashboard.tsx", () => {
     expect(growthUISource).toContain("adoptionData.totals.OTHER > 0");
   });
 
+  it("C17: OTHER series label is 'Global' (not 'Other') in chart legend", () => {
+    expect(growthUISource).toContain('name="Global"');
+    expect(growthUISource).not.toContain('name="Other"');
+  });
+
+  it("C18: totals row uses 'Global:' label (not 'Other:')", () => {
+    expect(growthUISource).toContain("Global:");
+    // 'Other:' must not appear in the adoption card area
+    const idx = growthUISource.indexOf("Country Pack Adoption");
+    const snippet = growthUISource.slice(idx, idx + 2500);
+    expect(snippet).not.toContain("Other:");
+  });
+
   it("C16: adoptionRange is shown in totals label (e.g. 'Totals (30d):')", () => {
     expect(growthUISource).toContain("Totals ({adoptionRange}d):");
   });
