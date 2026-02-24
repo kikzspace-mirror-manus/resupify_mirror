@@ -740,14 +740,20 @@ ${buildToneSystemPrompt()}`
     process: adminProcedure.input(z.object({
       refundQueueId: z.number().int().positive(),
       debitAmount: z.number().int().min(0).max(1000),
+      // Phase 12L: optional manual userId override when item.userId is null
+      overrideUserId: z.number().int().positive().optional(),
     })).mutation(async ({ ctx, input }) => {
-      const { refundQueueId, debitAmount } = input;
+      const { refundQueueId, debitAmount, overrideUserId } = input;
       // Fetch the item to build the ledger reason
       const items = await db.listRefundQueueItems();
       const item = items.find((r) => r.id === refundQueueId);
       if (!item) throw new Error(`Refund queue item ${refundQueueId} not found`);
       if (item.status !== "pending") {
         return { success: false, alreadyProcessed: true };
+      }
+      // Phase 12L: if userId is missing and admin provided an override, persist it first
+      if (!item.userId && overrideUserId) {
+        await db.setRefundQueueItemUserId(refundQueueId, overrideUserId);
       }
       const reason = item.packId
         ? `Refund: ${item.packId} (${item.stripeRefundId})`
@@ -758,11 +764,13 @@ ${buildToneSystemPrompt()}`
         debitAmount,
         reason
       );
-      await db.logAdminAction(ctx.user.id, "refund_processed", item.userId ?? undefined, {
+      const effectiveUserId = item.userId ?? overrideUserId;
+      await db.logAdminAction(ctx.user.id, "refund_processed", effectiveUserId, {
         refundQueueId,
         debitAmount,
         stripeRefundId: item.stripeRefundId,
         ledgerEntryId,
+        overrideUserId: overrideUserId ?? null,
       });
       return { success: true, ledgerEntryId };
     }),

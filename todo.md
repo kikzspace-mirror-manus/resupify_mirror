@@ -1311,3 +1311,12 @@
 - [x] Add empty state: "No events yet"
 - [x] Write Phase 12H acceptance tests (admin-only, newest-first, cursor pagination, UI states)
 - [x] Full test suite passing, 0 TypeScript errors
+## Phase 12L: Refund Queue userId mapping + manual override
+- [x] Add resolveUserIdForCharge DB helper (lookup by paymentIntentId → checkoutSessionId)
+- [x] Add setRefundQueueItemUserId DB helper (admin manual override)
+- [x] Update charge.refunded webhook handler to auto-map userId via resolveUserIdForCharge
+- [x] Add optional overrideUserId param to admin.refunds.process mutation
+- [x] Update AdminRefunds.tsx: show UserSearchSelect when userId is null, require selection before debit
+- [x] Write Phase 12L acceptance tests (L1–L20)
+- [x] Fix existing C3/C4/E9 tests: increase slice windows to accommodate new code
+- [x] Full test suite passing (2012 tests), 0 TypeScript errors

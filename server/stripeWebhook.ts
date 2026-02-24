@@ -16,7 +16,7 @@ import Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { ENV } from "./_core/env";
 import * as db from "./db";
-import { createPurchaseReceipt, createRefundQueueItem, getPurchaseReceiptBySessionId, markReceiptEmailSent, markReceiptEmailError, upsertOpsStatus } from "./db";
+import { createPurchaseReceipt, createRefundQueueItem, getPurchaseReceiptBySessionId, markReceiptEmailSent, markReceiptEmailError, upsertOpsStatus, resolveUserIdForCharge } from "./db";
 import { sendPurchaseConfirmationEmail } from "./email";
 import { logAnalyticsEvent } from "./analytics";
 import { EVT_PURCHASE_COMPLETED } from "../shared/analyticsEvents";
@@ -147,7 +147,8 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       const charge = event.data.object as Stripe.Charge;
       const metadata = charge.metadata as Record<string, string> | undefined;
       const userIdStr = metadata?.user_id;
-      const userId = userIdStr ? parseInt(userIdStr, 10) : null;
+      // Try metadata first; if missing, resolve from purchase records
+      let userId: number | null = userIdStr ? parseInt(userIdStr, 10) : null;
 
       // Extract refund details from the first refund object (most recent)
       const refund = charge.refunds?.data?.[0] as Stripe.Refund | undefined;
@@ -158,6 +159,19 @@ async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       // Derive pack info from payment_intent metadata if available
       const packId = metadata?.pack_id ?? null;
       const creditsToReverse = packId ? (PACK_CREDITS[packId] ?? null) : null;
+
+      // Phase 12L: auto-map userId if not in metadata
+      if (!userId) {
+        const paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+        const checkoutSessionId = metadata?.checkout_session_id ?? null;
+        userId = await resolveUserIdForCharge({
+          stripePaymentIntentId: paymentIntentId,
+          stripeCheckoutSessionId: checkoutSessionId,
+        });
+        if (userId) {
+          console.log(`[Stripe] charge.refunded: resolved userId=${userId} via purchase records (charge ${charge.id})`);
+        }
+      }
 
       // Record in refund queue for admin review (idempotent on stripeRefundId)
       await createRefundQueueItem({

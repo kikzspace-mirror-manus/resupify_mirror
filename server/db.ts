@@ -2111,3 +2111,57 @@ export async function getStripeEventsPage(
   const nextCursor = hasMore ? items[items.length - 1].id : null;
   return { items, nextCursor };
 }
+
+// ─── Phase 12L: Resolve userId for charge.refunded ───────────────────────────
+/**
+ * Attempt to resolve a userId from existing purchase data for a charge.refunded event.
+ * Tries in priority order:
+ *   1) stripePaymentIntentId → purchaseReceipts.stripePaymentIntentId
+ *   2) stripeCheckoutSessionId → purchaseReceipts.stripeCheckoutSessionId
+ * Returns userId (number) if found, or null if not resolvable.
+ */
+export async function resolveUserIdForCharge(opts: {
+  stripePaymentIntentId?: string | null;
+  stripeCheckoutSessionId?: string | null;
+}): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  // 1) Try payment intent
+  if (opts.stripePaymentIntentId) {
+    const rows = await db
+      .select({ userId: purchaseReceipts.userId })
+      .from(purchaseReceipts)
+      .where(eq(purchaseReceipts.stripePaymentIntentId, opts.stripePaymentIntentId))
+      .limit(1);
+    if (rows[0]?.userId) return rows[0].userId;
+  }
+
+  // 2) Try checkout session id
+  if (opts.stripeCheckoutSessionId) {
+    const rows = await db
+      .select({ userId: purchaseReceipts.userId })
+      .from(purchaseReceipts)
+      .where(eq(purchaseReceipts.stripeCheckoutSessionId, opts.stripeCheckoutSessionId))
+      .limit(1);
+    if (rows[0]?.userId) return rows[0].userId;
+  }
+
+  return null;
+}
+
+/**
+ * Update userId on a refund queue item (admin manual override).
+ * Only updates if the item exists and userId is currently null.
+ */
+export async function setRefundQueueItemUserId(
+  refundQueueId: number,
+  userId: number
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(refundQueue)
+    .set({ userId })
+    .where(and(eq(refundQueue.id, refundQueueId), isNull(refundQueue.userId)));
+}
