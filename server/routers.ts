@@ -34,6 +34,7 @@ import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
 import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, jdExtractRateLimit, shortHash } from "./rateLimiter";
 import { checkIdempotency, markStarted, markSucceeded, markFailed, markCreditsCharged } from "./idempotency";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
+import { safeNormalizeJobUrl } from "../shared/urlNormalize";
 import { logAnalyticsEvent } from "./analytics";
 import {
   EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
@@ -292,6 +293,8 @@ export const appRouter = router({
       jdText: z.string().max(MAX_LENGTHS.JD_TEXT, { message: TOO_LONG_MSG }).optional(),
     })).mutation(async ({ ctx, input }) => {
       const { jdText, dueDate, ...cardData } = input;
+      // Normalize URL to strip tracking params before storing
+      if (cardData.url) cardData.url = safeNormalizeJobUrl(cardData.url);
       const id = await db.createJobCard({
         userId: ctx.user.id,
         ...cardData,
@@ -343,6 +346,8 @@ export const appRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const { id, nextTouchAt, dueDate, ...rest } = input;
       const updateData: any = { ...rest };
+      // Normalize URL to strip tracking params before storing
+      if (updateData.url) updateData.url = safeNormalizeJobUrl(updateData.url);
       if (nextTouchAt !== undefined) updateData.nextTouchAt = nextTouchAt ? new Date(nextTouchAt) : null;
       if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
 

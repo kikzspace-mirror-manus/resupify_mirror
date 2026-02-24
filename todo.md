@@ -1336,3 +1336,10 @@
 - [x] JobCardDetail.tsx: Same blocked-host hint + skip server fetch
 - [x] Tests: proactive-blocked-host-hint.test.ts
 - [x] Full suite regression: all tests pass, 0 TS errors
+
+## Patch: URL Normalization on Job Card Save
+- [x] Add safeNormalizeJobUrl() wrapper to shared/urlNormalize.ts
+- [x] Wire safeNormalizeJobUrl into jobCards.create mutation (normalize input.url before storing)
+- [x] Wire safeNormalizeJobUrl into jobCards.update mutation (normalize input.url before storing)
+- [x] Add unit tests for normalizeJobUrl/safeNormalizeJobUrl (strips utm_*/gclid/fbclid, removes fragments, lowercases hostname, preserves ATS params, handles invalid URL)
+- [x] Add integration tests (create with tracking URL → stored normalized; update with tracking URL → stored normalized)

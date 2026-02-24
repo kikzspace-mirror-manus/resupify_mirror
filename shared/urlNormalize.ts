@@ -81,6 +81,20 @@ export function normalizeJobUrl(rawUrl: string): string {
 }
 
 /**
+ * Safe wrapper around normalizeJobUrl.
+ * If normalization throws or returns an empty string, returns the original input.
+ */
+export function safeNormalizeJobUrl(url: string): string {
+  if (!url || !url.trim()) return url;
+  try {
+    const result = normalizeJobUrl(url);
+    return result || url;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Returns true if the URL looks like it came from a site known to block
  * server-side fetching (BambooHR, some Ashby links, LinkedIn, Indeed, Workday).
  * Used as a hint to surface the Browser Capture fallback proactively.
