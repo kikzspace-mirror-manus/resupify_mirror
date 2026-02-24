@@ -807,9 +807,42 @@ export async function adminListLedger(filters?: { userId?: number; referenceType
   if (filters?.dateFrom) conditions.push(gte(creditsLedger.createdAt, filters.dateFrom));
   if (filters?.dateTo) conditions.push(lte(creditsLedger.createdAt, filters.dateTo));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const rows = await db.select().from(creditsLedger).where(where).orderBy(desc(creditsLedger.createdAt)).limit(limit).offset(offset);
+
+  // Phase 12P: JOIN users to get email/name for display (single query, no N+1)
+  const rows = await db
+    .select({
+      id: creditsLedger.id,
+      userId: creditsLedger.userId,
+      amount: creditsLedger.amount,
+      reason: creditsLedger.reason,
+      referenceType: creditsLedger.referenceType,
+      referenceId: creditsLedger.referenceId,
+      balanceAfter: creditsLedger.balanceAfter,
+      createdAt: creditsLedger.createdAt,
+      // additive userDisplay fields
+      userEmail: users.email,
+      userName: users.name,
+    })
+    .from(creditsLedger)
+    .leftJoin(users, eq(creditsLedger.userId, users.id))
+    .where(where)
+    .orderBy(desc(creditsLedger.createdAt))
+    .limit(limit)
+    .offset(offset);
+
   const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(creditsLedger).where(where);
-  return { entries: rows, total: Number(countResult[0]?.count ?? 0) };
+
+  // Shape each row: add userDisplay object
+  const entries = rows.map((row) => ({
+    ...row,
+    userDisplay: {
+      id: row.userId,
+      email: row.userEmail ?? null,
+      name: row.userName ?? null,
+    },
+  }));
+
+  return { entries, total: Number(countResult[0]?.count ?? 0) };
 }
 
 // Admin: KPI stats

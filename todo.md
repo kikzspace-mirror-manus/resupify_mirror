@@ -1333,3 +1333,9 @@
 - [x] Add "Backfill user IDs" button to AdminRefunds.tsx header with loading state and result summary
 - [x] Write 12M acceptance tests (20 tests: 4 spec cases + 16 structural)
 - [x] Full test suite passing (2047 tests), 0 TypeScript errors
+## Phase 12P: Credit Ledger show user email instead of "User #id"
+- [x] Audit admin ledger list query (db helper + tRPC procedure)
+- [x] Add userDisplay JOIN (users.email, users.name) to admin ledger list query (no N+1)
+- [x] Update AdminLedger.tsx: show email > name > "User #id" fallback
+- [x] Write 12P acceptance tests (15 tests: 3 spec cases + 12 structural)
+- [x] Full test suite passing (2062 tests), 0 TypeScript errors

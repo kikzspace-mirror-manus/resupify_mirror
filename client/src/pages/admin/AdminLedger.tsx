@@ -71,7 +71,11 @@ export default function AdminLedger() {
                       <div>
                         <p className="text-sm font-medium">{entry.reason}</p>
                         <p className="text-xs text-muted-foreground">
-                          User #{entry.userId} · {entry.referenceType}
+                          {/* Phase 12P: show email > name > User #id */}
+                          {(entry as any).userDisplay?.email
+                            ?? (entry as any).userDisplay?.name
+                            ?? `User #${entry.userId}`}
+                          {" · "}{entry.referenceType}
                           {entry.referenceId ? ` · Ref #${entry.referenceId}` : ""}
                         </p>
                       </div>
