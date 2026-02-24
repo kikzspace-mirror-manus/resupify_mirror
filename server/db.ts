@@ -2206,3 +2206,42 @@ export async function upsertOpsStatus(patch: {
     .values({ id: 1, ...patch, updatedAt: new Date() })
     .onDuplicateKeyUpdate({ set: { ...patch, updatedAt: new Date() } });
 }
+
+
+// ─── Admin Settings ───────────────────────────────────────────────────────────
+
+/** Read a single admin setting by key. Returns null if not found. */
+export async function getAdminSetting(key: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const { adminSettings } = await import("../drizzle/schema");
+  const rows = await db.select().from(adminSettings).where(eq(adminSettings.key, key)).limit(1);
+  return rows[0]?.valueJson ?? null;
+}
+
+/** Upsert an admin setting (insert or replace). */
+export async function setAdminSetting(key: string, valueJson: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const { adminSettings } = await import("../drizzle/schema");
+  await db
+    .insert(adminSettings)
+    .values({ key, valueJson, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({ set: { valueJson, updatedAt: new Date() } });
+}
+
+/**
+ * Returns the list of enabled CountryPackIds from admin_settings.
+ * Falls back to ["CA"] if the setting has never been written.
+ */
+export async function getEnabledCountryPacks(): Promise<string[]> {
+  const raw = await getAdminSetting("enabled_country_packs");
+  if (!raw) return ["CA"];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as string[];
+  } catch {
+    // malformed JSON — fall back to default
+  }
+  return ["CA"];
+}

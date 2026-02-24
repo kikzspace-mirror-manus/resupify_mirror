@@ -1463,3 +1463,13 @@
 - [x] Update handleComplete to pass highestEducationLevel in upsertProfile payload
 - [x] Rename "Program" label → "Field of study" in Onboarding Education step
 - [x] Write tests: dropdown renders 7 options, value included in mutation payload, regression
+
+## Restore 1/2 — Admin Settings + enabledCountryPacks (from cad05d1)
+- [x] Restore client/src/pages/admin/AdminSettings.tsx from cad05d1
+- [x] Restore /admin/settings route in client/src/App.tsx
+- [x] Restore Settings nav item in client/src/components/AdminLayout.tsx
+- [x] Restore db.getEnabledCountryPacks + db.setAdminSetting in server/db.ts
+- [x] Restore enabledCountryPacks in system.featureFlags query in server/_core/systemRouter.ts
+- [x] Restore system.setEnabledCountryPacks admin mutation in server/_core/systemRouter.ts
+- [x] Re-declare admin_settings table in drizzle/schema.ts (no migration, table exists in DB)
+- [x] Write tests: route exists, featureFlags returns enabledCountryPacks, setEnabledCountryPacks persists
