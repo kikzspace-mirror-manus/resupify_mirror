@@ -1581,3 +1581,9 @@
 - [x] Guard "Required for co-op eligibility" behind isCoopCA
 - [x] Make School/Program/GradDate labels always show (optional) for non-CA-COOP
 - [x] Write tests: CA+COOP shows co-op copy, CA+other hides it, VN/PH/US/GLOBAL hides it
+
+## V2 — Work Auth step: CA/US only, no GLOBAL leak
+- [x] Fix showWorkAuthStep: use selectedCountryPackId === "CA" || selectedCountryPackId === "US" (not effectiveRegionCode which returns "CA" for GLOBAL)
+- [x] Fix workAuthStepCopy: use selectedCountryPackId === "US" for US branch (not effectiveRegionCode)
+- [x] Fix handleComplete work auth save guard: use selectedCountryPackId === "CA" || "US" (not effectiveRegionCode)
+- [x] Write tests: GLOBAL no work auth, CA shows CA copy, US shows US copy, VN/PH hidden

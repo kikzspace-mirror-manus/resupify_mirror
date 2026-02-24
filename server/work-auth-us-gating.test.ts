@@ -191,8 +191,9 @@ describe("Work Auth — Onboarding.tsx US copy variant", () => {
     expect(onboardingSource).toContain("now or in the future require employer sponsorship");
   });
 
-  it("O8: workAuthStepCopy variable is defined based on effectiveRegionCode === US", () => {
-    expect(onboardingSource).toContain('effectiveRegionCode === "US"');
+  it("O8: workAuthStepCopy variable is defined based on selectedCountryPackId === US", () => {
+    // Uses selectedCountryPackId (not effectiveRegionCode, which returns CA for GLOBAL)
+    expect(onboardingSource).toContain('selectedCountryPackId === "US"');
     expect(onboardingSource).toContain("workAuthStepCopy");
   });
 });

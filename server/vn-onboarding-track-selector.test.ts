@@ -117,9 +117,10 @@ describe("Onboarding.tsx getTracksForCountry logic", () => {
     expect(content).toContain("tracks.map");
   });
 
-  it("T20: work auth step is only shown for CA users", () => {
+  it("T20: work auth step is only shown for CA and US users (uses selectedCountryPackId)", () => {
     expect(content).toContain("showWorkAuthStep");
-    expect(content).toContain("effectiveRegionCode === \"CA\"");
+    // Uses selectedCountryPackId (not effectiveRegionCode, which returns CA for GLOBAL)
+    expect(content).toContain('selectedCountryPackId === "CA" || selectedCountryPackId === "US"');
   });
 
   it("T21: handleComplete saves regionCode correctly", () => {

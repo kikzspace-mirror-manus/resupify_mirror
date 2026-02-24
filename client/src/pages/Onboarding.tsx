@@ -244,8 +244,9 @@ export default function Onboarding() {
         onboardingComplete: true,
       });
 
-      // Only save work auth for CA users (CA-specific eligibility checks)
-      if ((effectiveRegionCode === "CA" || effectiveRegionCode === "US") && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
+      // Only save work auth for CA/US users. Use selectedCountryPackId (not effectiveRegionCode)
+      // because effectiveRegionCode returns "CA" for GLOBAL as a fallback.
+      if ((selectedCountryPackId === "CA" || selectedCountryPackId === "US") && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
         await updateWorkStatus.mutateAsync({ workStatus, needsSponsorship });
       }
 
@@ -260,11 +261,13 @@ export default function Onboarding() {
   // Non-CA packs (VN/PH/US/GLOBAL) must never show CA co-op messaging even if
   // their track code happens to be COOP/INTERNSHIP.
   const isCoopCA = selectedCountryPackId === "CA" && trackCode === "COOP";
-  // For CA tracks: show work auth step
-  const showWorkAuthStep = effectiveRegionCode === "CA" || effectiveRegionCode === "US";
+  // Work Auth step: only for CA and US packs. GLOBAL/VN/PH must NEVER show it.
+  // Note: effectiveRegionCode returns "CA" for GLOBAL as a fallback — we must use
+  // selectedCountryPackId directly to avoid that leak.
+  const showWorkAuthStep = selectedCountryPackId === "CA" || selectedCountryPackId === "US";
 
   // Copy variant for Work Auth step: US uses US-specific labels
-  const workAuthStepCopy = effectiveRegionCode === "US"
+  const workAuthStepCopy = selectedCountryPackId === "US"
     ? {
         workStatusLabel: "Work status in the United States",
         sponsorshipLabel: "Will you now or in the future require employer sponsorship?",
