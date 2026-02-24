@@ -1475,3 +1475,9 @@
 - [x] Add US series/line to Country Pack Adoption chart in AdminGrowthDashboard.tsx
 - [x] Rename "Other" label to "Global" in chart legend and totals row
 - [x] Update tests: US series renders, Global label present, Other absent
+
+## V2 — Profile Country Pack Selector: US + Instant Work Auth
+- [x] Audit Profile.tsx country selector for US option
+- [x] Audit setCountryPack success handler for immediate UI update
+- [x] Patch: added Country Pack selector card (GLOBAL/CA/VN/PH/US) with auth.me.invalidate() on save
+- [x] Write tests: 25 new tests in profile-country-pack-selector.test.ts

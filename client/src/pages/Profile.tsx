@@ -130,6 +130,28 @@ export default function Profile() {
     onError: (e) => toast.error(e.message),
   });
 
+  // Country pack selector state (for switching pack from Profile)
+  const [selectedCountryPackId, setSelectedCountryPackId] = useState<CountryPackId>(
+    () => (userCountryPackId as CountryPackId) ?? "GLOBAL"
+  );
+  const [packDirty, setPackDirty] = useState(false);
+
+  // Sync selectedCountryPackId when user record loads
+  useEffect(() => {
+    if (userCountryPackId) {
+      setSelectedCountryPackId(userCountryPackId as CountryPackId);
+    }
+  }, [userCountryPackId]);
+
+  const setCountryPack = trpc.profile.setCountryPack.useMutation({
+    onSuccess: () => {
+      setPackDirty(false);
+      utils.auth.me.invalidate();
+      toast.success("Country pack saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const setLanguageMode = trpc.profile.setLanguageMode.useMutation({
     onSuccess: (data) => {
       // Immediately update local state so locale refreshes without waiting for auth.me refetch
@@ -184,6 +206,52 @@ export default function Profile() {
         >
           DEBUG: pack={userCountryPackId ?? "null"} | track={trackCode} | locale={locale} | v2CountryPacksEnabled={String(v2CountryPacksEnabled)}
         </div>
+      )}
+
+      {/* Country Pack Card — flag-gated, allows switching pack from Profile */}
+      {v2CountryPacksEnabled && (
+        <Card data-testid="profile-country-pack-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Globe className="h-4 w-4" />
+              Country Pack
+            </CardTitle>
+            <CardDescription>
+              Your country pack determines which resume templates and eligibility checks apply.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="country-pack-select">Current Pack</Label>
+              <Select
+                value={selectedCountryPackId}
+                onValueChange={(v) => {
+                  setSelectedCountryPackId(v as CountryPackId);
+                  setPackDirty(true);
+                }}
+              >
+                <SelectTrigger id="country-pack-select" data-testid="country-pack-select">
+                  <SelectValue placeholder="Select country pack" />
+                </SelectTrigger>
+                <SelectContent data-testid="country-pack-select-content">
+                  <SelectItem value="GLOBAL" data-testid="pack-option-GLOBAL">🌐 Global</SelectItem>
+                  <SelectItem value="CA" data-testid="pack-option-CA">🇨🇦 Canada</SelectItem>
+                  <SelectItem value="VN" data-testid="pack-option-VN">🇻🇳 Vietnam</SelectItem>
+                  <SelectItem value="PH" data-testid="pack-option-PH">🇵🇭 Philippines</SelectItem>
+                  <SelectItem value="US" data-testid="pack-option-US">🇺🇸 United States</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              disabled={!packDirty || setCountryPack.isPending}
+              onClick={() => setCountryPack.mutate({ countryPackId: selectedCountryPackId })}
+              data-testid="save-country-pack-btn"
+            >
+              {setCountryPack.isPending ? "Saving..." : "Save Pack"}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Track Card — country-aware, flag-gated */}
