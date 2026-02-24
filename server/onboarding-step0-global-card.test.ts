@@ -271,6 +271,6 @@ describe("H — Regression: existing cards and V1 unchanged", () => {
   });
 
   it("H10) V1 default step is still 1 when flag OFF", () => {
-    expect(onboarding).toContain("v2CountryPacksEnabled ? 0 : 1");
+    expect(onboarding).toContain("if (!v2CountryPacksEnabled) return 1");
   });
 });

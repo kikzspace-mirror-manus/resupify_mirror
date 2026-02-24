@@ -1718,3 +1718,10 @@
 - [x] Verify handleCountryPackContinue calls setStep(1) unconditionally (no GLOBAL skip)
 - [x] Verify totalSteps = 3 for GLOBAL (no work auth step)
 - [x] Write tests: GLOBAL onboarding shows Track step with 4 options, no placeholder
+
+## V2 — Onboarding Re-entry Guard (Partial Setup)
+- [x] Update step useState initializer: if v2 ON + userCountryPackId set + trackCode missing → init step=1
+- [x] Implemented in useState lazy initializer (no setState in render body)
+- [x] Ensure selectedCountryPackId is already initialized from userCountryPackId (already done)
+- [x] Tests use source-scan pattern (no testid needed)
+- [x] Write tests: partial-setup guard, full redirect, no-pack Step 0, regression

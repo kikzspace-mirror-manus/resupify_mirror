@@ -186,7 +186,7 @@ describe("D — Regression: Step 0 structure unchanged", () => {
 
   it("D8) V1 path (flag OFF): step starts at 1 when v2CountryPacksEnabled is false", () => {
     // The step initialization: v2CountryPacksEnabled ? 0 : 1
-    expect(content).toContain("v2CountryPacksEnabled ? 0 : 1");
+    expect(content).toContain("if (!v2CountryPacksEnabled) return 1");
   });
 
   it("D9) 'Skip for now' button still present in Step 0", () => {

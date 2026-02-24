@@ -102,7 +102,17 @@ export default function Onboarding() {
 
   // Step number: when flag ON, step 0 is the country selector; steps 1/2/3 follow
   // When flag OFF, start at step 1 (V1 behaviour unchanged)
-  const [step, setStep] = useState(() => v2CountryPacksEnabled ? 0 : 1);
+  // Partial-setup guard: if user already has a countryPackId but no trackCode (e.g. GLOBAL
+  // users created before tracks existed), skip Step 0 and start at the Track step directly.
+  // This is safe to compute in the initializer because `user` is captured via closure at
+  // component mount — no conditional hook calls are introduced.
+  const [step, setStep] = useState(() => {
+    if (!v2CountryPacksEnabled) return 1; // V1: always start at step 1
+    const initPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
+    const initTrackCode = (user as any)?.trackCode as string | null | undefined;
+    if (initPackId && !initTrackCode) return 1; // partial setup: skip Step 0
+    return 0; // normal flow: show Step 0
+  });
 
   // The effective country pack for track selection:
   // - After Step 0 Continue: uses selectedCountryPackId (local state)

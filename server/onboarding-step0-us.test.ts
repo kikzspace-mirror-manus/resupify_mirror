@@ -193,7 +193,7 @@ describe("Onboarding Step 0 — flag OFF regression", () => {
 
   it("T22: flag OFF → step starts at 1 (V1 behaviour unchanged)", () => {
     // The step init logic: v2CountryPacksEnabled ? 0 : 1
-    expect(onboardingSource).toContain("v2CountryPacksEnabled ? 0 : 1");
+    expect(onboardingSource).toContain("if (!v2CountryPacksEnabled) return 1");
   });
 
   it("T23: getTracksForCountry with v2=false returns CA tracks regardless of US pack", () => {

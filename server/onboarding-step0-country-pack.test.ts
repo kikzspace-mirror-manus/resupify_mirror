@@ -190,7 +190,7 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
 
   it("T22: Flag OFF → step starts at 1 (V1 regression)", () => {
     // useState initializer: v2CountryPacksEnabled ? 0 : 1
-    expect(content).toContain("v2CountryPacksEnabled ? 0 : 1");
+    expect(content).toContain("if (!v2CountryPacksEnabled) return 1");
   });
 
   it("T23: Onboarding.tsx imports setCountryPack via trpc.profile.setCountryPack", () => {

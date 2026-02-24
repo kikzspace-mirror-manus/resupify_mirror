@@ -139,7 +139,7 @@ describe("D: Multi-pack scenario — Step 0 renders normally", () => {
 describe("E: Flag OFF — V1 unchanged", () => {
   it("E1: step initialises to 1 when v2CountryPacksEnabled is false", () => {
     // useState(() => v2CountryPacksEnabled ? 0 : 1)
-    expect(onboardingSrc).toContain("v2CountryPacksEnabled ? 0 : 1");
+    expect(onboardingSrc).toContain("if (!v2CountryPacksEnabled) return 1");
   });
 
   it("E2: auto-skip effect has early return when flag is OFF", () => {
