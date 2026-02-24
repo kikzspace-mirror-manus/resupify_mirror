@@ -116,8 +116,9 @@ describe("Profile Country Pack Card — mutation wiring", () => {
     expect(snippet).toContain("setPackDirty(false)");
   });
 
-  it("P17: Save Pack button is disabled when packDirty is false", () => {
-    expect(profileSource).toContain("!packDirty || setCountryPack.isPending");
+  it("P17: Save Pack button is disabled when packDirty is false (and not in saved state)", () => {
+    // After adding savedAt pattern, the condition is: (!packDirty && !isSaved) || setCountryPack.isPending
+    expect(profileSource).toContain("(!packDirty && !isSaved) || setCountryPack.isPending");
   });
 });
 

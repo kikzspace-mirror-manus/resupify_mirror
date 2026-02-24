@@ -1637,3 +1637,14 @@
 - [x] Add data-testid="country-grid" for test targeting
 - [x] Update existing tests that assert old fixed grid classes
 - [x] Write new tests: 2/3/4/5 pack counts produce correct grid class
+
+## Bugfix — Profile save buttons: consistent saved state
+- [x] Add eduSavedAt/workAuthSavedAt/contactSavedAt state variables
+- [x] Add CheckCircle import from lucide-react
+- [x] Wire savedAt to upsertProfile.onSuccess (Education) and updateWorkStatus.onSuccess (Work Auth)
+- [x] Wire contactSavedAt to upsertProfile.onSuccess (Contact Info — via lastSaveCard ref)
+- [x] Reset savedAt on any field change for each card
+- [x] Update button rendering: show Check icon + "Saved" text + success styling when isSaved
+- [x] Apply same pattern to Job Market + Career Stage buttons for full consistency
+- [x] Add data-testids for saved state detection
+- [x] Write tests: saved state after success, reverts on field change

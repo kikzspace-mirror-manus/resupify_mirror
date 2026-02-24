@@ -184,9 +184,10 @@ describe("Profile single pack read-only", () => {
   });
 
   it("E4: Save button is also hidden for single pack (gated on length > 1)", () => {
-    // The save button is inside a conditional — look 400 chars before the testid
+    // The save button is inside a conditional — look 800 chars before the testid
+    // (window increased because the IIFE wrapper adds extra lines after the savedAt pattern)
     const precedingCode = src.slice(
-      Math.max(0, src.indexOf("save-country-pack-btn") - 400),
+      Math.max(0, src.indexOf("save-country-pack-btn") - 800),
       src.indexOf("save-country-pack-btn")
     );
     expect(precedingCode).toContain("enabledCountryPacks.length > 1");

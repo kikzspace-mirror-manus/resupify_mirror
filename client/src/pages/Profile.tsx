@@ -13,8 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ShieldCheck, User, Layers, Globe, Languages } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { Loader2, ShieldCheck, User, Layers, Globe, Languages, CheckCircle } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
 import { getTracksForCountry, resolveLocale, type TrackCode, type SupportedLocale } from "@shared/trackOptions";
@@ -89,6 +89,18 @@ export default function Profile() {
   const [countryOfResidence, setCountryOfResidence] = useState("");
   const [willingToRelocate, setWillingToRelocate] = useState<boolean | null>(null);
 
+  // ── Saved-state timestamps (null = not saved yet / dirty) ──────────────────
+  // Pattern: set to Date.now() on success; isSaved = savedAt && Date.now()-savedAt < SAVED_MS
+  // Reset to null on any field change so the button reverts to normal state.
+  const SAVED_MS = 2000;
+  const [packSavedAt, setPackSavedAt] = useState<number | null>(null);
+  const [trackSavedAt, setTrackSavedAt] = useState<number | null>(null);
+  const [eduSavedAt, setEduSavedAt] = useState<number | null>(null);
+  const [workAuthSavedAt, setWorkAuthSavedAt] = useState<number | null>(null);
+  const [contactSavedAt, setContactSavedAt] = useState<number | null>(null);
+  // Track which card triggered upsertProfile (Education vs Contact Info share the same mutation)
+  const lastSaveCard = useRef<"education" | "contact" | null>(null);
+
   useEffect(() => {
     if (profile) {
       // Restore saved track code — fall back to first available track for the country
@@ -112,7 +124,14 @@ export default function Profile() {
   const upsertProfile = trpc.profile.upsert.useMutation({
     onSuccess: () => {
       utils.profile.get.invalidate();
-      toast.success("Education profile saved");
+      if (lastSaveCard.current === "contact") {
+        setContactSavedAt(Date.now());
+        toast.success("Contact info saved");
+      } else {
+        setEduSavedAt(Date.now());
+        toast.success("Education profile saved");
+      }
+      lastSaveCard.current = null;
     },
     onError: (e) => toast.error(e.message),
   });
@@ -120,6 +139,7 @@ export default function Profile() {
   const updateWorkStatus = trpc.profile.updateWorkStatus.useMutation({
     onSuccess: () => {
       utils.profile.get.invalidate();
+      setWorkAuthSavedAt(Date.now());
       toast.success("Work status saved");
     },
     onError: (e) => toast.error(e.message),
@@ -129,6 +149,7 @@ export default function Profile() {
     onSuccess: () => {
       utils.profile.get.invalidate();
       setTrackDirty(false);
+      setTrackSavedAt(Date.now());
       toast.success("Track saved");
     },
     onError: (e) => toast.error(e.message),
@@ -150,6 +171,7 @@ export default function Profile() {
   const setCountryPack = trpc.profile.setCountryPack.useMutation({
     onSuccess: () => {
       setPackDirty(false);
+      setPackSavedAt(Date.now());
       utils.auth.me.invalidate();
       toast.success("Country pack saved");
     },
@@ -266,16 +288,24 @@ export default function Profile() {
                 </Select>
               )}
             </div>
-            {enabledCountryPacks.length > 1 && (
-              <Button
-                size="sm"
-                disabled={!packDirty || setCountryPack.isPending}
-                onClick={() => setCountryPack.mutate({ countryPackId: selectedCountryPackId })}
-                data-testid="save-country-pack-btn"
-              >
-                {setCountryPack.isPending ? "Saving..." : "Save market"}
-              </Button>
-            )}
+            {enabledCountryPacks.length > 1 && (() => {
+              const isSaved = !!(packSavedAt && Date.now() - packSavedAt < SAVED_MS);
+              return (
+                <Button
+                  size="sm"
+                  disabled={(!packDirty && !isSaved) || setCountryPack.isPending}
+                  onClick={() => setCountryPack.mutate({ countryPackId: selectedCountryPackId })}
+                  data-testid="save-country-pack-btn"
+                  className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                >
+                  {setCountryPack.isPending ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving...</>
+                  ) : isSaved ? (
+                    <><CheckCircle className="mr-1.5 h-3.5 w-3.5" />Saved</>
+                  ) : "Save market"}
+                </Button>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
@@ -316,19 +346,24 @@ export default function Profile() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                size="sm"
-                disabled={!trackDirty || saveTrack.isPending}
-                onClick={() =>
-                  saveTrack.mutate({
-                    regionCode: effectiveRegionCode,
-                    trackCode,
-                  })
-                }
-                data-testid="save-track-btn"
-              >
-                {saveTrack.isPending ? "Saving..." : "Save career stage"}
-              </Button>
+              {(() => {
+                const isSaved = !!(trackSavedAt && Date.now() - trackSavedAt < SAVED_MS);
+                return (
+                  <Button
+                    size="sm"
+                    disabled={(!trackDirty && !isSaved) || saveTrack.isPending}
+                    onClick={() => saveTrack.mutate({ regionCode: effectiveRegionCode, trackCode })}
+                    data-testid="save-track-btn"
+                    className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                  >
+                    {saveTrack.isPending ? (
+                      <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving...</>
+                    ) : isSaved ? (
+                      <><CheckCircle className="mr-1.5 h-3.5 w-3.5" />Saved</>
+                    ) : "Save career stage"}
+                  </Button>
+                );
+              })()}
             </>
           ) : (
             /* No tracks for this country yet */
@@ -415,7 +450,7 @@ export default function Profile() {
               id="profile-highestEducationLevel"
               data-testid="profile-education-level-select"
               value={highestEducationLevel}
-              onChange={(e) => setHighestEducationLevel(e.target.value)}
+              onChange={(e) => { setHighestEducationLevel(e.target.value); setEduSavedAt(null); }}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value="">Select level...</option>
@@ -439,7 +474,7 @@ export default function Profile() {
                 placeholder="e.g., University of Waterloo"
                 value={school}
                 maxLength={MAX_LENGTHS.PROFILE_SCHOOL}
-                onChange={(e) => setSchool(e.target.value)}
+                onChange={(e) => { setSchool(e.target.value); setEduSavedAt(null); }}
               />
             </div>
             <div className="space-y-2">
@@ -452,7 +487,7 @@ export default function Profile() {
                 placeholder="e.g., Computer Science / Business / Marketing"
                 value={program}
                 maxLength={MAX_LENGTHS.PROFILE_PROGRAM}
-                onChange={(e) => setProgram(e.target.value)}
+                onChange={(e) => { setProgram(e.target.value); setEduSavedAt(null); }}
               />
             </div>
           </div>
@@ -465,7 +500,7 @@ export default function Profile() {
               id="gradDate"
               type="month"
               value={graduationDate}
-              onChange={(e) => setGraduationDate(e.target.value)}
+              onChange={(e) => { setGraduationDate(e.target.value); setEduSavedAt(null); }}
               className="w-48"
             />
           </div>
@@ -482,24 +517,37 @@ export default function Profile() {
               <Switch
                 data-testid="profile-currently-enrolled-switch"
                 checked={currentlyEnrolled}
-                onCheckedChange={setCurrentlyEnrolled}
+                onCheckedChange={(v) => { setCurrentlyEnrolled(v); setEduSavedAt(null); }}
               />
             </div>
           )}
-          <Button
-            data-testid="profile-save-education-btn"
-            onClick={() => upsertProfile.mutate({
-              school: school || undefined,
-              program: program || undefined,
-              graduationDate: graduationDate || undefined,
-              currentlyEnrolled: isCoopCA ? currentlyEnrolled : undefined,
-              highestEducationLevel: highestEducationLevel || undefined,
-            })}
-            disabled={upsertProfile.isPending}
-            size="sm"
-          >
-            {upsertProfile.isPending ? "Saving..." : "Save Education"}
-          </Button>
+          {(() => {
+            const isSaved = !!(eduSavedAt && Date.now() - eduSavedAt < SAVED_MS);
+            return (
+              <Button
+                data-testid="profile-save-education-btn"
+                onClick={() => {
+                  lastSaveCard.current = "education";
+                  upsertProfile.mutate({
+                    school: school || undefined,
+                    program: program || undefined,
+                    graduationDate: graduationDate || undefined,
+                    currentlyEnrolled: isCoopCA ? currentlyEnrolled : undefined,
+                    highestEducationLevel: highestEducationLevel || undefined,
+                  });
+                }}
+                disabled={upsertProfile.isPending}
+                size="sm"
+                className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+              >
+                {upsertProfile.isPending && lastSaveCard.current === "education" ? (
+                  <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving...</>
+                ) : isSaved ? (
+                  <><CheckCircle className="mr-1.5 h-3.5 w-3.5" />Saved</>
+                ) : "Save Education"}
+              </Button>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -518,7 +566,7 @@ export default function Profile() {
           <CardContent className="space-y-5">
             <div className="space-y-2">
               <Label>{workAuthCopy.workStatusLabel}</Label>
-              <Select value={workStatus} onValueChange={(v) => setWorkStatus(v as any)}>
+              <Select value={workStatus} onValueChange={(v) => { setWorkStatus(v as any); setWorkAuthSavedAt(null); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select work status" />
                 </SelectTrigger>
@@ -533,7 +581,7 @@ export default function Profile() {
             {workStatus === "temporary_resident" && (
               <div className="space-y-2">
                 <Label>Work Permit Type (optional)</Label>
-                <Select value={workStatusDetail || "none"} onValueChange={(v) => setWorkStatusDetail(v === "none" ? "" : v)}>
+                <Select value={workStatusDetail || "none"} onValueChange={(v) => { setWorkStatusDetail(v === "none" ? "" : v); setWorkAuthSavedAt(null); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select permit type" />
                   </SelectTrigger>
@@ -550,7 +598,7 @@ export default function Profile() {
 
             <div className="space-y-2">
               <Label>{workAuthCopy.sponsorshipLabel}</Label>
-              <Select value={needsSponsorship} onValueChange={(v) => setNeedsSponsorship(v as any)}>
+              <Select value={needsSponsorship} onValueChange={(v) => { setNeedsSponsorship(v as any); setWorkAuthSavedAt(null); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -569,7 +617,7 @@ export default function Profile() {
                 placeholder={workAuthCopy.countryPlaceholder}
                 value={countryOfResidence}
                 maxLength={MAX_LENGTHS.PROFILE_COUNTRY}
-                onChange={(e) => setCountryOfResidence(e.target.value)}
+                onChange={(e) => { setCountryOfResidence(e.target.value); setWorkAuthSavedAt(null); }}
                 className="w-64"
               />
             </div>
@@ -581,7 +629,7 @@ export default function Profile() {
               </div>
               <Switch
                 checked={willingToRelocate ?? false}
-                onCheckedChange={(v) => setWillingToRelocate(v)}
+                onCheckedChange={(v) => { setWillingToRelocate(v); setWorkAuthSavedAt(null); }}
               />
             </div>
 
@@ -589,19 +637,30 @@ export default function Profile() {
               <strong>Note:</strong> {workAuthCopy.noteText}
             </p>
 
-            <Button
-              onClick={() => updateWorkStatus.mutate({
-                workStatus,
-                workStatusDetail: workStatusDetail ? (workStatusDetail as any) : null,
-                needsSponsorship,
-                countryOfResidence: countryOfResidence || null,
-                willingToRelocate,
-              })}
-              disabled={updateWorkStatus.isPending}
-              size="sm"
-            >
-              {updateWorkStatus.isPending ? "Saving..." : "Save Work Status"}
-            </Button>
+            {(() => {
+              const isSaved = !!(workAuthSavedAt && Date.now() - workAuthSavedAt < SAVED_MS);
+              return (
+                <Button
+                  data-testid="profile-save-workauth-btn"
+                  onClick={() => updateWorkStatus.mutate({
+                    workStatus,
+                    workStatusDetail: workStatusDetail ? (workStatusDetail as any) : null,
+                    needsSponsorship,
+                    countryOfResidence: countryOfResidence || null,
+                    willingToRelocate,
+                  })}
+                  disabled={updateWorkStatus.isPending}
+                  size="sm"
+                  className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                >
+                  {updateWorkStatus.isPending ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving...</>
+                  ) : isSaved ? (
+                    <><CheckCircle className="mr-1.5 h-3.5 w-3.5" />Saved</>
+                  ) : "Save Work Status"}
+                </Button>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
@@ -615,19 +674,33 @@ export default function Profile() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="phone">Phone (optional)</Label>
-            <Input id="phone" value={phone} maxLength={MAX_LENGTHS.PROFILE_PHONE} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" className="w-64" />
+            <Input id="phone" value={phone} maxLength={MAX_LENGTHS.PROFILE_PHONE} onChange={(e) => { setPhone(e.target.value); setContactSavedAt(null); }} placeholder="+1 (555) 000-0000" className="w-64" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="linkedinUrl">LinkedIn URL (optional)</Label>
-            <Input id="linkedinUrl" value={linkedinUrl} maxLength={MAX_LENGTHS.PROFILE_LINKEDIN_URL} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/yourname" />
+            <Input id="linkedinUrl" value={linkedinUrl} maxLength={MAX_LENGTHS.PROFILE_LINKEDIN_URL} onChange={(e) => { setLinkedinUrl(e.target.value); setContactSavedAt(null); }} placeholder="https://linkedin.com/in/yourname" />
           </div>
-          <Button
-            size="sm"
-            onClick={() => upsertProfile.mutate({ phone: phone || null, linkedinUrl: linkedinUrl || null })}
-            disabled={upsertProfile.isPending}
-          >
-            {upsertProfile.isPending ? "Saving..." : "Save Contact Info"}
-          </Button>
+          {(() => {
+            const isSaved = !!(contactSavedAt && Date.now() - contactSavedAt < SAVED_MS);
+            return (
+              <Button
+                size="sm"
+                data-testid="profile-save-contact-btn"
+                onClick={() => {
+                  lastSaveCard.current = "contact";
+                  upsertProfile.mutate({ phone: phone || null, linkedinUrl: linkedinUrl || null });
+                }}
+                disabled={upsertProfile.isPending}
+                className={isSaved ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+              >
+                {upsertProfile.isPending && lastSaveCard.current === "contact" ? (
+                  <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Saving...</>
+                ) : isSaved ? (
+                  <><CheckCircle className="mr-1.5 h-3.5 w-3.5" />Saved</>
+                ) : "Save Contact Info"}
+              </Button>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
