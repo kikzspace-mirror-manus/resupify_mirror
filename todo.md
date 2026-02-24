@@ -1410,3 +1410,9 @@
 - [x] Add PH_TRACKS to shared/trackOptions.ts (English-only labels/sublabels)
 - [x] Update getTracksForCountry() to return PH_TRACKS when countryPackId="PH" (ignore locale)
 - [x] Write tests: weights sum to 1.0, CA/VN counts unchanged, PH locale-invariant
+
+## V2 — Onboarding Step 0: PH Option
+- [x] Add PH radio card to Onboarding.tsx Step 0 (alongside CA/VN)
+- [x] Ensure PH Continue calls setCountryPack("PH") and invalidates auth.me
+- [x] Verify PH does not trigger languageMode=vi (server already enforces en for non-VN)
+- [x] Write tests: flag ON shows PH, PH persists, languageModeSet=false, flag OFF unchanged
