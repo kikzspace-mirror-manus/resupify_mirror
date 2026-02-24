@@ -8,6 +8,11 @@
  * V1 behaviour is fully preserved when v2CountryPacksEnabled is false:
  * the function always returns CA tracks with default COOP, identical to the
  * original hard-coded selector.
+ *
+ * V2 VN Translation: when v2VnTranslationEnabled is ON and the effective
+ * country pack is "VN", Vietnamese labels/sublabels are returned for VN tracks.
+ * Use resolveLocale() to determine the locale, then pass it to
+ * getTracksForCountry() or getTranslatedTrackStepCopy().
  */
 
 import type { CountryPackId } from "./countryPacks";
@@ -20,6 +25,8 @@ export type TrackCode =
   | "INTERNSHIP"
   | "EARLY_CAREER"
   | "EXPERIENCED";
+
+export type SupportedLocale = "en" | "vi";
 
 export interface TrackOption {
   /** Track code persisted to the database. */
@@ -43,7 +50,44 @@ export interface TrackSelectionResult {
   regionCode: string;
 }
 
-// ─── Track definitions ────────────────────────────────────────────────────────
+/** Copy for the Track step header/helper text, localised per locale. */
+export interface TrackStepCopy {
+  header: string;
+  helper: string;
+}
+
+// ─── Locale resolution ───────────────────────────────────────────────────────
+
+/**
+ * Resolves the display locale for a given user context.
+ *
+ * Rules (deterministic, no side-effects):
+ * 1. If v2VnTranslationEnabled is OFF → always "en"
+ * 2. If countryPackId !== "VN" → always "en"
+ * 3. If languageMode === "vi" OR browserLocale starts with "vi" → "vi"
+ * 4. Otherwise → "en"
+ *
+ * `browserLocale` is optional; pass `navigator.language` from the client.
+ * On the server (tests) omit it or pass undefined.
+ */
+export function resolveLocale(opts: {
+  countryPackId: CountryPackId | null | undefined;
+  languageMode?: string | null;
+  browserLocale?: string;
+  v2VnTranslationEnabled: boolean;
+}): SupportedLocale {
+  if (!opts.v2VnTranslationEnabled) return "en";
+  if (opts.countryPackId !== "VN") return "en";
+  // Explicit English preference always wins
+  if (opts.languageMode === "en") return "en";
+  if (opts.languageMode === "vi") return "vi";
+  if (opts.browserLocale?.startsWith("vi")) return "vi";
+  // VN pack but no explicit vi preference → still show Vietnamese copy
+  // (pack-based default: VN users see VI labels unless they've set languageMode=en)
+  return "vi";
+}
+
+// ─── Track definitions (EN) ──────────────────────────────────────────────────
 
 export const CA_TRACKS: TrackOption[] = [
   {
@@ -64,50 +108,101 @@ export const VN_TRACKS: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "VN",
-    label: "Internship / Student",
-    sublabel: "Currently enrolled or seeking internship",
+    label: "Vietnam — Internship / Student",
+    sublabel: "Best for students applying for internships",
   },
   {
     code: "NEW_GRAD",
     regionCode: "VN",
-    label: "New Graduate",
-    sublabel: "Recently graduated",
+    label: "Vietnam — New Graduate",
+    sublabel: "Best for 0–1 years experience",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "VN",
-    label: "Early Career",
-    sublabel: "1–5 years of experience",
+    label: "Vietnam — Early Career (1–5 years)",
+    sublabel: "Best for early professionals building experience",
   },
   {
     code: "EXPERIENCED",
     regionCode: "VN",
-    label: "Experienced",
-    sublabel: "5+ years of experience",
+    label: "Vietnam — Experienced (5+ years)",
+    sublabel: "Best for senior individual contributors or managers",
   },
 ];
+
+// ─── Track definitions (VI) ──────────────────────────────────────────────────
+
+export const VN_TRACKS_VI: TrackOption[] = [
+  {
+    code: "INTERNSHIP",
+    regionCode: "VN",
+    label: "Việt Nam — Thực tập / Sinh viên",
+    sublabel: "Phù hợp cho sinh viên ứng tuyển thực tập",
+  },
+  {
+    code: "NEW_GRAD",
+    regionCode: "VN",
+    label: "Việt Nam — Mới tốt nghiệp",
+    sublabel: "Phù hợp cho 0–1 năm kinh nghiệm",
+  },
+  {
+    code: "EARLY_CAREER",
+    regionCode: "VN",
+    label: "Việt Nam — Đi làm (1–5 năm)",
+    sublabel: "Phù hợp cho người mới đi làm tích lũy kinh nghiệm",
+  },
+  {
+    code: "EXPERIENCED",
+    regionCode: "VN",
+    label: "Việt Nam — Kinh nghiệm (5+ năm)",
+    sublabel: "Phù hợp cho senior/manager",
+  },
+];
+
+// ─── Track step copy (header + helper text) ──────────────────────────────────
+
+const TRACK_STEP_COPY: Record<SupportedLocale, TrackStepCopy> = {
+  en: {
+    header: "Choose your track",
+    helper: "This helps us tailor resume tips and eligibility checks for you.",
+  },
+  vi: {
+    header: "Chọn lộ trình hồ sơ",
+    helper: "Chọn theo giai đoạn nghề nghiệp của bạn",
+  },
+};
+
+/**
+ * Returns the localised header and helper text for the Track selection step.
+ */
+export function getTranslatedTrackStepCopy(locale: SupportedLocale): TrackStepCopy {
+  return TRACK_STEP_COPY[locale] ?? TRACK_STEP_COPY.en;
+}
 
 // ─── Core helper ─────────────────────────────────────────────────────────────
 
 /**
  * Returns the ordered list of available tracks, a sensible default track code,
- * and the region code to persist — all based on the user's country pack and
- * whether the V2 country packs feature flag is enabled.
+ * and the region code to persist — all based on the user's country pack,
+ * the V2 flag, and the resolved display locale.
  *
  * Behaviour matrix:
- * | v2Enabled | countryPackId | tracks    | defaultTrack | regionCode |
- * |-----------|---------------|-----------|--------------|------------|
- * | false     | any           | CA_TRACKS | COOP         | CA         |
- * | true      | CA            | CA_TRACKS | COOP         | CA         |
- * | true      | VN            | VN_TRACKS | NEW_GRAD     | VN         |
- * | true      | GLOBAL/PH/US  | []        | NEW_GRAD     | CA         |
- * | true      | null/undefined| []        | NEW_GRAD     | CA         |
+ * | v2Enabled | countryPackId | locale | tracks        | defaultTrack | regionCode |
+ * |-----------|---------------|--------|---------------|--------------|------------|
+ * | false     | any           | any    | CA_TRACKS(en) | COOP         | CA         |
+ * | true      | CA            | any    | CA_TRACKS(en) | COOP         | CA         |
+ * | true      | VN            | en     | VN_TRACKS(en) | NEW_GRAD     | VN         |
+ * | true      | VN            | vi     | VN_TRACKS(vi) | NEW_GRAD     | VN         |
+ * | true      | GLOBAL/PH/US  | any    | []            | NEW_GRAD     | CA         |
+ * | true      | null/undefined| any    | []            | NEW_GRAD     | CA         |
  */
 export function getTracksForCountry(
   countryPackId: CountryPackId | null | undefined,
-  v2Enabled: boolean
+  v2Enabled: boolean,
+  locale: SupportedLocale = "en"
 ): TrackSelectionResult {
-  // Flag OFF → V1 behaviour unchanged
+  // Flag OFF → V1 behaviour unchanged (always EN CA tracks)
   if (!v2Enabled) {
     return {
       tracks: CA_TRACKS,
@@ -130,7 +225,7 @@ export function getTracksForCountry(
 
   if (effectivePack === "VN") {
     return {
-      tracks: VN_TRACKS,
+      tracks: locale === "vi" ? VN_TRACKS_VI : VN_TRACKS,
       defaultTrack: "NEW_GRAD",
       hasTracksForCountry: true,
       regionCode: "VN",

@@ -17,7 +17,7 @@ import { Loader2, ShieldCheck, User, Layers, Globe } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
-import { getTracksForCountry, type TrackCode } from "@shared/trackOptions";
+import { getTracksForCountry, resolveLocale, type TrackCode, type SupportedLocale } from "@shared/trackOptions";
 
 export default function Profile() {
   const utils = trpc.useUtils();
@@ -27,14 +27,27 @@ export default function Profile() {
   // Feature flags from server
   const { data: flags } = trpc.system.featureFlags.useQuery();
   const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
+  const v2VnTranslationEnabled = flags?.v2VnTranslationEnabled ?? false;
 
   // Determine effective country pack from auth.me user record
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
+  const userLanguageMode = (user as any)?.languageMode as string | null | undefined;
 
-  // Compute available tracks based on country pack + flag (shared helper)
+  // Resolve display locale for VN translation (flag-gated)
+  const locale: SupportedLocale = useMemo(
+    () => resolveLocale({
+      countryPackId: userCountryPackId,
+      languageMode: userLanguageMode,
+      browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
+      v2VnTranslationEnabled,
+    }),
+    [userCountryPackId, userLanguageMode, v2VnTranslationEnabled]
+  );
+
+  // Compute available tracks based on country pack + flag + locale (shared helper)
   const { tracks, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
-    () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled),
-    [userCountryPackId, v2CountryPacksEnabled]
+    () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled, locale),
+    [userCountryPackId, v2CountryPacksEnabled, locale]
   );
 
   // Track selector state — initialised from saved profile

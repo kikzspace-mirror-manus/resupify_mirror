@@ -18,7 +18,7 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
-import { getTracksForCountry, type TrackCode } from "@shared/trackOptions";
+import { getTracksForCountry, resolveLocale, getTranslatedTrackStepCopy, type TrackCode, type SupportedLocale } from "@shared/trackOptions";
 
 // ─── Country options shown in Step 0 ─────────────────────────────────────────
 
@@ -89,11 +89,27 @@ export default function Onboarding() {
   // - Flag OFF: uses userCountryPackId (V1 behaviour)
   const effectiveCountryPackId = v2CountryPacksEnabled ? selectedCountryPackId : (userCountryPackId ?? "CA");
 
-  // Compute available tracks based on effective country pack + flag (shared helper)
-  const { tracks, defaultTrack, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
-    () => getTracksForCountry(effectiveCountryPackId, v2CountryPacksEnabled),
-    [effectiveCountryPackId, v2CountryPacksEnabled]
+  // Resolve display locale for VN translation (flag-gated)
+  const v2VnTranslationEnabled = flags?.v2VnTranslationEnabled ?? false;
+  const userLanguageMode = (user as any)?.languageMode as string | null | undefined;
+  const locale: SupportedLocale = useMemo(
+    () => resolveLocale({
+      countryPackId: effectiveCountryPackId,
+      languageMode: userLanguageMode,
+      browserLocale: typeof navigator !== "undefined" ? navigator.language : undefined,
+      v2VnTranslationEnabled,
+    }),
+    [effectiveCountryPackId, userLanguageMode, v2VnTranslationEnabled]
   );
+
+  // Compute available tracks based on effective country pack + flag + locale (shared helper)
+  const { tracks, defaultTrack, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
+    () => getTracksForCountry(effectiveCountryPackId, v2CountryPacksEnabled, locale),
+    [effectiveCountryPackId, v2CountryPacksEnabled, locale]
+  );
+
+  // Localised copy for the Track step header/helper
+  const trackStepCopy = useMemo(() => getTranslatedTrackStepCopy(locale), [locale]);
 
   // Step 1: Track
   const [trackCode, setTrackCode] = useState<TrackCode>(defaultTrack);
@@ -263,9 +279,9 @@ export default function Onboarding() {
         {step === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>Choose your track</CardTitle>
-              <CardDescription>
-                This helps us tailor resume tips and eligibility checks for you.
+              <CardTitle data-testid="track-step-header">{trackStepCopy.header}</CardTitle>
+              <CardDescription data-testid="track-step-helper">
+                {trackStepCopy.helper}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

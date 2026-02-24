@@ -1376,3 +1376,12 @@
 - [x] Track step reads selectedCountryPackId (local state) not just auth.me to reflect immediate change
 - [x] Flag OFF: no Step 0, onboarding unchanged
 - [x] Write tests: flag OFF no step 0, flag ON CA/VN saves correctly, sticky preselect, regression
+
+## V2 — VN Track Label Translation (Flag-Gated)
+- [x] Add VN translations (vi labels/sublabels) for all 4 VN tracks in shared/trackOptions.ts
+- [x] Add resolveLocale(countryPackId, languageMode, v2VnTranslationEnabled) helper
+- [x] Update getTracksForCountry to accept locale and return translated strings
+- [x] Wire locale resolution into Onboarding.tsx track step
+- [x] Wire locale resolution into Profile.tsx track card
+- [x] Translate track step header/helper in Onboarding.tsx when VN+flag ON
+- [x] Write tests: flag OFF=EN, flag ON+VN=VI, flag ON+CA=EN, all 4 tracks covered
