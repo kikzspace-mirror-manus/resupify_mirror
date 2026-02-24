@@ -1493,3 +1493,8 @@
 - [x] Cards use existing totals from countryPackAdoption query (no backend changes)
 - [x] Cards update when range selector changes
 - [x] Write tests: KPI cards render with correct values
+
+## V2 — Admin Users: Add US to Pack Filter
+- [x] Add US to pack filter options in AdminUsers.tsx (already present from prior session)
+- [x] Confirm filtering logic uses (user.countryPackId ?? "GLOBAL") fallback
+- [x] Write tests: US option present, US filter returns only US users
