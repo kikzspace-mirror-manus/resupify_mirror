@@ -1518,3 +1518,9 @@
 - [x] Render minimal loading state while redirecting (no Step 0 flash)
 - [x] V1 (flag OFF): no new redirects, behavior unchanged
 - [x] Write tests: V2 complete → redirect, V2 incomplete → stays, V1 → unchanged
+
+## V2 — Admin User Detail: Country Pack + Language Mode
+- [x] Audit adminGetUser payload for countryPackId + languageMode fields
+- [x] Add Country Pack row to user detail panel (badge, fallback GLOBAL)
+- [x] Add Language Mode row to user detail panel (badge, fallback en)
+- [x] Write tests: both fields render, null fallbacks work
