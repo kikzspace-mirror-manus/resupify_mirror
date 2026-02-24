@@ -102,6 +102,18 @@ export const CA_TRACKS: TrackOption[] = [
     label: "New Graduate",
     sublabel: "0–2 years experience",
   },
+  {
+    code: "EARLY_CAREER",
+    regionCode: "CA",
+    label: "Early Career",
+    sublabel: "2–5 years experience",
+  },
+  {
+    code: "EXPERIENCED",
+    regionCode: "CA",
+    label: "Experienced",
+    sublabel: "5+ years experience",
+  },
 ];
 
 export const VN_TRACKS: TrackOption[] = [

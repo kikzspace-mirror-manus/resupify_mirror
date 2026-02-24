@@ -173,7 +173,8 @@ describe("Onboarding Step 0 — flag OFF regression", () => {
   // T18: CA tracks still work when flag OFF
   it("T18: CA tracks still work when flag OFF", () => {
     const result = getTracksForCountry("CA", false);
-    expect(result.tracks).toHaveLength(2);
+    // CA_TRACKS now has 4 entries (COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED)
+    expect(result.tracks).toHaveLength(4);
     expect(result.regionCode).toBe("CA");
   });
 });

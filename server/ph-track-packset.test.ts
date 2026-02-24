@@ -73,10 +73,10 @@ describe("PH pack definitions — shared/regionPacks.ts", () => {
     expect(phKeys.sort()).toEqual(["PH_EARLY_CAREER", "PH_EXPERIENCED", "PH_INTERNSHIP", "PH_NEW_GRAD"]);
   });
 
-  it("T14: CA packs still have exactly 2 entries", () => {
+  it("T14: CA packs now have exactly 4 entries", () => {
     const packs = getAvailablePacks();
     const caKeys = packs.filter(p => p.key.startsWith("CA_")).map(p => p.key);
-    expect(caKeys.sort()).toEqual(["CA_COOP", "CA_NEW_GRAD"]);
+    expect(caKeys.sort()).toEqual(["CA_COOP", "CA_EARLY_CAREER", "CA_EXPERIENCED", "CA_NEW_GRAD"]);
   });
 
   it("T15: VN packs still have exactly 4 entries", () => {
@@ -85,8 +85,8 @@ describe("PH pack definitions — shared/regionPacks.ts", () => {
     expect(vnKeys.sort()).toEqual(["VN_EARLY_CAREER", "VN_EXPERIENCED", "VN_INTERNSHIP", "VN_NEW_GRAD"]);
   });
 
-  it("T16: Total pack count is 10 (2 CA + 4 VN + 4 PH)", () => {
-    expect(getAvailablePacks().length).toBe(10);
+  it("T16: Total pack count is 12 (4 CA + 4 VN + 4 PH)", () => {
+    expect(getAvailablePacks().length).toBe(12);
   });
 
   it("T17: CA/COOP weights are unchanged", () => {
@@ -151,10 +151,13 @@ describe("PH track options — shared/trackOptions.ts", () => {
     expect(result.tracks.every(t => t.regionCode === "CA")).toBe(true);
   });
 
-  it("T27: CA tracks still return 2 tracks (unchanged)", () => {
+  it("T27: CA tracks now return 4 tracks (COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED)", () => {
     const result = getTracksForCountry("CA", true, "en");
-    expect(result.tracks).toHaveLength(2);
+    expect(result.tracks).toHaveLength(4);
     expect(result.regionCode).toBe("CA");
+    const codes = result.tracks.map(t => t.code);
+    expect(codes).toContain("EARLY_CAREER");
+    expect(codes).toContain("EXPERIENCED");
   });
 
   it("T28: VN tracks still return 4 EN tracks (unchanged)", () => {

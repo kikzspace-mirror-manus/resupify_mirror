@@ -36,11 +36,13 @@ describe("Profile track options: always derived from countryPackId", () => {
     expect(result.tracks.map((t) => t.code)).toContain("EXPERIENCED");
   });
 
-  it("P3: CA countryPackId returns 2 CA tracks when flag ON", () => {
+  it("P3: CA countryPackId returns 4 CA tracks when flag ON", () => {
     const result = getTracksForCountry("CA" as CountryPackId, true, "en");
-    expect(result.tracks.length).toBe(2);
+    expect(result.tracks.length).toBe(4);
     expect(result.tracks.map((t) => t.code)).toContain("COOP");
     expect(result.tracks.map((t) => t.code)).toContain("NEW_GRAD");
+    expect(result.tracks.map((t) => t.code)).toContain("EARLY_CAREER");
+    expect(result.tracks.map((t) => t.code)).toContain("EXPERIENCED");
   });
 
   it("P4: GLOBAL countryPackId returns empty tracks (coming soon)", () => {
@@ -56,13 +58,13 @@ describe("Profile track options: always derived from countryPackId", () => {
   });
 
   it("P6: flag OFF always returns CA tracks regardless of countryPackId", () => {
-    // V1 behaviour: flag OFF → CA tracks always
+    // V1 behaviour: flag OFF → CA tracks always (now 4 tracks)
     const vnResult = getTracksForCountry("VN" as CountryPackId, false, "en");
-    expect(vnResult.tracks.length).toBe(2);
+    expect(vnResult.tracks.length).toBe(4);
     expect(vnResult.regionCode).toBe("CA");
 
     const phResult = getTracksForCountry("PH" as CountryPackId, false, "en");
-    expect(phResult.tracks.length).toBe(2);
+    expect(phResult.tracks.length).toBe(4);
     expect(phResult.regionCode).toBe("CA");
   });
 

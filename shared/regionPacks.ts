@@ -276,6 +276,177 @@ const CA_NEW_GRAD: RegionPack = {
   ],
 };
 
+// ─── CA Extended Tracks ─────────────────────────────────────────────────────
+const CA_EARLY_CAREER: RegionPack = {
+  regionCode: "CA",
+  trackCode: "EARLY_CAREER",
+  label: "Canada — Early Career (0–5 years)",
+  resumeDefaults: {
+    sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 1,
+  },
+  copyRules: {
+    noInventedFacts: true,
+    needsConfirmationLabel: "Needs confirmation",
+    noExperienceHelper: false,
+    convertProjectsToExperience: false,
+  },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  workAuthRules: [
+    {
+      id: "citizen_pr_requirement",
+      label: "Citizen/PR Requirement",
+      triggerPhrases: ["canadian citizen", "permanent resident", "pr required", "citizen or pr", "must be citizen", "must be pr"],
+      condition: "work_status != citizen_pr",
+      penalty: -35,
+      message: "Posting asks for Citizen/PR. If you're not sure, confirm with recruiter.",
+    },
+    {
+      id: "no_sponsorship",
+      label: "No Sponsorship Available",
+      triggerPhrases: ["no sponsorship", "without sponsorship", "sponsorship not available", "sponsorship not provided"],
+      condition: "needs_sponsorship == true",
+      penalty: -35,
+      message: "Posting says no sponsorship. Consider prioritizing other roles or confirming directly.",
+    },
+    {
+      id: "work_authorization_unclear",
+      label: "Work Authorization Status",
+      triggerPhrases: ["legally authorized to work in canada", "authorized to work in canada", "legally entitled to work"],
+      condition: "work_status == unknown",
+      penalty: -10,
+      message: "Posting may screen for work authorization. Add your status to reduce uncertainty.",
+    },
+    {
+      id: "location_requirement",
+      label: "Location Requirement",
+      triggerPhrases: ["must be located in canada", "must reside in canada", "canada-based", "based in canada"],
+      condition: "country_of_residence != Canada",
+      penalty: -15,
+      message: "Posting mentions location requirement. Confirm if remote/relocation is possible.",
+    },
+  ],
+  scoringWeights: {
+    eligibility: 0.15,
+    tools: 0.20,
+    responsibilities: 0.30,
+    skills: 0.20,
+    softSkills: 0.15,
+  },
+  templates: {
+    coverLetterStyle: "professional-concise",
+    outreachTone: "professional-confident",
+    followUpDays: 5,
+  },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked",
+    stage_applying: "Applying",
+    stage_applied: "Applied",
+    stage_interviewing: "Interviewing",
+    stage_offered: "Offered",
+    stage_rejected: "Rejected",
+    stage_archived: "Archived",
+    track_label: "Early Career",
+    season_fall: "Fall Hiring",
+    season_winter: "Winter Hiring",
+    season_summer: "Summer Hiring",
+  },
+  trackTips: [
+    "Lead with your strongest experience — even internships and co-ops count.",
+    "Quantify achievements wherever possible (e.g., 'reduced load time by 30%').",
+    "Highlight tools and technologies prominently — early-career roles are often tool-specific.",
+    "Keep to 1 page; cut older or less-relevant roles to stay focused.",
+  ],
+};
+
+const CA_EXPERIENCED: RegionPack = {
+  regionCode: "CA",
+  trackCode: "EXPERIENCED",
+  label: "Canada — Experienced (5+ years)",
+  resumeDefaults: {
+    sections: ["experience", "leadership", "achievements", "skills", "education"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 2,
+  },
+  copyRules: {
+    noInventedFacts: true,
+    needsConfirmationLabel: "Needs confirmation",
+    noExperienceHelper: false,
+    convertProjectsToExperience: false,
+  },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  workAuthRules: [
+    {
+      id: "citizen_pr_requirement",
+      label: "Citizen/PR Requirement",
+      triggerPhrases: ["canadian citizen", "permanent resident", "pr required", "citizen or pr", "must be citizen", "must be pr"],
+      condition: "work_status != citizen_pr",
+      penalty: -35,
+      message: "Posting asks for Citizen/PR. If you're not sure, confirm with recruiter.",
+    },
+    {
+      id: "no_sponsorship",
+      label: "No Sponsorship Available",
+      triggerPhrases: ["no sponsorship", "without sponsorship", "sponsorship not available", "sponsorship not provided"],
+      condition: "needs_sponsorship == true",
+      penalty: -35,
+      message: "Posting says no sponsorship. Consider prioritizing other roles or confirming directly.",
+    },
+    {
+      id: "work_authorization_unclear",
+      label: "Work Authorization Status",
+      triggerPhrases: ["legally authorized to work in canada", "authorized to work in canada", "legally entitled to work"],
+      condition: "work_status == unknown",
+      penalty: -10,
+      message: "Posting may screen for work authorization. Add your status to reduce uncertainty.",
+    },
+    {
+      id: "location_requirement",
+      label: "Location Requirement",
+      triggerPhrases: ["must be located in canada", "must reside in canada", "canada-based", "based in canada"],
+      condition: "country_of_residence != Canada",
+      penalty: -15,
+      message: "Posting mentions location requirement. Confirm if remote/relocation is possible.",
+    },
+  ],
+  scoringWeights: {
+    eligibility: 0.20,
+    tools: 0.10,
+    responsibilities: 0.40,
+    skills: 0.15,
+    softSkills: 0.15,
+  },
+  templates: {
+    coverLetterStyle: "executive-brief",
+    outreachTone: "professional-executive",
+    followUpDays: 7,
+  },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked",
+    stage_applying: "Applying",
+    stage_applied: "Applied",
+    stage_interviewing: "Interviewing",
+    stage_offered: "Offered",
+    stage_rejected: "Rejected",
+    stage_archived: "Archived",
+    track_label: "Experienced",
+    season_fall: "Fall Hiring",
+    season_winter: "Winter Hiring",
+    season_summer: "Summer Hiring",
+  },
+  trackTips: [
+    "Lead with impact: open each role with a 1-line summary of scope and scale.",
+    "Use 2 pages — experienced roles expect depth, not brevity.",
+    "Highlight leadership, cross-functional influence, and business outcomes.",
+    "Trim roles older than 15 years to 1–2 bullets or remove them entirely.",
+  ],
+};
+
 // ─── VN Tracks ──────────────────────────────────────────────────────
 
 const VN_INTERNSHIP: RegionPack = {
@@ -659,6 +830,8 @@ const PH_EXPERIENCED: RegionPack = {
 const PACKS: Record<string, RegionPack> = {
   "CA_COOP": CA_COOP,
   "CA_NEW_GRAD": CA_NEW_GRAD,
+  "CA_EARLY_CAREER": CA_EARLY_CAREER,
+  "CA_EXPERIENCED": CA_EXPERIENCED,
   "VN_INTERNSHIP": VN_INTERNSHIP,
   "VN_NEW_GRAD": VN_NEW_GRAD,
   "VN_EARLY_CAREER": VN_EARLY_CAREER,

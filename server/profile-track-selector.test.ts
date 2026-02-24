@@ -56,9 +56,9 @@ describe("getTracksForCountry — flag ON, CA", () => {
     expect(result.regionCode).toBe("CA");
   });
 
-  it("T6: CA_TRACKS has exactly 2 tracks: COOP and NEW_GRAD", () => {
-    expect(CA_TRACKS).toHaveLength(2);
-    expect(CA_TRACKS.map((t) => t.code)).toEqual(["COOP", "NEW_GRAD"]);
+  it("T6: CA_TRACKS has exactly 4 tracks: COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED", () => {
+    expect(CA_TRACKS).toHaveLength(4);
+    expect(CA_TRACKS.map((t) => t.code)).toEqual(["COOP", "NEW_GRAD", "EARLY_CAREER", "EXPERIENCED"]);
   });
 
   it("T7: CA tracks have regionCode=CA", () => {

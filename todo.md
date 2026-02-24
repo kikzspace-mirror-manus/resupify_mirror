@@ -1433,3 +1433,9 @@
 - [x] Update CA_TRACKS NEW_GRAD label to "New Graduate" and sublabel to "0–2 years experience"
 - [x] Update affected tests asserting old label "Early-career / General"
 - [x] Regression: full suite green, 0 TS errors
+
+## V2 — CA: Add CA_EARLY_CAREER + CA_EXPERIENCED packs
+- [x] Add CA_EARLY_CAREER pack to shared/regionPacks.ts (weights sum 1.0, no eligibility checks)
+- [x] Add CA_EXPERIENCED pack to shared/regionPacks.ts (maxPages 2, weights sum 1.0)
+- [x] Extend CA_TRACKS in shared/trackOptions.ts to 4 options (COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED)
+- [x] Write tests: weights sum 1.0, CA_COOP/CA_NEW_GRAD unchanged, 4-option CA dropdown
