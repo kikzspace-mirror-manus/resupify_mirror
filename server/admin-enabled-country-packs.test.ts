@@ -143,12 +143,12 @@ describe("D: Onboarding.tsx filters COUNTRY_OPTIONS by enabledCountryPacks", () 
     expect(onboardingSrc).toContain('"US"');
   });
 
-  it("D4: filter is applied inside the RadioGroup map", () => {
-    // The filter should be on the same line as .map for the country cards
-    const filterLine = onboardingSrc
-      .split("\n")
-      .find((l) => l.includes("COUNTRY_OPTIONS.filter") && l.includes(".map"));
-    expect(filterLine).toBeTruthy();
+  it("D4: filter is applied via filteredCountries and used in the RadioGroup map", () => {
+    // The filter is now a two-step pattern:
+    // 1. filteredCountries = COUNTRY_OPTIONS.filter(...) (derived outside JSX)
+    // 2. filteredCountries.map(...) used in the RadioGroup
+    expect(onboardingSrc).toContain("filteredCountries");
+    expect(onboardingSrc).toContain("filteredCountries.map((country) => (");
   });
 
   it("D5: fallback is [\"CA\"] when flags not yet loaded", () => {

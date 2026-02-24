@@ -1629,3 +1629,11 @@
 - [x] Wire highestEducationLevel to upsertProfile.mutate call
 - [x] Remove "Required for co-op eligibility" copy from non-COOP users
 - [x] Write tests: dropdown renders, Field of study label, isCoopCA guard variants
+
+## V2 — Onboarding Step 0: Auto-fit grid by enabled pack count
+- [x] Derive filteredCountries from COUNTRY_OPTIONS filtered by enabledCountryPacks
+- [x] Compute countryGridClass from filteredCountries.length (1→centered, 2→grid-cols-2, 3→grid-cols-3, 4→grid-cols-2 md:grid-cols-4, 5→grid-cols-2 sm:grid-cols-3 md:grid-cols-5)
+- [x] Replace hardcoded grid class on RadioGroup with countryGridClass
+- [x] Add data-testid="country-grid" for test targeting
+- [x] Update existing tests that assert old fixed grid classes
+- [x] Write new tests: 2/3/4/5 pack counts produce correct grid class

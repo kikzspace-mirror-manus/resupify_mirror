@@ -69,11 +69,14 @@ describe("Onboarding Step 0 — US option in COUNTRY_OPTIONS", () => {
     expect(onboardingSource).toContain("🇵🇭");
   });
 
-  it("T8: grid layout updated to sm:grid-cols-3 md:grid-cols-5 for 5 cards", () => {
-    // Grid updated in V2 Onboarding Phase 4 to accommodate 5th card (GLOBAL)
+  it("T8: grid is now dynamic via countryGridClass (5-pack branch has sm:grid-cols-3 md:grid-cols-5)", () => {
+    // Grid is now dynamic: countryGridClass picks the right class based on enabled pack count.
+    // The 5-pack branch still uses sm:grid-cols-3 md:grid-cols-5; 4-pack now uses md:grid-cols-4.
+    expect(onboardingSource).toContain("countryGridClass");
     expect(onboardingSource).toContain("sm:grid-cols-3");
     expect(onboardingSource).toContain("md:grid-cols-5");
-    expect(onboardingSource).not.toContain("md:grid-cols-4");
+    // 4-pack branch now uses md:grid-cols-4 (present in source)
+    expect(onboardingSource).toContain("md:grid-cols-4");
   });
 });
 

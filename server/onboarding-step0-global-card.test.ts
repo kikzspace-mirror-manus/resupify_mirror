@@ -118,18 +118,30 @@ describe("C — Ordering: GLOBAL first, then CA, VN, PH, US", () => {
 
 // ── D: Grid layout updated for 5 cards ────────────────────────────────────
 
-describe("D — Grid layout updated for 5 cards", () => {
-  it("D1) Grid includes md:grid-cols-5", () => {
+describe("D — Grid layout: dynamic countryGridClass", () => {
+  it("D1) countryGridClass is used on the RadioGroup", () => {
+    expect(onboarding).toContain("countryGridClass");
+  });
+
+  it("D2) 5-pack branch still has md:grid-cols-5", () => {
     expect(onboarding).toContain("md:grid-cols-5");
   });
 
-  it("D2) Old md:grid-cols-4 is not present in the country selector", () => {
-    expect(onboarding).not.toContain("md:grid-cols-4");
-  });
-
-  it("D3) Grid has responsive breakpoints (grid-cols-2 and sm:grid-cols-3)", () => {
+  it("D3) Grid has responsive breakpoints (grid-cols-2 and sm:grid-cols-3 in 5-pack branch)", () => {
     expect(onboarding).toContain("grid-cols-2");
     expect(onboarding).toContain("sm:grid-cols-3");
+  });
+
+  it("D4) 4-pack branch uses md:grid-cols-4", () => {
+    expect(onboarding).toContain("md:grid-cols-4");
+  });
+
+  it("D5) 2-pack branch uses grid-cols-2 (no blank third slot)", () => {
+    expect(onboarding).toContain('if (n === 2) return "grid-cols-2"');
+  });
+
+  it("D6) 3-pack branch uses grid-cols-3", () => {
+    expect(onboarding).toContain('if (n === 3) return "grid-cols-3"');
   });
 });
 

@@ -288,6 +288,23 @@ export default function Onboarding() {
 
   const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending || setCountryPack.isPending;
 
+  // Step 0 grid: filter to enabled packs and pick a grid class that exactly fits
+  // the count so there are never blank trailing slots.
+  // 1 pack  → auto-skip fires; but if somehow shown, center it
+  // 2 packs → 2 columns, centered (no third empty slot)
+  // 3 packs → 3 columns
+  // 4 packs → 2 columns on small, 4 on medium+
+  // 5 packs → 2 columns on small, 3 on sm, 5 on md+ (original layout)
+  const filteredCountries = COUNTRY_OPTIONS.filter((c) => enabledCountryPacks.includes(c.id));
+  const countryGridClass = (() => {
+    const n = filteredCountries.length;
+    if (n <= 1) return "grid-cols-1 justify-items-center";
+    if (n === 2) return "grid-cols-2";
+    if (n === 3) return "grid-cols-3";
+    if (n === 4) return "grid-cols-2 md:grid-cols-4";
+    return "grid-cols-2 sm:grid-cols-3 md:grid-cols-5"; // 5
+  })();
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
@@ -326,10 +343,10 @@ export default function Onboarding() {
               <RadioGroup
                 value={selectedCountryPackId}
                 onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
-                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"
+                className={`grid ${countryGridClass} gap-4`}
                 data-testid="country-selector"
               >
-                {COUNTRY_OPTIONS.filter((c) => enabledCountryPacks.includes(c.id)).map((country) => (
+                {filteredCountries.map((country) => (
                   <Label
                     key={country.id}
                     htmlFor={`country-${country.id}`}

@@ -181,12 +181,27 @@ describe("Onboarding Step 0 — flag OFF regression", () => {
 
 // ─── Grid layout ─────────────────────────────────────────────────────────────
 
-describe("Onboarding Step 0 — grid layout for 4 options", () => {
-  // T19: RadioGroup uses responsive 2-col/4-col grid for 4 options (US added in V2 US Expansion Step 2)
-  it("T19: RadioGroup uses sm:grid-cols-3 md:grid-cols-5 for 5 country options", () => {
-    // Grid updated in V2 Onboarding Phase 4 to accommodate 5th card (GLOBAL)
+describe("Onboarding Step 0 — grid layout (dynamic count-based)", () => {
+  // T19: Grid is now dynamic via countryGridClass — the 5-pack branch still uses
+  // sm:grid-cols-3 md:grid-cols-5 and the 4-pack branch uses md:grid-cols-4.
+  it("T19: countryGridClass logic is present in source", () => {
+    expect(onboardingSource).toContain("countryGridClass");
+  });
+
+  it("T19b: 5-pack branch still contains sm:grid-cols-3 and md:grid-cols-5", () => {
     expect(onboardingSource).toContain("sm:grid-cols-3");
     expect(onboardingSource).toContain("md:grid-cols-5");
-    expect(onboardingSource).not.toContain("md:grid-cols-4");
+  });
+
+  it("T19c: 4-pack branch uses md:grid-cols-4 (no longer absent)", () => {
+    expect(onboardingSource).toContain("md:grid-cols-4");
+  });
+
+  it("T19d: 2-pack branch uses grid-cols-2 (no third empty slot)", () => {
+    expect(onboardingSource).toContain('if (n === 2) return "grid-cols-2"');
+  });
+
+  it("T19e: 3-pack branch uses grid-cols-3", () => {
+    expect(onboardingSource).toContain('if (n === 3) return "grid-cols-3"');
   });
 });
