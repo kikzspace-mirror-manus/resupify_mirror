@@ -1421,3 +1421,10 @@
 - [x] Add PH to AdminPacks.tsx country filter (All/CA/VN/PH)
 - [x] Add PH badge color to per-country color map
 - [x] Write/update tests: PH filter shows only PH packs, All shows CA+VN+PH
+
+## Patch — Profile: countryPackId gating (tracks + work auth) + debug line
+- [x] Fix Profile.tsx: derive countryPackId from me.countryPackId only (no fallback to residence)
+- [x] Fix Profile.tsx: track options use getTracksForCountry(countryPackId, locale) always
+- [x] Fix Profile.tsx: Work Authorization card only renders when countryPackId === "CA"
+- [x] Add DEV-only debug line (import.meta.env.DEV guard)
+- [x] Write tests: VN/PH/CA track options, CA-only work auth, debug line gating

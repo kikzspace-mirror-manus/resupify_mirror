@@ -148,8 +148,9 @@ export default function Profile() {
     );
   }
 
-  // Show work auth card only for CA users
-  const showWorkAuthCard = effectiveRegionCode === "CA";
+  // Show work auth card ONLY for CA users — gate on countryPackId directly,
+  // NOT on effectiveRegionCode (which defaults to "CA" in V1 mode for all users).
+  const showWorkAuthCard = userCountryPackId === "CA";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
@@ -159,6 +160,16 @@ export default function Profile() {
           Manage your track, education details, and work authorization status.
         </p>
       </div>
+
+      {/* DEV-only debug line — never rendered in production builds */}
+      {import.meta.env.DEV && (
+        <div
+          className="text-xs font-mono bg-yellow-50 border border-yellow-200 text-yellow-800 rounded px-3 py-1.5"
+          data-testid="profile-debug-line"
+        >
+          DEBUG: pack={userCountryPackId ?? "null"} | track={trackCode} | locale={locale} | v2CountryPacksEnabled={String(v2CountryPacksEnabled)}
+        </div>
+      )}
 
       {/* Track Card — country-aware, flag-gated */}
       <Card data-testid="profile-track-card">

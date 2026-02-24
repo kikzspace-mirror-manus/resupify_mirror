@@ -200,7 +200,8 @@ describe("Profile.tsx uses shared/trackOptions.ts (no duplication)", () => {
 
   it("T31: Work auth card is gated behind showWorkAuthCard (CA only)", () => {
     expect(profileContent).toContain("showWorkAuthCard");
-    expect(profileContent).toContain("effectiveRegionCode === \"CA\"");
+    // After patch: gated on userCountryPackId === "CA" directly (not effectiveRegionCode)
+    expect(profileContent).toContain("userCountryPackId === \"CA\"");
   });
 
   it("T32: Profile.tsx queries system.featureFlags", () => {
