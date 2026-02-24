@@ -3,9 +3,6 @@
  *
  * Phase 10C-2: Displays stripe_events table rows with filters for status
  * and eventType. No PII, no free text — only fields in the stripe_events table.
- *
- * Phase 12S: Fixed table layout with explicit column widths for consistent alignment.
- * Phase 12U: Aligned toolbar and filter bar for clean layout.
  */
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -58,9 +55,9 @@ export default function AdminStripeEvents() {
 
   return (
     <AdminLayout>
-      <div className="space-y-3">
-        {/* Toolbar: Title + Refresh (aligned top) */}
-        <div className="flex items-start justify-between">
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">Stripe Events</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -71,15 +68,15 @@ export default function AdminStripeEvents() {
             variant="outline"
             size="sm"
             onClick={() => { refetch(); }}
-            className="gap-2 h-9"
+            className="gap-2"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
         </div>
 
-        {/* Filter bar: aligned to table width, consistent heights */}
-        <div className="flex items-center gap-4">
+        {/* Filters */}
+        <div className="flex flex-wrap items-end gap-4">
           {/* Status filter */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">Status</label>
@@ -87,7 +84,7 @@ export default function AdminStripeEvents() {
               value={status}
               onValueChange={(v) => setStatus(v as Status | "all")}
             >
-              <SelectTrigger className="w-40 h-9">
+              <SelectTrigger className="w-44 h-9">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -106,7 +103,7 @@ export default function AdminStripeEvents() {
               value={eventType}
               onValueChange={(v) => setEventType(v)}
             >
-              <SelectTrigger className="w-52 h-9">
+              <SelectTrigger className="w-56 h-9">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -117,9 +114,9 @@ export default function AdminStripeEvents() {
             </Select>
           </div>
 
-          {/* Result count (right-aligned) */}
+          {/* Result count */}
           {!isLoading && events && (
-            <div className="ml-auto flex items-center">
+            <div className="flex items-end pb-0.5">
               <span className="text-xs text-muted-foreground">
                 {events.length} event{events.length !== 1 ? "s" : ""}
                 {events.length === 500 ? " (capped at 500)" : ""}
@@ -149,128 +146,70 @@ export default function AdminStripeEvents() {
           </div>
         ) : (
           <div className="rounded-lg border overflow-hidden">
-            {/* Phase 12S: Fixed table layout with explicit column widths */}
-            <div style={{ display: "table", width: "100%", tableLayout: "fixed" }}>
-              {/* Table header */}
-              <div
-                style={{ display: "table-row", backgroundColor: "hsl(var(--muted))" }}
-                className="text-xs font-medium text-muted-foreground border-b"
-              >
-                <div style={{ display: "table-cell", width: "40%", padding: "8px 12px", verticalAlign: "middle" }}>
-                  Stripe Event ID
-                </div>
-                <div style={{ display: "table-cell", width: "25%", padding: "8px 12px", verticalAlign: "middle" }}>
-                  Event Type
-                </div>
-                <div style={{ display: "table-cell", width: "15%", padding: "8px 12px", verticalAlign: "middle", textAlign: "center" }}>
-                  Status
-                </div>
-                <div style={{ display: "table-cell", width: "8%", padding: "8px 12px", verticalAlign: "middle", textAlign: "right" }}>
-                  Credits
-                </div>
-                <div style={{ display: "table-cell", width: "12%", padding: "8px 12px", verticalAlign: "middle", textAlign: "right" }}>
-                  Time
-                </div>
-              </div>
-
-              {/* Rows */}
-              {events?.map((ev, idx) => (
+            {/* Table header */}
+            <div className="grid grid-cols-[2fr_2fr_auto_auto_auto] gap-3 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b">
+              <span>Stripe Event ID</span>
+              <span>Event Type</span>
+              <span>Status</span>
+              <span>Credits</span>
+              <span>Time</span>
+            </div>
+            {/* Rows */}
+            <div className="divide-y">
+              {events?.map((ev) => (
                 <div
                   key={ev.id}
-                  style={{ display: "table-row" }}
-                  className={`text-sm hover:bg-muted/30 transition-colors ${
-                    idx !== events.length - 1 ? "border-b" : ""
-                  }`}
+                  className="grid grid-cols-[2fr_2fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-sm hover:bg-muted/30 transition-colors"
                 >
                   {/* Stripe Event ID (truncated) */}
-                  <div
-                    style={{
-                      display: "table-cell",
-                      width: "40%",
-                      padding: "8px 12px",
-                      verticalAlign: "middle",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    className="font-mono text-xs text-muted-foreground"
+                  <span
+                    className="font-mono text-xs text-muted-foreground truncate"
                     title={ev.stripeEventId}
                   >
                     {ev.stripeEventId.slice(0, 24)}…
-                  </div>
+                  </span>
 
-                  {/* Event Type */}
-                  <div
-                    style={{
-                      display: "table-cell",
-                      width: "25%",
-                      padding: "8px 12px",
-                      verticalAlign: "middle",
-                    }}
+                  {/* Event type */}
+                  <Badge
+                    variant="outline"
+                    className={`text-xs w-fit ${EVENT_TYPE_COLORS[ev.eventType] ?? "bg-gray-100 text-gray-600"}`}
                   >
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${EVENT_TYPE_COLORS[ev.eventType] || "bg-gray-50 text-gray-700 border-gray-200"}`}
-                    >
-                      {ev.eventType}
-                    </Badge>
-                  </div>
+                    {ev.eventType}
+                  </Badge>
 
                   {/* Status */}
-                  <div
-                    style={{
-                      display: "table-cell",
-                      width: "15%",
-                      padding: "8px 12px",
-                      verticalAlign: "middle",
-                      textAlign: "center",
-                    }}
+                  <Badge
+                    variant="outline"
+                    className={`text-xs w-fit ${STATUS_COLORS[ev.status as Status] ?? "bg-gray-100 text-gray-600"}`}
                   >
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${STATUS_COLORS[ev.status as Status] || "bg-gray-50 text-gray-700 border-gray-200"}`}
-                    >
-                      {ev.status}
-                    </Badge>
-                  </div>
+                    {ev.status}
+                  </Badge>
 
-                  {/* Credits */}
-                  <div
-                    style={{
-                      display: "table-cell",
-                      width: "8%",
-                      padding: "8px 12px",
-                      verticalAlign: "middle",
-                      textAlign: "right",
-                    }}
-                    className="text-xs font-medium"
-                  >
-                    {ev.creditsPurchased ?? "—"}
-                  </div>
+                  {/* Credits purchased */}
+                  <span className="text-xs tabular-nums text-right">
+                    {ev.creditsPurchased != null ? (
+                      <span className="text-emerald-600 font-medium">+{ev.creditsPurchased}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </span>
 
-                  {/* Time */}
-                  <div
-                    style={{
-                      display: "table-cell",
-                      width: "12%",
-                      padding: "8px 12px",
-                      verticalAlign: "middle",
-                      textAlign: "right",
-                    }}
-                    className="text-xs text-muted-foreground"
-                  >
-                    {new Date(ev.createdAt).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
+                  {/* Timestamp */}
+                  <span className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                    {new Date(ev.createdAt).toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* Privacy notice */}
+        <p className="text-xs text-muted-foreground border-t pt-4">
+          <strong>Privacy:</strong> This table contains only Stripe event IDs, event types,
+          status flags, and credit amounts. No card data, no customer PII, and no webhook
+          payloads are stored. User IDs are stored as internal integer references only.
+        </p>
       </div>
     </AdminLayout>
   );

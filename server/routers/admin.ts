@@ -1,5 +1,4 @@
 import { adminProcedure, router } from "../_core/trpc";
-import { TRPCError } from "@trpc/server";
 import { ENV } from "../_core/env";
 import { z } from "zod";
 import * as db from "../db";
@@ -56,22 +55,6 @@ export const adminRouter = router({
       await db.adminSetDisabled(input.userId, input.disabled);
       await db.logAdminAction(ctx.user.id, "set_disabled", input.userId, { disabled: input.disabled });
       return { success: true };
-    }),
-
-    listPaged: adminProcedure.input(z.object({
-      q: z.string().optional(),
-      status: z.enum(["all", "active", "disabled"]).optional().default("all"),
-      role: z.enum(["all", "admin"]).optional().default("all"),
-      limit: z.number().min(1).max(100).optional().default(25),
-      offset: z.number().min(0).optional().default(0),
-    })).query(async ({ input }) => {
-      return db.adminListUsersPaged({
-        q: input.q,
-        status: input.status,
-        role: input.role,
-        limit: input.limit,
-        offset: input.offset,
-      });
     }),
   }),
 
@@ -757,10 +740,8 @@ ${buildToneSystemPrompt()}`
     process: adminProcedure.input(z.object({
       refundQueueId: z.number().int().positive(),
       debitAmount: z.number().int().min(0).max(1000),
-      // Phase 12L-MIN: optional manual userId override when item.userId is null
-      overrideUserId: z.number().int().positive().optional(),
     })).mutation(async ({ ctx, input }) => {
-      const { refundQueueId, debitAmount, overrideUserId } = input;
+      const { refundQueueId, debitAmount } = input;
       // Fetch the item to build the ledger reason
       const items = await db.listRefundQueueItems();
       const item = items.find((r) => r.id === refundQueueId);
@@ -768,32 +749,20 @@ ${buildToneSystemPrompt()}`
       if (item.status !== "pending") {
         return { success: false, alreadyProcessed: true };
       }
-      // Phase 12L-MIN: validate that we have a userId to debit
-      const effectiveUserId = item.userId ?? overrideUserId ?? null;
-      if (!effectiveUserId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Cannot debit credits: no userId on refund queue item. Select a user first.",
-        });
-      }
       const reason = item.packId
         ? `Refund: ${item.packId} (${item.stripeRefundId})`
         : `Refund (${item.stripeRefundId})`;
-      // Phase 12L-MIN: pass resolvedUserId directly so processRefundQueueItem doesn't need
-      // a second DB round-trip to find the userId (avoids race with setRefundQueueItemUserId)
       const ledgerEntryId = await db.processRefundQueueItem(
         refundQueueId,
         ctx.user.id,
         debitAmount,
-        reason,
-        effectiveUserId
+        reason
       );
-      await db.logAdminAction(ctx.user.id, "refund_processed", effectiveUserId, {
+      await db.logAdminAction(ctx.user.id, "refund_processed", item.userId ?? undefined, {
         refundQueueId,
         debitAmount,
         stripeRefundId: item.stripeRefundId,
         ledgerEntryId,
-        overrideUserId: overrideUserId ?? null,
       });
       return { success: true, ledgerEntryId };
     }),
@@ -816,19 +785,6 @@ ${buildToneSystemPrompt()}`
         stripeRefundId: item.stripeRefundId,
       });
       return { success: true };
-    }),
-
-    // Phase 12M: Bulk backfill userId for pending items where userId is NULL
-    backfillUserIds: adminProcedure.input(z.object({
-      limit: z.number().int().min(1).max(500).optional().default(200),
-    }).optional()).mutation(async ({ ctx, input }) => {
-      const limit = input?.limit ?? 200;
-      const result = await db.backfillPendingRefundUserIds(limit);
-      await db.logAdminAction(ctx.user.id, "refund_backfill_userids", undefined, {
-        ...result,
-        limit,
-      });
-      return result;
     }),
   }),
   // ─── Admin Billing: Retry purchase confirmation email ────────────────────────
@@ -907,33 +863,5 @@ ${buildToneSystemPrompt()}`
         updatedAt: row.updatedAt,
       };
     }),
-    /** Paginated read-only list of stripe_events (newest first). Admin-only. */
-    listStripeEvents: adminProcedure
-      .input(
-        z.object({
-          limit: z.number().int().min(1).max(50).default(20),
-          cursor: z.number().int().optional(),
-        })
-      )
-      .query(async ({ input }) => {
-        const { items, nextCursor } = await db.getStripeEventsPage(input.limit, input.cursor);
-        // Batch-resolve userEmail/userName for all events in one query
-        const rawIds = items.map((e) => e.userId).filter((id): id is number => id != null);
-        const userIds = Array.from(new Set(rawIds));
-        const userMap = await db.getUserDisplayMapByIds(userIds);
-        return {
-          items: items.map((e) => ({
-            eventId: e.stripeEventId,
-            eventType: e.eventType,
-            status: e.status,
-            userId: e.userId ?? null,
-            creditsPurchased: e.creditsPurchased ?? null,
-            createdAt: e.createdAt,
-            userEmail: e.userId != null ? (userMap[e.userId]?.email ?? null) : null,
-            userName: e.userId != null ? (userMap[e.userId]?.name ?? null) : null,
-          })),
-          nextCursor,
-        };
-      }),
   }),
 });

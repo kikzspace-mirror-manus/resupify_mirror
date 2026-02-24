@@ -1,10 +1,8 @@
-import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Clock, Webhook, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Webhook } from "lucide-react";
 
 function formatTs(ts: Date | null | undefined): string {
   if (!ts) return "—";
@@ -25,82 +23,13 @@ function AgeLabel({ ts }: { ts: Date | null | undefined }) {
   return <span className="text-muted-foreground text-sm">{label}</span>;
 }
 
-/** Format how long ago a Date was, for the "Last refreshed" label */
-function formatFreshness(ts: Date | null): string {
-  if (!ts) return "";
-  const diffMs = Date.now() - ts.getTime();
-  const diffSec = Math.floor(diffMs / 1_000);
-  if (diffSec < 5) return "just now";
-  if (diffSec < 60) return `${diffSec}s ago`;
-  const diffMin = Math.round(diffSec / 60);
-  return `${diffMin}m ago`;
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  processed: "bg-green-100 text-green-800 border-green-200",
-  manual_review: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  skipped: "bg-gray-100 text-gray-600 border-gray-200",
-};
-
-const PAGE_SIZE = 20;
-
 export default function AdminOps() {
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-  // Tick every second so the freshness label updates live
-  const [, setTick] = useState(0);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Pagination state: stack of cursors (undefined = first page)
-  const [cursorStack, setCursorStack] = useState<(number | undefined)[]>([undefined]);
-  const currentCursor = cursorStack[cursorStack.length - 1];
-
-  useEffect(() => {
-    tickRef.current = setInterval(() => setTick(t => t + 1), 1_000);
-    return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
-    };
-  }, []);
-
-  const { data: status, isLoading, isFetching, refetch, dataUpdatedAt } =
-    trpc.admin.ops.getStatus.useQuery(undefined, {
-      refetchInterval: 30_000,
-    });
-
-  const { data: eventsPage, isLoading: eventsLoading } =
-    trpc.admin.ops.listStripeEvents.useQuery(
-      { limit: PAGE_SIZE, cursor: currentCursor },
-      { placeholderData: (prev: any) => prev }
-    );
-
-  // Update lastRefreshedAt whenever a successful fetch completes (dataUpdatedAt changes)
-  useEffect(() => {
-    if (dataUpdatedAt > 0) {
-      setLastRefreshedAt(new Date(dataUpdatedAt));
-    }
-  }, [dataUpdatedAt]);
+  const { data: status, isLoading } = trpc.admin.ops.getStatus.useQuery(undefined, {
+    refetchInterval: 30_000,
+  });
 
   const hasSuccess = !!status?.lastStripeWebhookSuccessAt;
   const hasFailure = !!status?.lastStripeWebhookFailureAt;
-
-  function handleRefresh() {
-    refetch();
-  }
-
-  function handleNext() {
-    if (eventsPage?.nextCursor != null) {
-      setCursorStack(prev => [...prev, eventsPage.nextCursor!]);
-    }
-  }
-
-  function handlePrev() {
-    if (cursorStack.length > 1) {
-      setCursorStack(prev => prev.slice(0, -1));
-    }
-  }
-
-  const pageNum = cursorStack.length;
-  const hasPrev = cursorStack.length > 1;
-  const hasNext = !!eventsPage?.nextCursor;
 
   return (
     <AdminLayout>
@@ -118,8 +47,7 @@ export default function AdminOps() {
             <Webhook className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-base">Stripe Webhooks</CardTitle>
             {!isLoading && (
-              <div className="ml-auto flex items-center gap-3">
-                {/* Status badge */}
+              <div className="ml-auto">
                 {status === null ? (
                   <Badge variant="secondary">No data yet</Badge>
                 ) : hasFailure && !hasSuccess ? (
@@ -134,27 +62,6 @@ export default function AdminOps() {
                 ) : (
                   <Badge variant="secondary">No data yet</Badge>
                 )}
-                {/* Freshness label */}
-                {lastRefreshedAt && (
-                  <span
-                    className="text-xs text-muted-foreground whitespace-nowrap"
-                    data-testid="freshness-label"
-                  >
-                    Last refreshed: {formatFreshness(lastRefreshedAt)}
-                  </span>
-                )}
-                {/* Manual refresh button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={isFetching}
-                  data-testid="refresh-button"
-                  className="h-7 px-2 text-xs gap-1"
-                >
-                  <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
               </div>
             )}
           </CardHeader>
@@ -162,7 +69,7 @@ export default function AdminOps() {
             {isLoading ? (
               <div className="text-muted-foreground text-sm animate-pulse">Loading…</div>
             ) : status === null ? (
-              <p className="text-muted-foreground text-sm" data-testid="no-data-message">
+              <p className="text-muted-foreground text-sm">
                 No webhook events have been processed yet. Once a live Stripe event arrives, the
                 status will appear here.
               </p>
@@ -216,114 +123,6 @@ export default function AdminOps() {
               </div>
               );
             })()}
-          </CardContent>
-        </Card>
-
-        {/* Recent Stripe Events audit table */}
-        <Card data-testid="stripe-events-table-card">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Recent Stripe Events</CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {eventsPage?.items.length ?? 0} event{(eventsPage?.items.length ?? 0) !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {eventsLoading ? (
-              <div className="px-6 py-4 text-muted-foreground text-sm animate-pulse">Loading…</div>
-            ) : !eventsPage || eventsPage.items.length === 0 ? (
-              <div
-                className="px-6 py-8 text-center text-muted-foreground text-sm"
-                data-testid="no-events-message"
-              >
-                No events yet
-              </div>
-            ) : (
-              <>
-                <div className="overflow-hidden rounded-lg border">
-                  <table className="w-full text-sm" style={{ tableLayout: "fixed" }} data-testid="stripe-events-table">
-                    <colgroup>
-                      <col style={{ width: "34%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "18%" }} />
-                    </colgroup>
-                    <thead>
-                      <tr className="border-b bg-muted/40">
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Event ID</th>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Type</th>
-                        <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs">Status</th>
-                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">User</th>
-                        <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs">Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {eventsPage.items.map((evt, idx) => (
-                        <tr key={evt.eventId} className={`border-b last:border-0 hover:bg-muted/20 ${idx % 2 === 0 ? "bg-white" : "bg-muted/5"}`}>
-                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap" title={evt.eventId}>
-                            {evt.eventId}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-xs text-left align-middle">
-                            <Badge variant="outline" className="text-xs">
-                              {evt.eventType}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-center align-middle">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[evt.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}
-                            >
-                              {evt.status}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground text-left align-middle truncate overflow-hidden text-ellipsis whitespace-nowrap">
-                            {evt.userEmail ? evt.userEmail : evt.userName ? evt.userName : evt.userId != null ? `#${evt.userId}` : "—"}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground text-right align-middle whitespace-nowrap">
-                            {formatTs(evt.createdAt)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination controls */}
-                <div
-                  className="flex items-center justify-between px-4 py-3 border-t"
-                  data-testid="pagination-controls"
-                >
-                  <span className="text-xs text-muted-foreground">
-                    Page {pageNum}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePrev}
-                      disabled={!hasPrev}
-                      data-testid="prev-button"
-                      className="h-7 px-2 text-xs gap-1"
-                    >
-                      <ChevronLeft className="h-3 w-3" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleNext}
-                      disabled={!hasNext}
-                      data-testid="next-button"
-                      className="h-7 px-2 text-xs gap-1"
-                    >
-                      Next
-                      <ChevronRight className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </div>

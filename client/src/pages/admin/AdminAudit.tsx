@@ -1,9 +1,8 @@
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { ScrollText, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { ScrollText, User, ArrowRight } from "lucide-react";
 
 const actionColors: Record<string, string> = {
   grant_credits: "bg-green-100 text-green-700",
@@ -18,17 +17,6 @@ const actionColors: Record<string, string> = {
 
 export default function AdminAudit() {
   const { data: logs, isLoading } = trpc.admin.auditLogs.useQuery({ limit: 100 });
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-
-  const toggleExpanded = (id: number) => {
-    const newSet = new Set(expandedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setExpandedIds(newSet);
-  };
 
   return (
     <AdminLayout>
@@ -38,77 +26,56 @@ export default function AdminAudit() {
           <p className="text-muted-foreground">Complete history of admin actions</p>
         </div>
 
-        {/* Phase 12R: Compact table layout */}
         {isLoading ? (
-          <div className="border rounded-lg overflow-hidden">
-            <div className="space-y-2 p-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-10 bg-muted rounded animate-pulse" />
-              ))}
-            </div>
-          </div>
-        ) : (!logs || logs.length === 0) ? (
-          <div className="border rounded-lg text-center py-12 text-muted-foreground">
-            <ScrollText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No admin actions logged yet</p>
+          <div className="space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-10 bg-muted rounded" /></CardContent></Card>
+            ))}
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="w-[40px]" />
-                  <TableHead className="w-[140px]">Action</TableHead>
-                  <TableHead className="w-[160px]">Actor</TableHead>
-                  <TableHead className="w-[160px]">Target</TableHead>
-                  <TableHead className="w-[160px] text-right">Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs?.map((log, idx) => (
-                  <>
-                    <TableRow
-                      key={log.id}
-                      className={`cursor-pointer ${idx % 2 === 0 ? "bg-white hover:bg-muted/30" : "bg-muted/5 hover:bg-muted/30"}`}
-                      onClick={() => toggleExpanded(log.id)}
-                    >
-                      <TableCell className="text-center p-2">
-                        {log.metadataJson ? (
-                          expandedIds.has(log.id) ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          )
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        <Badge className={actionColors[log.action] ?? "bg-gray-100 text-gray-700"}>
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground truncate">
-                        Admin #{log.adminUserId}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground truncate">
-                        {log.targetUserId ? `User #${log.targetUserId}` : "—"}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                    {expandedIds.has(log.id) && log.metadataJson && (
-                      <TableRow className={idx % 2 === 0 ? "bg-muted/10" : "bg-muted/15"}>
-                        <TableCell colSpan={5} className="p-3">
-                          <div className="bg-muted/30 rounded p-2 font-mono text-xs overflow-x-auto max-h-40 overflow-y-auto">
-                            <pre className="whitespace-pre-wrap break-words">{log.metadataJson}</pre>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="space-y-2">
+            {logs?.map((log) => (
+              <Card key={log.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <ScrollText className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge className={actionColors[log.action] ?? "bg-gray-100 text-gray-700"}>
+                            {log.action}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Admin #{log.adminUserId}
+                          {log.targetUserId && (
+                            <>
+                              <ArrowRight className="h-3 w-3" />
+                              User #{log.targetUserId}
+                            </>
+                          )}
+                        </p>
+                        {log.metadataJson && (
+                          <p className="text-xs text-muted-foreground mt-1 font-mono">
+                            {log.metadataJson}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground shrink-0">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {(!logs || logs.length === 0) && (
+              <div className="text-center py-8 text-muted-foreground">
+                <ScrollText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No admin actions logged yet</p>
+              </div>
+            )}
           </div>
         )}
       </div>

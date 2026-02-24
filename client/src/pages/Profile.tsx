@@ -12,18 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ShieldCheck, User, Globe } from "lucide-react";
+import { Loader2, ShieldCheck, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Profile() {
   const utils = trpc.useUtils();
-  const { user } = useAuth();
   const { data: profile, isLoading } = trpc.profile.get.useQuery();
-
-  // Feature flags from server (V2 Phase 1C-A)
-  const { data: flags } = trpc.flags.get.useQuery();
 
   // Education fields
   const [school, setSchool] = useState("");
@@ -42,11 +37,6 @@ export default function Profile() {
   const [countryOfResidence, setCountryOfResidence] = useState("");
   const [willingToRelocate, setWillingToRelocate] = useState<boolean | null>(null);
 
-  // V2 Phase 1C-A: Country & Language fields
-  const [countryPackId, setCountryPackId] = useState<string>("GLOBAL");
-  const [languageMode, setLanguageMode] = useState<"en" | "vi" | "bilingual">("en");
-  const [currentCountry, setCurrentCountry] = useState("");
-
   useEffect(() => {
     if (profile) {
       setSchool(profile.school ?? "");
@@ -62,15 +52,6 @@ export default function Profile() {
       setWillingToRelocate(profile.willingToRelocate ?? null);
     }
   }, [profile]);
-
-  // Sync V2 fields from auth.me (user object)
-  useEffect(() => {
-    if (user) {
-      setCountryPackId((user as any).countryPackId ?? "GLOBAL");
-      setLanguageMode((user as any).languageMode ?? "en");
-      setCurrentCountry((user as any).currentCountry ?? "");
-    }
-  }, [user]);
 
   const upsertProfile = trpc.profile.upsert.useMutation({
     onSuccess: () => {
@@ -88,40 +69,6 @@ export default function Profile() {
     onError: (e) => toast.error(e.message),
   });
 
-  // V2 Phase 1C-A mutations
-  const updateCountryPack = trpc.user.updateCountryPack.useMutation({
-    onSuccess: () => {
-      utils.auth.me.invalidate();
-      toast.success("Country pack saved");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const updateLanguageMode = trpc.user.updateLanguageMode.useMutation({
-    onSuccess: () => {
-      utils.auth.me.invalidate();
-      toast.success("Language mode saved");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const updateCurrentCountry = trpc.user.updateCurrentCountry.useMutation({
-    onSuccess: () => {
-      utils.auth.me.invalidate();
-      toast.success("Current country saved");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const handleSaveCountryLanguage = () => {
-    // Save country pack (also enforces languageMode="en" server-side for non-VN)
-    updateCountryPack.mutate({ countryPackId: countryPackId as any });
-    // Save language mode only if VN + flag enabled
-    if (countryPackId === "VN" && flags?.v2VnTranslationEnabled) {
-      updateLanguageMode.mutate({ languageMode });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -129,11 +76,6 @@ export default function Profile() {
       </div>
     );
   }
-
-  const showVnLanguageControls =
-    flags?.v2CountryPacksEnabled &&
-    flags?.v2VnTranslationEnabled &&
-    countryPackId === "VN";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
@@ -143,109 +85,6 @@ export default function Profile() {
           Manage your education details and work authorization status.
         </p>
       </div>
-
-      {/* V2 Phase 1C-A: Country & Language Settings (flag-gated) */}
-      {flags?.v2CountryPacksEnabled && (
-        <Card data-testid="country-language-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Globe className="h-4 w-4" />
-              Country &amp; Language
-            </CardTitle>
-            <CardDescription>
-              Select your country pack for localized job search support. Changes only apply when you save.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Country Pack dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="countryPack">Country Pack</Label>
-              <Select
-                value={countryPackId}
-                onValueChange={(v) => {
-                  setCountryPackId(v);
-                  // Reset language mode to "en" when switching away from VN
-                  if (v !== "VN") setLanguageMode("en");
-                }}
-              >
-                <SelectTrigger id="countryPack" className="w-64" data-testid="country-pack-select">
-                  <SelectValue placeholder="Select country pack" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GLOBAL">Global (Default)</SelectItem>
-                  <SelectItem value="CA">Canada (CA)</SelectItem>
-                  <SelectItem value="VN">Vietnam (VN)</SelectItem>
-                  <SelectItem value="PH">Philippines (PH)</SelectItem>
-                  <SelectItem value="US">United States (US)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Determines which job market templates and scoring rules apply to your Evidence+ATS runs.
-              </p>
-            </div>
-
-            {/* VN Language Mode (only when VN + v2VnTranslationEnabled) */}
-            {showVnLanguageControls && (
-              <div className="space-y-2" data-testid="language-mode-section">
-                <Label htmlFor="languageMode">Language Mode</Label>
-                <Select
-                  value={languageMode}
-                  onValueChange={(v) => setLanguageMode(v as "en" | "vi" | "bilingual")}
-                >
-                  <SelectTrigger id="languageMode" className="w-64" data-testid="language-mode-select">
-                    <SelectValue placeholder="Select language mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="vi">Vietnamese</SelectItem>
-                    <SelectItem value="bilingual">Bilingual (EN + VI)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Controls the output language for generated cover letters and outreach packs.
-                </p>
-              </div>
-            )}
-
-            {/* Current Country (informational only) */}
-            <div className="space-y-2">
-              <Label htmlFor="currentCountry">Current Country (for context)</Label>
-              <Input
-                id="currentCountry"
-                placeholder="e.g., Vietnam"
-                value={currentCountry}
-                maxLength={128}
-                onChange={(e) => setCurrentCountry(e.target.value)}
-                className="w-64"
-                data-testid="current-country-input"
-              />
-              <p className="text-xs text-muted-foreground">
-                Informational only — does not change your Country Pack or Language Mode.
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={handleSaveCountryLanguage}
-                disabled={updateCountryPack.isPending || updateLanguageMode.isPending}
-                data-testid="save-country-language-btn"
-              >
-                {updateCountryPack.isPending ? "Saving..." : "Save Country & Language"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => updateCurrentCountry.mutate({ currentCountry: currentCountry || null })}
-                disabled={updateCurrentCountry.isPending}
-                data-testid="save-current-country-btn"
-              >
-                {updateCurrentCountry.isPending ? "Saving..." : "Save Current Country"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Education Card */}
       <Card>

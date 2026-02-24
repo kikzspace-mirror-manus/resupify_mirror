@@ -197,20 +197,6 @@
       "when": 1771886820052,
       "tag": "0027_solid_hannibal_king",
       "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "5",
-      "when": 1771903317068,
-      "tag": "0028_charming_hydra",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "5",
-      "when": 1771904049202,
-      "tag": "0029_complete_dark_phoenix",
-      "breakpoints": true
     }
   ]
 }

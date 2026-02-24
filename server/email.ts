@@ -217,7 +217,7 @@ export async function sendPurchaseConfirmationEmail(
 
   try {
     const { error } = await resend.emails.send({
-      from: `Resupify <${ENV.FROM_EMAIL}>`,
+      from: ENV.FROM_EMAIL,
       to: [payload.toEmail],
       subject: "Your Resupify credit purchase receipt",
       html: buildPurchaseEmailHtml(payload),

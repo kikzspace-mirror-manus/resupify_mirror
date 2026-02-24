@@ -26,10 +26,7 @@ import { logAnalyticsEvent } from "./analytics";
 import {
   EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
   EVT_OUTREACH_GENERATED, EVT_PAYWALL_VIEWED,
-  EVT_COUNTRY_PACK_CHANGED, EVT_LANGUAGE_MODE_CHANGED, EVT_PROFILE_CURRENT_COUNTRY_SET,
 } from "../shared/analyticsEvents";
-import { featureFlags } from "../shared/featureFlags";
-import { COUNTRY_PACK_IDS, type CountryPackId } from "../shared/countryPacks";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -1834,94 +1831,10 @@ ${buildToneSystemPrompt()}`
     delete: protectedProcedure.input(z.object({
       id: z.number(),
     })).mutation(async ({ ctx, input }) => {
-       await db.deletePersonalizationSource(input.id, ctx.user.id);
+      await db.deletePersonalizationSource(input.id, ctx.user.id);
       return { success: true };
     }),
   }),
-
-  // ─── V2 Phase 1C-A: User Country Pack / Language Mode / Current Country ─────────
-  user: router({
-    /**
-     * Update users.countryPackId.
-     * If countryPackId != VN, also enforces languageMode = "en" server-side.
-     * Fires EVT_COUNTRY_PACK_CHANGED (fire-and-forget, no-op if analytics off).
-     */
-    updateCountryPack: protectedProcedure
-      .input(z.object({
-        countryPackId: z.enum(["GLOBAL", "CA", "VN", "PH", "US"]).nullable(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const prev = ctx.user.countryPackId ?? null;
-        await db.updateUserCountryPack(ctx.user.id, input.countryPackId as CountryPackId | null);
-        // Fire-and-forget analytics (must not block save)
-        try {
-          if (featureFlags.v2AnalyticsEnabled) {
-            logAnalyticsEvent(EVT_COUNTRY_PACK_CHANGED, ctx.user.id, { from: prev, to: input.countryPackId });
-          }
-        } catch { /* ignore */ }
-        return { success: true };
-      }),
-
-    /**
-     * Update users.languageMode.
-     * Only allowed when users.countryPackId == "VN" and v2VnTranslationEnabled flag is ON.
-     * Server enforces this; returns FORBIDDEN if conditions not met.
-     */
-    updateLanguageMode: protectedProcedure
-      .input(z.object({
-        languageMode: z.enum(["en", "vi", "bilingual"]),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        // Server-side guard: only VN users may set vi/bilingual
-        if (input.languageMode !== "en") {
-          if (ctx.user.countryPackId !== "VN") {
-            throw new TRPCError({ code: "FORBIDDEN", message: "Language mode 'vi' and 'bilingual' require Country Pack: VN" });
-          }
-          if (!featureFlags.v2VnTranslationEnabled) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "Vietnamese translation is not enabled" });
-          }
-        }
-        const prev = ctx.user.languageMode;
-        await db.updateUserLanguageMode(ctx.user.id, input.languageMode);
-        try {
-          if (featureFlags.v2AnalyticsEnabled) {
-            logAnalyticsEvent(EVT_LANGUAGE_MODE_CHANGED, ctx.user.id, { from: prev, to: input.languageMode });
-          }
-        } catch { /* ignore */ }
-        return { success: true };
-      }),
-
-    /**
-     * Update users.currentCountry (informational only).
-     * Does NOT modify countryPackId or languageMode.
-     */
-    updateCurrentCountry: protectedProcedure
-      .input(z.object({
-        currentCountry: z.string().max(128).nullable(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const prev = (ctx.user as any).currentCountry ?? null;
-        await db.updateUserCurrentCountry(ctx.user.id, input.currentCountry);
-        try {
-          if (featureFlags.v2AnalyticsEnabled) {
-            logAnalyticsEvent(EVT_PROFILE_CURRENT_COUNTRY_SET, ctx.user.id, { from: prev, to: input.currentCountry });
-          }
-        } catch { /* ignore */ }
-        return { success: true };
-      }),
-  }),
-
-  // ─── V2 Phase 1C-A: Feature Flags endpoint (safe to expose, no secrets) ───────
-  flags: router({
-    /**
-     * Returns a subset of server-side feature flags that the frontend needs.
-     * Only exposes V2 flags — no secrets, no PII.
-     */
-    get: publicProcedure.query(() => ({
-      v2CountryPacksEnabled: featureFlags.v2CountryPacksEnabled,
-      v2VnTranslationEnabled: featureFlags.v2VnTranslationEnabled,
-      v2BilingualViewEnabled: featureFlags.v2BilingualViewEnabled,
-    })),
-  }),
 });
+
 export type AppRouter = typeof appRouter;

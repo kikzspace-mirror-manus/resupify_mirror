@@ -2,9 +2,6 @@
  * /admin/refunds — Admin-only Refund Queue page.
  *
  * Phase 11D: Displays pending/processed/ignored refund queue items.
- * Phase 12L: Shows "Select user" control when userId is null; requires selection
- *            before enabling "Confirm Debit". Passes overrideUserId to the mutation.
- *
  * Admin can review each item and either:
  *   A) Debit credits (with confirmation step)
  *   B) Ignore (with required reason)
@@ -12,7 +9,7 @@
  * Idempotency is enforced server-side: same stripeRefundId cannot create
  * multiple debits. The UI reflects this by disabling actions on non-pending items.
  */
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, RotateCcw, AlertTriangle, CheckCircle2, XCircle, UserSearch, Wand2 } from "lucide-react";
+import { RefreshCw, RotateCcw, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -84,75 +81,6 @@ const STATUS_ICONS: Record<RefundStatus, React.ReactNode> = {
   ignored: <XCircle className="h-3 w-3" />,
 };
 
-// ─── User Search Control (Phase 12L) ─────────────────────────────────────────
-interface UserSearchSelectProps {
-  selectedUserId: number | null;
-  onSelect: (userId: number, label: string) => void;
-}
-
-function UserSearchSelect({ selectedUserId, onSelect }: UserSearchSelectProps) {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-
-  // Simple debounce via useCallback + setTimeout
-  const handleQueryChange = useCallback((value: string) => {
-    setQuery(value);
-    const t = setTimeout(() => setDebouncedQuery(value), 300);
-    return () => clearTimeout(t);
-  }, []);
-
-  const { data, isLoading } = trpc.admin.users.list.useQuery(
-    { search: debouncedQuery || undefined, limit: 10 },
-    { enabled: debouncedQuery.length >= 2 }
-  );
-
-  const users = data?.users ?? [];
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <UserSearch className="h-4 w-4 text-muted-foreground" />
-        <Label className="text-sm font-medium">Select user to debit</Label>
-      </div>
-      <Input
-        placeholder="Search by name or email (min 2 chars)…"
-        value={query}
-        onChange={(e) => handleQueryChange(e.target.value)}
-        className="h-8 text-sm"
-      />
-      {isLoading && (
-        <p className="text-xs text-muted-foreground animate-pulse">Searching…</p>
-      )}
-      {!isLoading && debouncedQuery.length >= 2 && users.length === 0 && (
-        <p className="text-xs text-muted-foreground">No users found.</p>
-      )}
-      {users.length > 0 && (
-        <div className="rounded border divide-y max-h-40 overflow-y-auto text-sm">
-          {users.map((u) => (
-            <button
-              key={u.id}
-              type="button"
-              className={`w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors ${
-                selectedUserId === u.id ? "bg-primary/10 font-medium" : ""
-              }`}
-              onClick={() => onSelect(u.id, `${u.name} (${u.email}) #${u.id}`)}
-            >
-              <span className="font-mono text-xs text-muted-foreground mr-2">#{u.id}</span>
-              {u.name}
-              {u.email && <span className="text-muted-foreground ml-1 text-xs">{u.email}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {selectedUserId && (
-        <p className="text-xs text-emerald-700 font-medium">
-          ✓ User #{selectedUserId} selected
-        </p>
-      )}
-    </div>
-  );
-}
-
 // ─── Review Modal ─────────────────────────────────────────────────────────────
 interface ReviewModalProps {
   item: RefundQueueItem;
@@ -166,10 +94,6 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
   // Debit flow
   const [debitAmount, setDebitAmount] = useState<number>(item.creditsToReverse ?? 0);
   const [confirmDebit, setConfirmDebit] = useState(false);
-
-  // Phase 12L: manual user override when userId is null
-  const [overrideUserId, setOverrideUserId] = useState<number | null>(null);
-  const [overrideUserLabel, setOverrideUserLabel] = useState<string>("");
 
   // Ignore flow
   const [showIgnore, setShowIgnore] = useState(false);
@@ -208,17 +132,6 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
   });
 
   const isPending = item.status === "pending";
-  // Phase 12L: debit requires a userId — either from the item or from the override
-  const effectiveUserId = item.userId ?? overrideUserId;
-  const canDebit = effectiveUserId !== null;
-
-  const handleConfirmDebit = () => {
-    processMutation.mutate({
-      refundQueueId: item.id,
-      debitAmount,
-      overrideUserId: overrideUserId ?? undefined,
-    });
-  };
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -237,13 +150,7 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
         <div className="space-y-3 text-sm">
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-muted/40 rounded-lg p-3">
             <div className="text-muted-foreground">User ID</div>
-            <div className="font-mono">
-              {item.userId ?? (
-                overrideUserId
-                  ? <span className="text-emerald-700 font-medium">#{overrideUserId} (override)</span>
-                  : <span className="text-amber-600 font-medium">— (unknown)</span>
-              )}
-            </div>
+            <div className="font-mono">{item.userId ?? "—"}</div>
             <div className="text-muted-foreground">Amount Refunded</div>
             <div>{formatCents(item.amountRefunded, item.currency)}</div>
             <div className="text-muted-foreground">Pack</div>
@@ -275,27 +182,6 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
 
         {isPending && !showIgnore && (
           <>
-            {/* Phase 12L: User selection when userId is null */}
-            {!item.userId && (
-              <div className="space-y-3 border-t pt-4">
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-700 text-sm">
-                  <AlertTriangle className="h-4 w-4 inline mr-1" />
-                  No user mapped to this refund. Select a user below before debiting.
-                </div>
-                <UserSearchSelect
-                  selectedUserId={overrideUserId}
-                  onSelect={(id, label) => {
-                    setOverrideUserId(id);
-                    setOverrideUserLabel(label);
-                    setConfirmDebit(false);
-                  }}
-                />
-                {overrideUserLabel && (
-                  <p className="text-xs text-muted-foreground">Selected: {overrideUserLabel}</p>
-                )}
-              </div>
-            )}
-
             {/* Debit Credits section */}
             <div className="space-y-3 border-t pt-4">
               <h3 className="font-semibold text-sm">A) Debit Credits</h3>
@@ -324,23 +210,23 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
                   variant="destructive"
                   size="sm"
                   onClick={() => setConfirmDebit(true)}
-                  disabled={debitAmount < 0 || !canDebit}
-                  title={!canDebit ? "Select a user above before debiting" : undefined}
+                  disabled={debitAmount < 0}
                 >
                   Debit {debitAmount} credits from user
                 </Button>
               ) : (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-3">
                   <p className="text-sm font-medium text-destructive">
-                    This will create a ledger entry and reduce{" "}
-                    <strong>user #{effectiveUserId}</strong>&apos;s balance by{" "}
+                    This will create a ledger entry and reduce the user&apos;s balance by{" "}
                     <strong>{debitAmount} credits</strong>. Continue?
                   </p>
                   <div className="flex gap-2">
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={handleConfirmDebit}
+                      onClick={() =>
+                        processMutation.mutate({ refundQueueId: item.id, debitAmount })
+                      }
                       disabled={processMutation.isPending}
                     >
                       {processMutation.isPending ? "Processing…" : "Confirm Debit"}
@@ -416,29 +302,10 @@ function ReviewModal({ item, onClose, onRefresh }: ReviewModalProps) {
 export default function AdminRefunds() {
   const [statusFilter, setStatusFilter] = useState<RefundStatus | "all">("all");
   const [reviewItem, setReviewItem] = useState<RefundQueueItem | null>(null);
-  // Phase 12M: backfill result summary
-  const [backfillResult, setBackfillResult] = useState<{
-    scanned: number; eligible: number; resolved: number; unresolved: number;
-  } | null>(null);
 
   const { data: items, isLoading, refetch } = trpc.admin.refunds.list.useQuery(
     { status: statusFilter === "all" ? undefined : statusFilter }
   );
-
-  const backfillMutation = trpc.admin.refunds.backfillUserIds.useMutation({
-    onSuccess: (result) => {
-      setBackfillResult(result);
-      refetch();
-      if (result.resolved > 0) {
-        toast.success(`Backfill complete: resolved ${result.resolved} of ${result.scanned} items.`);
-      } else {
-        toast.info(`Backfill complete: no new items resolved (${result.scanned} scanned).`);
-      }
-    },
-    onError: (err) => {
-      toast.error(`Backfill failed: ${err.message}`);
-    },
-  });
 
   const isEmpty = !isLoading && (!items || items.length === 0);
 
@@ -461,29 +328,15 @@ export default function AdminRefunds() {
               Review Stripe refunds and manually debit credits. All actions are logged.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Phase 12M: Backfill user IDs */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => backfillMutation.mutate({})}
-              disabled={backfillMutation.isPending}
-              className="gap-2"
-              title="Attempt to auto-resolve userId for pending items where userId is NULL"
-            >
-              <Wand2 className="h-4 w-4" />
-              {backfillMutation.isPending ? "Backfilling…" : "Backfill user IDs"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              className="gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
         </div>
 
         {/* Filters */}
@@ -504,29 +357,6 @@ export default function AdminRefunds() {
             </SelectContent>
           </Select>
         </div>
-
-        {/* Phase 12M: Backfill result summary */}
-        {backfillResult && (
-          <div className={`rounded-lg border px-4 py-3 text-sm flex items-start gap-3 ${
-            backfillResult.unresolved > 0
-              ? "border-amber-200 bg-amber-50 text-amber-800"
-              : "border-emerald-200 bg-emerald-50 text-emerald-800"
-          }`}>
-            {backfillResult.resolved > 0
-              ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-              : <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />}
-            <div>
-              <span className="font-medium">Backfill result: </span>
-              {backfillResult.scanned} scanned &mdash;&nbsp;
-              <span className="font-medium text-emerald-700">{backfillResult.resolved} resolved</span>
-              {backfillResult.unresolved > 0 && (
-                <>, <span className="font-medium text-amber-700">{backfillResult.unresolved} unresolved</span>
-                  &nbsp;&mdash; some items still require manual selection.
-                </>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Table */}
         <Card>
@@ -558,9 +388,7 @@ export default function AdminRefunds() {
                           {formatDate(item.createdAt)}
                         </td>
                         <td className="px-4 py-3 font-mono">
-                          {item.userId ?? (
-                            <span className="text-amber-600 text-xs font-medium">— unknown</span>
-                          )}
+                          {item.userId ?? <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-4 py-3">
                           {formatCents(item.amountRefunded, item.currency)}

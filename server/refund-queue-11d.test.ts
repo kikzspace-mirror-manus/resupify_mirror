@@ -161,13 +161,13 @@ describe("C: Webhook charge.refunded handling", () => {
 
   it("C3 — charge.refunded sets status to pending", () => {
     const idx = webhook.indexOf('case "charge.refunded"');
-    const slice = webhook.slice(idx, idx + 2500);
+    const slice = webhook.slice(idx, idx + 1800);
     expect(slice).toContain("pending");
   });
 
   it("C4 — charge.refunded still records in stripe_events for audit trail", () => {
     const idx = webhook.indexOf('case "charge.refunded"');
-    const slice = webhook.slice(idx, idx + 2500);
+    const slice = webhook.slice(idx, idx + 1800);
     expect(slice).toContain("recordStripeEvent");
     expect(slice).toContain("manual_review");
   });
@@ -237,7 +237,7 @@ describe("E: Admin tRPC endpoints", () => {
 
   it("E6 — refunds.process logs admin action", () => {
     const idx = adminRouter.indexOf("refunds: router(");
-    const slice = adminRouter.slice(idx, idx + 3500);
+    const slice = adminRouter.slice(idx, idx + 2000);
     expect(slice).toContain("logAdminAction");
     expect(slice).toContain("refund_processed");
   });
@@ -257,7 +257,7 @@ describe("E: Admin tRPC endpoints", () => {
 
   it("E9 — refunds.ignore requires non-empty reason string", () => {
     const idx = adminRouter.indexOf("refunds: router(");
-    const slice = adminRouter.slice(idx, idx + 3200);
+    const slice = adminRouter.slice(idx, idx + 2000);
     expect(slice).toContain("reason: z.string().min(1)");
   });
 });

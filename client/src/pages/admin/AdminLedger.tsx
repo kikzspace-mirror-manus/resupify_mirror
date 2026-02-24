@@ -1,10 +1,11 @@
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { Receipt } from "lucide-react";
+import { Receipt, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 
 export default function AdminLedger() {
   const [userIdFilter, setUserIdFilter] = useState("");
@@ -49,61 +50,53 @@ export default function AdminLedger() {
 
         <p className="text-sm text-muted-foreground">{ledgerData?.total ?? 0} entries</p>
 
-        {/* Phase 12Q: Compact table layout */}
         {isLoading ? (
-          <div className="border rounded-lg overflow-hidden">
-            <div className="space-y-2 p-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-10 bg-muted rounded animate-pulse" />
-              ))}
-            </div>
-          </div>
-        ) : ledgerData?.entries.length === 0 ? (
-          <div className="border rounded-lg text-center py-12 text-muted-foreground">
-            <Receipt className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No ledger entries found</p>
+          <div className="space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-10 bg-muted rounded" /></CardContent></Card>
+            ))}
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="w-[180px]">Type</TableHead>
-                  <TableHead className="w-[220px]">User</TableHead>
-                  <TableHead className="w-[80px] text-right">Delta</TableHead>
-                  <TableHead className="w-[80px] text-right">Balance</TableHead>
-                  <TableHead className="w-[160px] text-right">Timestamp</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ledgerData?.entries.map((entry, idx) => (
-                  <TableRow
-                    key={entry.id}
-                    className={idx % 2 === 0 ? "bg-white hover:bg-muted/30" : "bg-muted/5 hover:bg-muted/30"}
-                  >
-                    <TableCell className="text-sm font-medium">
-                      {entry.reason}
-                    </TableCell>
-                    <TableCell className="text-sm truncate">
-                      {(entry as any).userDisplay?.email
-                        ?? (entry as any).userDisplay?.name
-                        ?? `User #${entry.userId}`}
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-semibold">
-                      <span className={entry.amount >= 0 ? "text-green-600" : "text-red-600"}>
+          <div className="space-y-2">
+            {ledgerData?.entries.map((entry) => (
+              <Card key={entry.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {entry.amount >= 0 ? (
+                        <ArrowUpCircle className="h-5 w-5 text-green-500 shrink-0" />
+                      ) : (
+                        <ArrowDownCircle className="h-5 w-5 text-red-500 shrink-0" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">{entry.reason}</p>
+                        <p className="text-xs text-muted-foreground">
+                          User #{entry.userId} · {entry.referenceType}
+                          {entry.referenceId ? ` · Ref #${entry.referenceId}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <span className={`text-lg font-bold ${entry.amount >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {entry.amount >= 0 ? "+" : ""}{entry.amount}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-muted-foreground">
-                      {entry.balanceAfter}
-                    </TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground">
-                      {new Date(entry.createdAt).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Bal: {entry.balanceAfter}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {ledgerData?.entries.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Receipt className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No ledger entries found</p>
+              </div>
+            )}
           </div>
         )}
       </div>

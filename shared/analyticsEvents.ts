@@ -1,5 +1,5 @@
 /**
- * V2 Phase 1B.2 -- Canonical Analytics Event Names
+ * V2 Phase 1B.2 — Canonical Analytics Event Names
  *
  * All event names used by logAnalyticsEvent() must come from this file.
  * This prevents typos and makes it easy to find all instrumentation points.
@@ -10,11 +10,11 @@
  * - Do NOT store PII in props; use internal IDs only
  */
 
-// --- Acquisition ---
+// ─── Acquisition ─────────────────────────────────────────────────────────────
 /** User completed OAuth signup for the first time. */
 export const EVT_SIGNUP_COMPLETED = "signup_completed";
 
-// --- Activation / Funnel ---
+// ─── Activation / Funnel ─────────────────────────────────────────────────────
 /** User created or imported a new job card. */
 export const EVT_JOB_CARD_CREATED = "job_card_created";
 
@@ -27,24 +27,24 @@ export const EVT_COVER_LETTER_GENERATED = "cover_letter_generated";
 /** User generated an outreach pack (recruiter email + LinkedIn DM + follow-ups). */
 export const EVT_OUTREACH_GENERATED = "outreach_generated";
 
-/** User completed a mock interview session. (Placeholder -- feature not yet built.) */
+/** User completed a mock interview session. (Placeholder — feature not yet built.) */
 export const EVT_MOCK_INTERVIEW_COMPLETED = "mock_interview_completed";
 
-// --- Monetization ---
+// ─── Monetization ────────────────────────────────────────────────────────────
 /** User viewed the paywall / credits purchase page. */
 export const EVT_PAYWALL_VIEWED = "paywall_viewed";
 
 /** User completed a credit pack purchase via Stripe. */
 export const EVT_PURCHASE_COMPLETED = "purchase_completed";
 
-// --- Quality / Performance ---
+// ─── Quality / Performance ───────────────────────────────────────────────────
 /**
  * An AI run completed.
  * props: { run_type: "evidence" | "kit" | "outreach", latency_ms: number, provider: string }
  */
 export const EVT_AI_RUN_COMPLETED = "ai_run_completed";
 
-// --- Moat ---
+// ─── Moat ────────────────────────────────────────────────────────────────────
 /**
  * User applied a suggestion (bullet rewrite, cover letter edit, etc.).
  * props: { suggestion_type: "bullet_rewrite" | "cover_letter" | "outreach" }
@@ -57,27 +57,7 @@ export const EVT_SUGGESTION_APPLIED = "suggestion_applied";
  */
 export const EVT_OUTCOME_REPORTED = "outcome_reported";
 
-// --- V2 Phase 1C-A: Country Pack / Language Mode / Current Country events ---
-/**
- * User changed their Country Pack selection.
- * props: { from: string | null, to: string | null }
- * No PII -- only pack IDs (GLOBAL/VN/PH/US).
- */
-export const EVT_COUNTRY_PACK_CHANGED = "country_pack_changed";
-/**
- * User changed their Language Mode selection.
- * props: { from: string, to: string }
- * No PII -- only mode values (en/vi/bilingual).
- */
-export const EVT_LANGUAGE_MODE_CHANGED = "language_mode_changed";
-/**
- * User set or updated their Current Country field.
- * props: { from: string | null, to: string | null }
- * No PII -- only country name string.
- */
-export const EVT_PROFILE_CURRENT_COUNTRY_SET = "profile_current_country_set";
-
-// --- All event names (for validation) ---
+// ─── All event names (for validation) ────────────────────────────────────────
 export const ALL_EVENT_NAMES = [
   EVT_SIGNUP_COMPLETED,
   EVT_JOB_CARD_CREATED,
@@ -90,14 +70,11 @@ export const ALL_EVENT_NAMES = [
   EVT_AI_RUN_COMPLETED,
   EVT_SUGGESTION_APPLIED,
   EVT_OUTCOME_REPORTED,
-  EVT_COUNTRY_PACK_CHANGED,
-  EVT_LANGUAGE_MODE_CHANGED,
-  EVT_PROFILE_CURRENT_COUNTRY_SET,
 ] as const;
 
 export type AnalyticsEventName = (typeof ALL_EVENT_NAMES)[number];
 
-// --- Funnel steps (ordered) ---
+// ─── Funnel steps (ordered) ───────────────────────────────────────────────────
 /** Core activation funnel steps in order. Used for funnel completion % KPI. */
 export const FUNNEL_STEPS = [
   EVT_SIGNUP_COMPLETED,

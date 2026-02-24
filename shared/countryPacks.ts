@@ -10,10 +10,10 @@
  */
 
 /** Supported country pack identifiers. */
-export type CountryPackId = "GLOBAL" | "CA" | "VN" | "PH" | "US";
+export type CountryPackId = "GLOBAL" | "VN" | "PH" | "US";
 
 /** All valid country pack IDs as a constant array (useful for validation). */
-export const COUNTRY_PACK_IDS = ["GLOBAL", "CA", "VN", "PH", "US"] as const satisfies readonly CountryPackId[];
+export const COUNTRY_PACK_IDS = ["GLOBAL", "VN", "PH", "US"] as const satisfies readonly CountryPackId[];
 
 /** Per-pack configuration record. */
 export interface CountryPackConfig {
@@ -45,10 +45,6 @@ export interface CountryPackConfig {
  * PH (Philippines):
  *   - English-only market; translation and bilingual view disabled.
  *
- * CA (Canada):
- *   - English-only market; initial promo market for Resupify.
- *   - Translation and bilingual view disabled.
- *
  * US (United States):
  *   - English-only market; translation and bilingual view disabled.
  */
@@ -58,12 +54,6 @@ export const countryPackRegistry: Readonly<Record<CountryPackId, CountryPackConf
     translationEnabled: false,
     bilingualEnabled: false,
     templateStyleKey: "global_english",
-  },
-  CA: {
-    defaultLanguageMode: "en",
-    translationEnabled: false,
-    bilingualEnabled: false,
-    templateStyleKey: "ca_english",
   },
   VN: {
     defaultLanguageMode: "vi",

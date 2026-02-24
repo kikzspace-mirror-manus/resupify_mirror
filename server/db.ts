@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, lt, lte, gte, sql, isNull, isNotNull, or, inArray, ilike } from "drizzle-orm";
+import { eq, and, desc, asc, lte, gte, sql, isNull, isNotNull, or, inArray, ilike } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -17,7 +17,7 @@ import {
   applicationKits, InsertApplicationKit,
   jobCardPersonalizationSources, InsertJobCardPersonalizationSource,
   operationalEvents, InsertOperationalEvent, OperationalEvent,
-  stripeEvents, InsertStripeEvent, StripeEvent,
+  stripeEvents, InsertStripeEvent,
   purchaseReceipts, InsertPurchaseReceipt, PurchaseReceipt,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -807,42 +807,9 @@ export async function adminListLedger(filters?: { userId?: number; referenceType
   if (filters?.dateFrom) conditions.push(gte(creditsLedger.createdAt, filters.dateFrom));
   if (filters?.dateTo) conditions.push(lte(creditsLedger.createdAt, filters.dateTo));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  // Phase 12P: JOIN users to get email/name for display (single query, no N+1)
-  const rows = await db
-    .select({
-      id: creditsLedger.id,
-      userId: creditsLedger.userId,
-      amount: creditsLedger.amount,
-      reason: creditsLedger.reason,
-      referenceType: creditsLedger.referenceType,
-      referenceId: creditsLedger.referenceId,
-      balanceAfter: creditsLedger.balanceAfter,
-      createdAt: creditsLedger.createdAt,
-      // additive userDisplay fields
-      userEmail: users.email,
-      userName: users.name,
-    })
-    .from(creditsLedger)
-    .leftJoin(users, eq(creditsLedger.userId, users.id))
-    .where(where)
-    .orderBy(desc(creditsLedger.createdAt))
-    .limit(limit)
-    .offset(offset);
-
+  const rows = await db.select().from(creditsLedger).where(where).orderBy(desc(creditsLedger.createdAt)).limit(limit).offset(offset);
   const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(creditsLedger).where(where);
-
-  // Shape each row: add userDisplay object
-  const entries = rows.map((row) => ({
-    ...row,
-    userDisplay: {
-      id: row.userId,
-      email: row.userEmail ?? null,
-      name: row.userName ?? null,
-    },
-  }));
-
-  return { entries, total: Number(countResult[0]?.count ?? 0) };
+  return { entries: rows, total: Number(countResult[0]?.count ?? 0) };
 }
 
 // Admin: KPI stats
@@ -1327,33 +1294,10 @@ export async function recordStripeEvent(
   }
 }
 
-// ─── Admin: User Display Map Helper ─────────────────────────────────────────
-/**
- * Batch-fetch user display info (email, name) for a list of user IDs.
- * Returns a map of userId → { email, name } for efficient lookups.
- * Used by admin procedures that need to enrich event rows with user info.
- */
-export async function getUserDisplayMapByIds(
-  userIds: number[]
-): Promise<Record<number, { email: string | null; name: string | null }>> {
-  if (userIds.length === 0) return {};
-  const db = await getDb();
-  if (!db) return {};
-  const rows = await db
-    .select({ id: users.id, email: users.email, name: users.name })
-    .from(users)
-    .where(inArray(users.id, userIds));
-  const map: Record<number, { email: string | null; name: string | null }> = {};
-  for (const row of rows) {
-    map[row.id] = { email: row.email ?? null, name: row.name ?? null };
-  }
-  return map;
-}
-
 // ─── Admin: Stripe Events (Phase 10C-2) ──────────────────────────────────────
 /**
  * List stripe_events for the admin view.
- * Returns stripe_events with userEmail and userName via LEFT JOIN users.
+ * Returns only fields already in the stripe_events table — no joins, no PII.
  * Supports filtering by status and eventType, with limit/offset pagination.
  */
 export async function adminListStripeEvents(filter: {
@@ -1370,19 +1314,8 @@ export async function adminListStripeEvents(filter: {
   if (status) conditions.push(eqFn(stripeEvents.status, status));
   if (eventType) conditions.push(eqFn(stripeEvents.eventType, eventType));
   const rows = await db
-    .select({
-      id: stripeEvents.id,
-      stripeEventId: stripeEvents.stripeEventId,
-      eventType: stripeEvents.eventType,
-      status: stripeEvents.status,
-      userId: stripeEvents.userId,
-      creditsPurchased: stripeEvents.creditsPurchased,
-      createdAt: stripeEvents.createdAt,
-      userEmail: users.email,
-      userName: users.name,
-    })
+    .select()
     .from(stripeEvents)
-    .leftJoin(users, eqFn(stripeEvents.userId, users.id))
     .where(conditions.length > 0 ? andFn(...conditions) : undefined)
     .orderBy(descFn(stripeEvents.createdAt))
     .limit(Math.min(limit, 500))
@@ -1479,7 +1412,7 @@ export async function adminGetUserByEmail(email: string) {
 
 // ─── V2 Phase 1B: Country Pack Resolver ──────────────────────────────────────
 // Single source of truth for resolving the effective country pack for a user/job.
-// Inheritance: job_cards.countryPackId → users.countryPackId → DEFAULT_COUNTRY_PACK_ID ("GLOBAL").
+// Inheritance: job_cards.countryPackId → users.countryPackId → "US" (default).
 // This helper is safe to call even when V2 flags are OFF — it does not change
 // any V1 runtime behavior; it is only used by V2 procedures.
 
@@ -1502,7 +1435,7 @@ export interface ResolveCountryPackResult {
  * Inheritance order:
  *   1. job_cards.countryPackId (if jobCardId provided and column is non-null)
  *   2. users.countryPackId (if non-null)
- *   3. DEFAULT_COUNTRY_PACK_ID ("GLOBAL")
+ *   3. DEFAULT_COUNTRY_PACK_ID ("US")
  *
  * Never throws — falls back to default on any DB error or missing record.
  */
@@ -1560,51 +1493,6 @@ export async function resolveCountryPack(params: {
     return { effectiveCountryPackId: userCountryPackId, source: "user", userCountryPackId, jobCardCountryPackId };
   }
   return { effectiveCountryPackId: DEFAULT_COUNTRY_PACK_ID, source: "default", userCountryPackId, jobCardCountryPackId };
-}
-
-// ─── V2 Phase 1C-A: User Country Pack / Language Mode / Current Country setters ─
-/**
- * Update users.countryPackId. Validates against COUNTRY_PACK_IDS.
- * If countryPackId is not VN, also enforces languageMode = "en".
- */
-export async function updateUserCountryPack(
-  userId: number,
-  countryPackId: CountryPackId | null
-): Promise<void> {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const setFields: Record<string, unknown> = { countryPackId };
-  // Enforce: non-VN packs must use languageMode "en"
-  if (countryPackId !== "VN") {
-    setFields.languageMode = "en";
-  }
-  await db.update(users).set(setFields as any).where(eq(users.id, userId));
-}
-
-/**
- * Update users.languageMode. Only valid when countryPackId is VN.
- * Caller must validate countryPackId before calling this.
- */
-export async function updateUserLanguageMode(
-  userId: number,
-  languageMode: "en" | "vi" | "bilingual"
-): Promise<void> {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(users).set({ languageMode }).where(eq(users.id, userId));
-}
-
-/**
- * Update users.currentCountry (informational only).
- * Does NOT modify countryPackId or languageMode.
- */
-export async function updateUserCurrentCountry(
-  userId: number,
-  currentCountry: string | null
-): Promise<void> {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(users).set({ currentCountry } as any).where(eq(users.id, userId));
 }
 
 // ─── V2 Analytics KPI Helpers (Phase 1B.2) ──────────────────────────────────
@@ -1970,9 +1858,7 @@ export async function processRefundQueueItem(
   refundQueueId: number,
   adminUserId: number,
   debitAmount: number,
-  reason: string,
-  /** Phase 12L-MIN: pass resolved userId directly to avoid a second DB round-trip */
-  resolvedUserId?: number
+  reason: string
 ): Promise<number | null> {
   const db = await getDb();
   if (!db) return null;
@@ -1990,8 +1876,7 @@ export async function processRefundQueueItem(
   if (item.ledgerEntryId !== null && item.ledgerEntryId !== undefined) return null;
   if (item.status === "processed") return null;
 
-  // Phase 12L-MIN: use resolvedUserId override if item.userId is null
-  const userId = item.userId ?? resolvedUserId ?? null;
+  const userId = item.userId;
   if (!userId) throw new Error("Cannot debit credits: no userId on refund queue item");
 
   // Apply negative ledger entry (allow balance to go negative per spec)
@@ -2204,201 +2089,4 @@ export async function upsertOpsStatus(patch: {
     .insert(opsStatus)
     .values({ id: 1, ...patch, updatedAt: new Date() })
     .onDuplicateKeyUpdate({ set: { ...patch, updatedAt: new Date() } });
-}
-
-// ─── Phase 12H: Stripe Events Audit Pagination ───────────────────────────────
-export async function getStripeEventsPage(
-  limit: number,
-  cursor?: number
-): Promise<{ items: StripeEvent[]; nextCursor: number | null }> {
-  const db = await getDb();
-  if (!db) return { items: [], nextCursor: null };
-  const pageSize = Math.min(limit, 50);
-  const conditions = cursor !== undefined ? lt(stripeEvents.id, cursor) : undefined;
-  const rows = await db
-    .select()
-    .from(stripeEvents)
-    .where(conditions)
-    .orderBy(desc(stripeEvents.id))
-    .limit(pageSize + 1);
-  const hasMore = rows.length > pageSize;
-  const items = hasMore ? rows.slice(0, pageSize) : rows;
-  const nextCursor = hasMore ? items[items.length - 1].id : null;
-  return { items, nextCursor };
-}
-
-// ─── Phase 12L: Resolve userId for charge.refunded ───────────────────────────
-/**
- * Attempt to resolve a userId from existing purchase data for a charge.refunded event.
- * Tries in priority order:
- *   1) stripePaymentIntentId → purchaseReceipts.stripePaymentIntentId
- *   2) stripeCheckoutSessionId → purchaseReceipts.stripeCheckoutSessionId
- * Returns userId (number) if found, or null if not resolvable.
- */
-export async function resolveUserIdForCharge(opts: {
-  stripePaymentIntentId?: string | null;
-  stripeCheckoutSessionId?: string | null;
-}): Promise<number | null> {
-  const db = await getDb();
-  if (!db) return null;
-
-  // 1) Try payment intent
-  if (opts.stripePaymentIntentId) {
-    const rows = await db
-      .select({ userId: purchaseReceipts.userId })
-      .from(purchaseReceipts)
-      .where(eq(purchaseReceipts.stripePaymentIntentId, opts.stripePaymentIntentId))
-      .limit(1);
-    if (rows[0]?.userId) return rows[0].userId;
-  }
-
-  // 2) Try checkout session id
-  if (opts.stripeCheckoutSessionId) {
-    const rows = await db
-      .select({ userId: purchaseReceipts.userId })
-      .from(purchaseReceipts)
-      .where(eq(purchaseReceipts.stripeCheckoutSessionId, opts.stripeCheckoutSessionId))
-      .limit(1);
-    if (rows[0]?.userId) return rows[0].userId;
-  }
-
-  return null;
-}
-
-/**
- * Update userId on a refund queue item (admin manual override).
- * Only updates if the item exists and userId is currently null.
- */
-export async function setRefundQueueItemUserId(
-  refundQueueId: number,
-  userId: number
-): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db
-    .update(refundQueue)
-    .set({ userId })
-    .where(and(eq(refundQueue.id, refundQueueId), isNull(refundQueue.userId)));
-}
-
-// ─── Phase 12M: Bulk backfill userId on pending refund queue items ────────────
-/**
- * For every pending refund queue item where userId IS NULL, attempt to resolve
- * the userId via resolveUserIdForCharge (using stripeCheckoutSessionId stored on
- * the item). If resolved, persist via setRefundQueueItemUserId.
- *
- * Idempotent: items that already have userId are skipped.
- * Does NOT debit credits or change status.
- *
- * Returns:
- *   scanned    — total pending+null items found (up to limit)
- *   eligible   — same as scanned (all qualify for backfill attempt)
- *   resolved   — items where userId was successfully resolved and persisted
- *   unresolved — items where no matching purchaseReceipt was found
- */
-export async function backfillPendingRefundUserIds(
-  limit = 200
-): Promise<{ scanned: number; eligible: number; resolved: number; unresolved: number }> {
-  const db = await getDb();
-  if (!db) return { scanned: 0, eligible: 0, resolved: 0, unresolved: 0 };
-
-  // Fetch pending items with null userId, oldest first
-  const items = await db
-    .select()
-    .from(refundQueue)
-    .where(and(eq(refundQueue.status, "pending"), isNull(refundQueue.userId)))
-    .orderBy(asc(refundQueue.createdAt))
-    .limit(limit);
-
-  const scanned = items.length;
-  let resolved = 0;
-  let unresolved = 0;
-
-  for (const item of items) {
-    const userId = await resolveUserIdForCharge({
-      stripePaymentIntentId: null, // not stored on refund_queue rows
-      stripeCheckoutSessionId: item.stripeCheckoutSessionId ?? null,
-    });
-    if (userId) {
-      await setRefundQueueItemUserId(item.id, userId);
-      resolved++;
-    } else {
-      unresolved++;
-    }
-  }
-
-  return { scanned, eligible: scanned, resolved, unresolved };
-}
-
-// Phase 13A: Admin list users with pagination, search, and filters
-export async function adminListUsersPaged(options: {
-  q?: string;
-  status?: "all" | "active" | "disabled";
-  role?: "all" | "admin";
-  limit?: number;
-  offset?: number;
-}) {
-  const db = await getDb();
-  if (!db) return { items: [], total: 0 };
-
-  const limit = Math.min(options.limit ?? 25, 100);
-  const offset = options.offset ?? 0;
-
-  // Build WHERE conditions
-  const conditions: any[] = [];
-
-  // Search: name or email
-  if (options.q) {
-    const pattern = `%${options.q}%`;
-    conditions.push(
-      or(
-        sql`${users.name} LIKE ${pattern}`,
-        sql`${users.email} LIKE ${pattern}`
-      )
-    );
-  }
-
-  // Status filter
-  if (options.status === "disabled") {
-    conditions.push(eq(users.disabled, true));
-  } else if (options.status === "active") {
-    conditions.push(eq(users.disabled, false));
-  }
-  // "all" means no filter
-
-  // Role filter
-  if (options.role === "admin") {
-    conditions.push(eq(users.isAdmin, true));
-  }
-  // "all" means no filter
-
-  // Combine conditions
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-  // Fetch items
-  const items = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      isAdmin: users.isAdmin,
-      disabled: users.disabled,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(whereClause)
-    .orderBy(desc(users.createdAt))
-    .limit(limit)
-    .offset(offset);
-
-  // Fetch total count
-  const countResult = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(users)
-    .where(whereClause);
-
-  return {
-    items,
-    total: Number(countResult[0]?.count ?? 0),
-  };
 }
