@@ -277,8 +277,8 @@ export default function AdminOps() {
                               {evt.status}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground text-left align-middle">
-                            {evt.userId != null ? `#${evt.userId}` : "—"}
+                          <td className="px-3 py-2 text-xs text-muted-foreground text-left align-middle truncate overflow-hidden text-ellipsis whitespace-nowrap">
+                            {evt.userEmail ? evt.userEmail : evt.userName ? evt.userName : evt.userId != null ? `#${evt.userId}` : "—"}
                           </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground text-right align-middle whitespace-nowrap">
                             {formatTs(evt.createdAt)}

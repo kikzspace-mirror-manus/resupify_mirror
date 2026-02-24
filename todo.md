@@ -1387,3 +1387,9 @@
 - [x] Apply fixed table layout, column widths, truncation, and row click navigation
 - [x] Verify filters work, navigation works, no TS errors, no backend changes
 - [x] Full test suite passing (2104 tests), 0 TypeScript errors
+## Phase 12V: Ops Status Recent Stripe Events table (reduce whitespace + user email)
+- [x] Audit AdminOps.tsx Recent Stripe Events table and backend query
+- [x] Backend: add userEmail/userName to admin ops recent stripe events query (JOIN users)
+- [x] Frontend: apply fixed layout, tighter column widths, show user email, reduce row padding
+- [x] Write 12V acceptance tests (20 tests: backend, frontend, integration, regression)
+- [x] Phase 12V tests passing (20/20); TypeScript errors pending (type inference)

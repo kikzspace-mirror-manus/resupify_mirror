@@ -1330,7 +1330,7 @@ export async function recordStripeEvent(
 // ─── Admin: Stripe Events (Phase 10C-2) ──────────────────────────────────────
 /**
  * List stripe_events for the admin view.
- * Returns only fields already in the stripe_events table — no joins, no PII.
+ * Returns stripe_events with userEmail and userName via LEFT JOIN users.
  * Supports filtering by status and eventType, with limit/offset pagination.
  */
 export async function adminListStripeEvents(filter: {
@@ -1347,8 +1347,19 @@ export async function adminListStripeEvents(filter: {
   if (status) conditions.push(eqFn(stripeEvents.status, status));
   if (eventType) conditions.push(eqFn(stripeEvents.eventType, eventType));
   const rows = await db
-    .select()
+    .select({
+      id: stripeEvents.id,
+      stripeEventId: stripeEvents.stripeEventId,
+      eventType: stripeEvents.eventType,
+      status: stripeEvents.status,
+      userId: stripeEvents.userId,
+      creditsPurchased: stripeEvents.creditsPurchased,
+      createdAt: stripeEvents.createdAt,
+      userEmail: users.email,
+      userName: users.name,
+    })
     .from(stripeEvents)
+    .leftJoin(users, eqFn(stripeEvents.userId, users.id))
     .where(conditions.length > 0 ? andFn(...conditions) : undefined)
     .orderBy(descFn(stripeEvents.createdAt))
     .limit(Math.min(limit, 500))
