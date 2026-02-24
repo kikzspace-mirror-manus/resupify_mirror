@@ -48,6 +48,12 @@ const COUNTRY_OPTIONS: CountryOption[] = [
     sublabel: "Internship, new grad & experienced roles in the Philippines",
     flag: "🇵🇭",
   },
+  {
+    id: "US",
+    label: "United States",
+    sublabel: "Internship, new grad & experienced roles in the US",
+    flag: "🇺🇸",
+  },
 ];
 
 // ─── Icon map (client-only, not in shared module) ─────────────────────────────
@@ -79,7 +85,7 @@ export default function Onboarding() {
   // Preselect existing countryPackId if set; default to CA for V1 compat
   const [selectedCountryPackId, setSelectedCountryPackId] = useState<CountryPackId>(
     () => {
-      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH")) {
+      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH" || userCountryPackId === "US")) {
         return userCountryPackId;
       }
       return "CA";
@@ -240,7 +246,7 @@ export default function Onboarding() {
               <RadioGroup
                 value={selectedCountryPackId}
                 onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
                 data-testid="country-selector"
               >
                 {COUNTRY_OPTIONS.map((country) => (

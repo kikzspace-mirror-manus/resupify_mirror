@@ -1456,3 +1456,10 @@
 - [x] Add US_TRACKS to shared/trackOptions.ts (English-only labels)
 - [x] Update getTracksForCountry("US") to return US_TRACKS regardless of locale
 - [x] Write tests: weights sum 1.0, labels correct, locale-agnostic, regression
+
+## V2 — Onboarding Step 0: Add US option
+- [x] Add US radio card to Onboarding Step 0 (alongside CA/VN/PH)
+- [x] Update responsive grid to sm:grid-cols-2 md:grid-cols-4 for 4 cards
+- [x] Extend preselect logic to include US
+- [x] Confirm setCountryPack backend enforces languageMode="en" for non-VN packs
+- [x] Write tests: US card visible, US persists, languageModeSet=false, flag OFF regression

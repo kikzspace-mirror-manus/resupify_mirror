@@ -181,9 +181,10 @@ describe("Onboarding Step 0 — flag OFF regression", () => {
 
 // ─── Grid layout ─────────────────────────────────────────────────────────────
 
-describe("Onboarding Step 0 — grid layout for 3 options", () => {
-  // T19: RadioGroup uses 3-column grid for 3 options
-  it("T19: RadioGroup uses sm:grid-cols-3 for 3 country options", () => {
-    expect(onboardingSource).toContain("sm:grid-cols-3");
+describe("Onboarding Step 0 — grid layout for 4 options", () => {
+  // T19: RadioGroup uses responsive 2-col/4-col grid for 4 options (US added in V2 US Expansion Step 2)
+  it("T19: RadioGroup uses sm:grid-cols-2 md:grid-cols-4 for 4 country options", () => {
+    expect(onboardingSource).toContain("sm:grid-cols-2");
+    expect(onboardingSource).toContain("md:grid-cols-4");
   });
 });

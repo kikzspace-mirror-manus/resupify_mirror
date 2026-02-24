@@ -179,14 +179,14 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
     expect(content).toContain("selectedCountryPackId");
   });
 
-  it("T21: COUNTRY_OPTIONS contains CA, VN, and PH (not GLOBAL/US)", () => {
-    // COUNTRY_OPTIONS array has CA, VN, and PH entries (PH added in V2)
+  it("T21: COUNTRY_OPTIONS contains CA, VN, PH, and US (not GLOBAL)", () => {
+    // COUNTRY_OPTIONS array has CA, VN, PH, and US entries (US added in V2 US Expansion Step 2)
     expect(content).toContain("id: \"CA\"");
     expect(content).toContain("id: \"VN\"");
     expect(content).toContain("id: \"PH\""); // PH added in V2
-    // GLOBAL/US should not be in the Step 0 country options array
+    expect(content).toContain("id: \"US\""); // US added in V2 US Expansion Step 2
+    // GLOBAL should not be in the Step 0 country options array
     expect(content).not.toContain("id: \"GLOBAL\"");
-    expect(content).not.toContain("id: \"US\"");
   });
 
   it("T22: Flag OFF → step starts at 1 (V1 regression)", () => {
