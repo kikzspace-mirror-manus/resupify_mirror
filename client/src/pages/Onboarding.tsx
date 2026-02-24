@@ -128,6 +128,15 @@ export default function Onboarding() {
 
   // Step 2: Education
   const [school, setSchool] = useState("");
+
+  // Pack-aware school placeholder for the Education step
+  const schoolPlaceholder = (() => {
+    if (effectiveCountryPackId === "US") return "e.g., University of California, Berkeley";
+    if (effectiveCountryPackId === "PH") return "e.g., University of the Philippines";
+    if (effectiveCountryPackId === "VN") return "e.g., Vietnam National University";
+    if (effectiveCountryPackId === "CA") return "e.g., University of Waterloo";
+    return "e.g., Your university"; // GLOBAL fallback
+  })();
   const [program, setProgram] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(true);
@@ -405,7 +414,7 @@ export default function Onboarding() {
               <CardDescription>
                 {isStudentTrack
                   ? "Co-op employers verify enrollment status."
-                  : "Optional — helps with eligibility checks."}
+                  : "Optional — helps tailor your recommendations."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -415,7 +424,8 @@ export default function Onboarding() {
                 </Label>
                 <Input
                   id="school"
-                  placeholder="e.g., University of Waterloo"
+                  placeholder={schoolPlaceholder}
+                  data-testid="school-input"
                   value={school}
                   onChange={(e) => setSchool(e.target.value)}
                 />
@@ -426,7 +436,7 @@ export default function Onboarding() {
                 </Label>
                 <Input
                   id="program"
-                  placeholder="e.g., Computer Science"
+                  placeholder="e.g., Computer Science / Business / Marketing"
                   value={program}
                   onChange={(e) => setProgram(e.target.value)}
                 />

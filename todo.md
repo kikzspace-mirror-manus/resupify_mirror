@@ -1536,3 +1536,9 @@
 - [x] PH_TRACKS: remove "Philippines — " prefix from all 4 labels
 - [x] US_TRACKS: remove "United States — " prefix from all 4 labels
 - [x] Write tests: assert no country prefix in VN/PH/US track labels; CA labels unchanged; sublabels unchanged
+
+## V2 — Education step: neutral helper copy + pack-aware school placeholder
+- [x] Replace non-student helper text: "Optional — helps with eligibility checks." → "Optional — helps tailor your recommendations."
+- [x] Add pack-aware school placeholder map (CA/US/PH/VN/GLOBAL)
+- [x] Update Program placeholder to "e.g., Computer Science / Business / Marketing"
+- [x] Write tests: helper copy updated, school placeholder per pack, program placeholder generic
