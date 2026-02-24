@@ -1542,3 +1542,10 @@
 - [x] Add pack-aware school placeholder map (CA/US/PH/VN/GLOBAL)
 - [x] Update Program placeholder to "e.g., Computer Science / Business / Marketing"
 - [x] Write tests: helper copy updated, school placeholder per pack, program placeholder generic
+
+## V2 — Step 0: add Global card as 5th country option
+- [x] Add GLOBAL entry to COUNTRY_OPTIONS (🌐, "Global", ordered first)
+- [x] Update grid from md:grid-cols-4 to md:grid-cols-5
+- [x] Update preselect logic to include GLOBAL
+- [x] Verify VN languageMode logic remains VN-only (no changes needed if already guarded)
+- [x] Write tests: Global card renders, selection works, VN language guard intact, flag OFF unchanged

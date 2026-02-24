@@ -69,9 +69,11 @@ describe("Onboarding Step 0 — US option in COUNTRY_OPTIONS", () => {
     expect(onboardingSource).toContain("🇵🇭");
   });
 
-  it("T8: grid layout updated to sm:grid-cols-2 md:grid-cols-4 for 4 cards", () => {
-    expect(onboardingSource).toContain("sm:grid-cols-2");
-    expect(onboardingSource).toContain("md:grid-cols-4");
+  it("T8: grid layout updated to sm:grid-cols-3 md:grid-cols-5 for 5 cards", () => {
+    // Grid updated in V2 Onboarding Phase 4 to accommodate 5th card (GLOBAL)
+    expect(onboardingSource).toContain("sm:grid-cols-3");
+    expect(onboardingSource).toContain("md:grid-cols-5");
+    expect(onboardingSource).not.toContain("md:grid-cols-4");
   });
 });
 

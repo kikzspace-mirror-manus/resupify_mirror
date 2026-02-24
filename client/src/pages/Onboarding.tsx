@@ -31,6 +31,12 @@ interface CountryOption {
 
 const COUNTRY_OPTIONS: CountryOption[] = [
   {
+    id: "GLOBAL",
+    label: "Global",
+    sublabel: "General job market outside specific regions",
+    flag: "🌐",
+  },
+  {
     id: "CA",
     label: "Canada",
     sublabel: "Co-op, new grad & early-career roles in Canada",
@@ -85,7 +91,7 @@ export default function Onboarding() {
   // Preselect existing countryPackId if set; default to CA for V1 compat
   const [selectedCountryPackId, setSelectedCountryPackId] = useState<CountryPackId>(
     () => {
-      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH" || userCountryPackId === "US")) {
+      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH" || userCountryPackId === "US" || userCountryPackId === "GLOBAL")) {
         return userCountryPackId;
       }
       return "CA";
@@ -278,7 +284,7 @@ export default function Onboarding() {
               <RadioGroup
                 value={selectedCountryPackId}
                 onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
-                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"
                 data-testid="country-selector"
               >
                 {COUNTRY_OPTIONS.map((country) => (
