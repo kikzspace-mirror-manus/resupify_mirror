@@ -1345,3 +1345,9 @@
 - [x] Add visual polish: row dividers, hover highlight, zebra rows
 - [x] Verify filters, sort, and data display work unchanged
 - [x] Full test suite passing (2062 tests), 0 TypeScript errors, no backend changes
+## Phase 12R: Admin Audit Log convert cards to compact table
+- [x] Audit AdminAuditLog.tsx card layout and data shape
+- [x] Replace card layout with compact table (Action, Actor, Target, Time, Details columns)
+- [x] Add expand/collapse control for details (JSON payload, initially hidden)
+- [x] Verify page loads, entries display correctly, no TS errors, tests pass
+- [x] Full test suite passing (2062 tests), 0 TypeScript errors, no backend changes
