@@ -195,7 +195,7 @@ describe("E: Prompt injection pattern in routers.ts", () => {
     const src = fs.readFileSync("server/routers.ts", "utf-8");
     // Find the evidence.run section and check for the spread pattern
     const evidenceIdx = src.indexOf("evidence: router(");
-    const evidenceSection = src.slice(evidenceIdx, evidenceIdx + 9000);
+    const evidenceSection = src.slice(evidenceIdx, evidenceIdx + 6000);
     expect(evidenceSection).toContain("v2PackCtx.packPromptPrefix");
     expect(evidenceSection).toContain("resolvePackContextForGeneration");
   });

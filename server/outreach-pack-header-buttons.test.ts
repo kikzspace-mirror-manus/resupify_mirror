@@ -135,7 +135,7 @@ describe("Phase 9E2 — Test C: outreach.generate still charges 1 credit", () =>
     const generatePackIdx = routersSource.indexOf("generatePack: protectedProcedure");
     expect(generatePackIdx).toBeGreaterThan(0);
     // spendCredits must be called with amount=1 inside generatePack
-    const afterGeneratePack = routersSource.slice(generatePackIdx, generatePackIdx + 9000);
+    const afterGeneratePack = routersSource.slice(generatePackIdx, generatePackIdx + 6000);
     expect(afterGeneratePack).toContain("spendCredits(ctx.user.id, 1, \"Outreach Pack generation\"");
     // The credit reason must mention outreach
     expect(afterGeneratePack).toContain("outreach_pack");

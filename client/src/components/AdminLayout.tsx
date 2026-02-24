@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, FlaskConical, Receipt, Package, Activity, TestTube2,
-  ChevronLeft, Shield, ScrollText, Zap, CreditCard, ShieldCheck, TrendingUp, RotateCcw, Mail, Webhook, Settings
+  ChevronLeft, Shield, ScrollText, Zap, CreditCard, ShieldCheck, TrendingUp, RotateCcw, Mail, Webhook
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -23,7 +23,6 @@ const adminNavItems = [
   { path: "/admin/refunds", label: "Refunds", icon: RotateCcw },
   { path: "/admin/billing-receipts", label: "Billing Receipts", icon: Mail },
   { path: "/admin/ops", label: "Ops Status", icon: Webhook },
-  { path: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

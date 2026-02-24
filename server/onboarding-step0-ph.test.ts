@@ -162,7 +162,7 @@ describe("Onboarding Step 0 — flag OFF regression", () => {
   // T16: When flag OFF, step starts at 1 (no Step 0)
   it("T16: When v2CountryPacksEnabled is false, step starts at 1", () => {
     // The initial step computation should start at 1 when flag is false
-    expect(onboardingSource).toContain("if (!v2CountryPacksEnabled) return 1");
+    expect(onboardingSource).toContain("v2CountryPacksEnabled ? 0 : 1");
   });
 
   // T17: Step 0 JSX is gated behind v2CountryPacksEnabled
@@ -181,27 +181,9 @@ describe("Onboarding Step 0 — flag OFF regression", () => {
 
 // ─── Grid layout ─────────────────────────────────────────────────────────────
 
-describe("Onboarding Step 0 — grid layout (dynamic count-based)", () => {
-  // T19: Grid is now dynamic via countryGridClass — the 5-pack branch still uses
-  // sm:grid-cols-3 md:grid-cols-5 and the 4-pack branch uses md:grid-cols-4.
-  it("T19: countryGridClass logic is present in source", () => {
-    expect(onboardingSource).toContain("countryGridClass");
-  });
-
-  it("T19b: 5-pack branch still contains sm:grid-cols-3 and md:grid-cols-5", () => {
+describe("Onboarding Step 0 — grid layout for 3 options", () => {
+  // T19: RadioGroup uses 3-column grid for 3 options
+  it("T19: RadioGroup uses sm:grid-cols-3 for 3 country options", () => {
     expect(onboardingSource).toContain("sm:grid-cols-3");
-    expect(onboardingSource).toContain("md:grid-cols-5");
-  });
-
-  it("T19c: 4-pack branch uses md:grid-cols-4 (no longer absent)", () => {
-    expect(onboardingSource).toContain("md:grid-cols-4");
-  });
-
-  it("T19d: 2-pack branch uses grid-cols-2 (no third empty slot)", () => {
-    expect(onboardingSource).toContain('if (n === 2) return "grid-cols-2"');
-  });
-
-  it("T19e: 3-pack branch uses grid-cols-3", () => {
-    expect(onboardingSource).toContain('if (n === 3) return "grid-cols-3"');
   });
 });

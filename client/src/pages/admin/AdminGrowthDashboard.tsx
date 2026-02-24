@@ -1,5 +1,5 @@
 /**
- * AdminGrowthDashboard.tsx — V2 Phase 1B.3 (updated: refresh-fix + visual-hierarchy)
+ * AdminGrowthDashboard.tsx — V2 Phase 1B.2 (updated: layout-cleanup + timeline)
  *
  * Admin-only Growth KPI Dashboard.
  * Gated behind featureFlags.v2GrowthDashboardEnabled (server-side).
@@ -9,23 +9,23 @@
  * 2) growth=true, analytics=false → dashboard shell + analytics-off warning banner
  * 3) growth=true, analytics=true → full dashboard with timeline chart
  */
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import {
   Users, TrendingUp, Zap, AlertTriangle, Clock,
   BarChart2, CheckCircle2, XCircle, Activity, Radio,
-  ChevronDown, ChevronUp, RefreshCw, Globe, MapPin,
+  ChevronDown, ChevronUp, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from "recharts";
+import { Globe } from "lucide-react";
 
 // ─── Flag Status Box ──────────────────────────────────────────────────────────
 function FlagStatusBox({
@@ -60,29 +60,6 @@ function FlagStatusBox({
   );
 }
 
-// ─── Section Header ───────────────────────────────────────────────────────────
-function SectionHeader({
-  icon: Icon,
-  title,
-  subtitle,
-  iconColor = "text-muted-foreground",
-}: {
-  icon: React.ElementType;
-  title: string;
-  subtitle?: string;
-  iconColor?: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      <Icon className={`h-4 w-4 ${iconColor} shrink-0`} />
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
-
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({
   label,
@@ -104,44 +81,17 @@ function KpiCard({
     <Card>
       <CardContent className="pt-5 pb-4">
         <div className="flex items-start justify-between">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold mt-1 tabular-nums">{display}</p>
+          <div>
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold mt-1">{display}</p>
             {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
           </div>
-          <div className={`${bg} p-2 rounded-lg shrink-0 ml-2`}>
-            <Icon className={`h-4 w-4 ${color}`} />
+          <div className={`${bg} p-2 rounded-lg shrink-0`}>
+            <Icon className={`h-5 w-5 ${color}`} />
           </div>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// ─── Range Selector ───────────────────────────────────────────────────────────
-function RangeSelector({
-  value,
-  onChange,
-}: {
-  value: 7 | 14 | 30;
-  onChange: (v: 7 | 14 | 30) => void;
-}) {
-  return (
-    <div className="flex rounded-md border overflow-hidden text-xs" data-testid="range-selector">
-      {([7, 14, 30] as const).map((r) => (
-        <button
-          key={r}
-          onClick={() => onChange(r)}
-          className={`px-3 py-1.5 font-medium transition-colors ${
-            value === r
-              ? "bg-primary text-primary-foreground"
-              : "bg-background text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          {r}d
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -161,12 +111,8 @@ export default function AdminGrowthDashboard() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("eventsTotal");
   const [healthOpen, setHealthOpen] = useState(false);
   const [adoptionRange, setAdoptionRange] = useState<7 | 14 | 30>(30);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const utils = trpc.useUtils();
-
-  const { data, isLoading, error } = trpc.admin.growth.kpis.useQuery();
+  const { data, isLoading, error, refetch } = trpc.admin.growth.kpis.useQuery();
   const { data: timelineData, isLoading: timelineLoading } = trpc.admin.timeline.daily.useQuery(
     { rangeDays: timelineRange },
   );
@@ -174,28 +120,11 @@ export default function AdminGrowthDashboard() {
     { rangeDays: adoptionRange },
   );
 
-  // ── Refresh: invalidate all 3 growth queries ──────────────────────────────
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        utils.admin.growth.kpis.invalidate(),
-        utils.admin.timeline.daily.invalidate(),
-        utils.admin.countryPackAdoption.daily.invalidate(),
-      ]);
-      setLastUpdated(new Date());
-    } catch {
-      toast.error("Refresh failed — could not reload dashboard data. Please try again.");
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [utils]);
-
   // ── State 1: growth flag OFF ──────────────────────────────────────
   if (!isLoading && !error && data && !data.enabled) {
     return (
       <AdminLayout>
-        <div className="max-w-[1200px] mx-auto space-y-4">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <TrendingUp className="h-6 w-6 text-orange-500" />
@@ -225,7 +154,7 @@ export default function AdminGrowthDashboard() {
 
   return (
     <AdminLayout>
-      <div className="max-w-[1200px] mx-auto space-y-6">
+      <div className="space-y-6">
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -236,23 +165,10 @@ export default function AdminGrowthDashboard() {
             </h1>
             <p className="text-muted-foreground text-sm mt-1">Admin-only · All data is non-PII</p>
           </div>
-          <div className="flex items-center gap-3">
-            {lastUpdated && (
-              <span className="text-xs text-muted-foreground" data-testid="last-updated">
-                Last updated: {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isRefreshing || isLoading}
-              data-testid="refresh-button"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
-              {isRefreshing ? "Refreshing…" : "Refresh"}
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Loading */}
@@ -293,7 +209,7 @@ export default function AdminGrowthDashboard() {
 
             {/* ── Row 1: Audience ──────────────────────────────── */}
             <div>
-              <SectionHeader icon={Users} title="Audience" iconColor="text-blue-500" />
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Audience</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <KpiCard label="WAU" value={kpis?.wau} icon={Users} color="text-blue-600" bg="bg-blue-50" description="Weekly active users" />
                 <KpiCard label="MAU" value={kpis?.mau} icon={Users} color="text-indigo-600" bg="bg-indigo-50" description="Monthly active users" />
@@ -304,7 +220,7 @@ export default function AdminGrowthDashboard() {
 
             {/* ── Row 2: Activation + Quality ──────────────────── */}
             <div>
-              <SectionHeader icon={Zap} title="Activation & Quality" iconColor="text-orange-500" />
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Activation &amp; Quality</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <KpiCard
                   label="Activated (7d)"
@@ -345,12 +261,25 @@ export default function AdminGrowthDashboard() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-indigo-500" />
-                    Timeline
-                  </CardTitle>
+                  <CardTitle className="text-base">Timeline</CardTitle>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <RangeSelector value={timelineRange} onChange={setTimelineRange} />
+                    {/* Range selector */}
+                    <div className="flex rounded-md border overflow-hidden text-xs">
+                      {([7, 14, 30] as const).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => setTimelineRange(r)}
+                          className={`px-3 py-1.5 font-medium transition-colors ${
+                            timelineRange === r
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {r}d
+                        </button>
+                      ))}
+                    </div>
+                    {/* Metric selector */}
                     <select
                       value={selectedMetric}
                       onChange={(e) => setSelectedMetric(e.target.value as MetricKey)}
@@ -365,17 +294,17 @@ export default function AdminGrowthDashboard() {
               </CardHeader>
               <CardContent>
                 {timelineLoading ? (
-                  <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
                 ) : !analyticsEnabled ? (
-                  <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
                     Enable <code className="mx-1 bg-muted px-1 rounded text-xs">V2_ANALYTICS_ENABLED</code> to see timeline data.
                   </div>
                 ) : !timelineData?.data || timelineData.data.length === 0 ? (
-                  <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
                     No data for this range yet.
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={240}>
+                  <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={timelineData.data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis
@@ -403,175 +332,147 @@ export default function AdminGrowthDashboard() {
               </CardContent>
             </Card>
 
-            {/* ── Adoption Section ─────────────────────────────── */}
-            <div>
-              <SectionHeader
-                icon={MapPin}
-                title="Country Pack Adoption"
-                subtitle="Pack selections by region"
-                iconColor="text-green-500"
-              />
-
-              {/* Pack Adoption KPI Cards */}
-              {growthEnabled && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4" data-testid="pack-adoption-kpi-cards">
-                  {([
-                    { key: "CA", label: "Canada",        color: "text-red-600",   bg: "bg-red-50 dark:bg-red-950/30",    dot: "bg-red-500",   icon: "🇨🇦" },
-                    { key: "VN", label: "Vietnam",       color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", dot: "bg-amber-500", icon: "🇻🇳" },
-                    { key: "PH", label: "Philippines",   color: "text-blue-600",  bg: "bg-blue-50 dark:bg-blue-950/30",  dot: "bg-blue-500",  icon: "🇵🇭" },
-                    { key: "US", label: "United States", color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/30", dot: "bg-green-500", icon: "🇺🇸" },
-                  ] as const).map(({ key, label, color, bg, dot, icon }) => (
-                    <div
-                      key={key}
-                      className={`rounded-xl border p-4 ${bg}`}
-                      data-testid={`pack-kpi-${key}`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className={`inline-block w-2 h-2 rounded-full ${dot} shrink-0`} />
-                        <span className="text-xs font-medium text-muted-foreground">{icon} {label}</span>
-                      </div>
-                      <div className={`text-2xl font-bold tabular-nums ${color}`} data-testid={`pack-kpi-${key}-value`}>
-                        {adoptionLoading ? "—" : (adoptionData?.totals?.[key] ?? 0).toLocaleString()}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">Selections ({adoptionRange}d)</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Country Pack Adoption Chart */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-blue-500" />
-                      Adoption Over Time
-                    </CardTitle>
-                    <RangeSelector value={adoptionRange} onChange={setAdoptionRange} />
+            {/* ── Country Pack Adoption ─────────────────────────── */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-blue-500" />
+                    Country Pack Adoption
+                  </CardTitle>
+                  <div className="flex rounded-md border overflow-hidden text-xs">
+                    {([7, 14, 30] as const).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setAdoptionRange(r)}
+                        className={`px-3 py-1.5 font-medium transition-colors ${
+                          adoptionRange === r
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {r}d
+                      </button>
+                    ))}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {adoptionLoading ? (
-                    <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
-                  ) : !analyticsEnabled ? (
-                    <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">
-                      Enable <code className="mx-1 bg-muted px-1 rounded text-xs">V2_ANALYTICS_ENABLED</code> to see adoption data.
-                    </div>
-                  ) : !adoptionData?.data || adoptionData.data.length === 0 ? (
-                    <div className="h-52 flex items-center justify-center text-muted-foreground text-sm">
-                      No pack selection events yet.
-                    </div>
-                  ) : (
-                    <>
-                      <ResponsiveContainer width="100%" height={240}>
-                        <LineChart data={adoptionData.data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                          <XAxis
-                            dataKey="date"
-                            tick={{ fontSize: 11 }}
-                            tickFormatter={(v: string) => v.slice(5)}
-                          />
-                          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                          <Tooltip />
-                          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                          <Line type="monotone" dataKey="CA" name="CA" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                          <Line type="monotone" dataKey="VN" name="VN" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                          <Line type="monotone" dataKey="PH" name="PH" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                          <Line type="monotone" dataKey="US" name="US" stroke="#22c55e" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                          {adoptionData.totals && adoptionData.totals.OTHER > 0 && (
-                            <Line type="monotone" dataKey="OTHER" name="Global" stroke="#6b7280" strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                          )}
-                        </LineChart>
-                      </ResponsiveContainer>
-                      {/* Totals row */}
-                      {adoptionData.totals && (
-                        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground border-t pt-3">
-                          <span className="font-medium text-foreground">Totals ({adoptionRange}d):</span>
-                          <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />CA: <strong className="text-foreground">{adoptionData.totals.CA.toLocaleString()}</strong></span>
-                          <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />VN: <strong className="text-foreground">{adoptionData.totals.VN.toLocaleString()}</strong></span>
-                          <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />PH: <strong className="text-foreground">{adoptionData.totals.PH.toLocaleString()}</strong></span>
-                          <span><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />US: <strong className="text-foreground">{adoptionData.totals.US.toLocaleString()}</strong></span>
-                          {adoptionData.totals.OTHER > 0 && (
-                            <span><span className="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1" />Global: <strong className="text-foreground">{adoptionData.totals.OTHER.toLocaleString()}</strong></span>
-                          )}
-                          <span className="ml-auto">Total: <strong className="text-foreground">{adoptionData.totals.total.toLocaleString()}</strong></span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {adoptionLoading ? (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
+                ) : !analyticsEnabled ? (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                    Enable <code className="mx-1 bg-muted px-1 rounded text-xs">V2_ANALYTICS_ENABLED</code> to see adoption data.
+                  </div>
+                ) : !adoptionData?.data || adoptionData.data.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                    No pack selection events yet.
+                  </div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={adoptionData.data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(v: string) => v.slice(5)}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Line type="monotone" dataKey="CA" name="CA" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="VN" name="VN" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="PH" name="PH" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        {adoptionData.totals && adoptionData.totals.OTHER > 0 && (
+                          <Line type="monotone" dataKey="OTHER" name="Other" stroke="#6b7280" strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                    {/* Totals row */}
+                    {adoptionData.totals && (
+                      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground border-t pt-3">
+                        <span className="font-medium text-foreground">Totals ({adoptionRange}d):</span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />CA: <strong className="text-foreground">{adoptionData.totals.CA.toLocaleString()}</strong></span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />VN: <strong className="text-foreground">{adoptionData.totals.VN.toLocaleString()}</strong></span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />PH: <strong className="text-foreground">{adoptionData.totals.PH.toLocaleString()}</strong></span>
+                        {adoptionData.totals.OTHER > 0 && (
+                          <span><span className="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1" />Other: <strong className="text-foreground">{adoptionData.totals.OTHER.toLocaleString()}</strong></span>
+                        )}
+                        <span className="ml-auto">Total: <strong className="text-foreground">{adoptionData.totals.total.toLocaleString()}</strong></span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
             {/* ── Funnel + Outcomes ─────────────────────────────── */}
-            <div>
-              <SectionHeader icon={BarChart2} title="Funnel & Outcomes" iconColor="text-purple-500" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-orange-500" />
-                      7-Day Funnel
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Step</th>
-                          <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Count</th>
-                          <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Conv.</th>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-orange-500" />
+                    7-Day Funnel
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Step</th>
+                        <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Count</th>
+                        <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Conv.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kpis?.funnel7d?.map((row) => (
+                        <tr key={row.step} className="border-b last:border-0">
+                          <td className="py-2 pr-4 text-xs text-muted-foreground font-mono">{row.step}</td>
+                          <td className="py-2 pr-4 text-sm font-medium tabular-nums">{row.count.toLocaleString()}</td>
+                          <td className="py-2 text-sm text-muted-foreground">{row.pct}%</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {kpis?.funnel7d?.map((row) => (
-                          <tr key={row.step} className="border-b last:border-0">
-                            <td className="py-2 pr-4 text-xs text-muted-foreground font-mono">{row.step}</td>
-                            <td className="py-2 pr-4 text-sm font-medium tabular-nums">{row.count.toLocaleString()}</td>
-                            <td className="py-2 text-sm text-muted-foreground">{row.pct}%</td>
-                          </tr>
-                        ))}
-                        {(!kpis?.funnel7d || kpis.funnel7d.length === 0) && (
-                          <tr>
-                            <td colSpan={3} className="py-4 text-center text-sm text-muted-foreground">
-                              No funnel data yet.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      All-Time Outcomes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Outcome</th>
-                          <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b">
-                          <td className="py-2 pr-4 text-sm text-muted-foreground">Interviews</td>
-                          <td className="py-2 text-sm font-medium tabular-nums">{kpis?.outcomes?.interviews?.toLocaleString() ?? "N/A"}</td>
-                        </tr>
+                      ))}
+                      {(!kpis?.funnel7d || kpis.funnel7d.length === 0) && (
                         <tr>
-                          <td className="py-2 pr-4 text-sm text-muted-foreground">Offers</td>
-                          <td className="py-2 text-sm font-medium tabular-nums">{kpis?.outcomes?.offers?.toLocaleString() ?? "N/A"}</td>
+                          <td colSpan={3} className="py-4 text-center text-sm text-muted-foreground">
+                            No funnel data yet.
+                          </td>
                         </tr>
-                      </tbody>
-                    </table>
-                  </CardContent>
-                </Card>
-              </div>
+                      )}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    All-Time Outcomes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Outcome</th>
+                        <th className="text-left text-xs text-muted-foreground pb-2 font-normal">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b">
+                        <td className="py-2 pr-4 text-sm text-muted-foreground">Interviews</td>
+                        <td className="py-2 text-sm font-medium tabular-nums">{kpis?.outcomes?.interviews?.toLocaleString() ?? "N/A"}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm text-muted-foreground">Offers</td>
+                        <td className="py-2 text-sm font-medium tabular-nums">{kpis?.outcomes?.offers?.toLocaleString() ?? "N/A"}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
             </div>
 
             {/* ── Instrumentation Health (collapsible) ─────────── */}

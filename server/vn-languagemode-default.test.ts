@@ -50,21 +50,21 @@ describe("routers.ts setCountryPack one-time VN languageMode default", () => {
 
   it("T5: setCountryPack calls db.updateUserLanguageMode when languageModeSet", () => {
     const idx = content.indexOf("setCountryPack:");
-    const block = content.slice(idx, idx + 1400);
+    const block = content.slice(idx, idx + 800);
     expect(block).toContain("db.updateUserLanguageMode");
     expect(block).toContain("\"vi\"");
   });
 
   it("T6: setCountryPack returns languageModeSet in response", () => {
     const idx = content.indexOf("setCountryPack:");
-    const block = content.slice(idx, idx + 2000);
+    const block = content.slice(idx, idx + 1500);
     expect(block).toContain("languageModeSet");
-    expect(block).toContain("return { success: true, languageModeSet, languageModeReset }");
+    expect(block).toContain("return { success: true, languageModeSet }");
   });
 
   it("T7: setCountryPack one-time default is conditional (if languageModeSet)", () => {
     const idx = content.indexOf("setCountryPack:");
-    const block = content.slice(idx, idx + 1400);
+    const block = content.slice(idx, idx + 800);
     expect(block).toContain("if (languageModeSet)");
   });
 });
@@ -192,7 +192,7 @@ describe("db.ts updateUserLanguageMode used in setCountryPack flow", () => {
 
   it("T25: setCountryPack sets languageMode to 'vi' (not 'en' or 'bilingual')", () => {
     const idx = routersContent.indexOf("setCountryPack:");
-    const block = routersContent.slice(idx, idx + 1400);
+    const block = routersContent.slice(idx, idx + 800);
     // The specific call must use "vi"
     expect(block).toContain("updateUserLanguageMode(ctx.user.id, \"vi\")");
   });

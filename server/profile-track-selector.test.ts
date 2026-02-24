@@ -105,30 +105,21 @@ describe("getTracksForCountry — flag ON, VN", () => {
 });
 
 describe("getTracksForCountry — flag ON, GLOBAL/PH/US", () => {
-  // GLOBAL now has 4 neutral tracks (V2 Global Career Stages)
-  const globalPacks: (CountryPackId | null | undefined)[] = [
+  const unsupportedPacks: (CountryPackId | null | undefined)[] = [
     "GLOBAL",
+
+    "US",
     null,
     undefined,
   ];
 
-  for (const pack of globalPacks) {
-    it(`T13-${pack ?? "null"}: flag ON + ${pack ?? "null"} → GLOBAL_TRACKS (4), hasTracksForCountry=true`, () => {
+  for (const pack of unsupportedPacks) {
+    it(`T13-${pack ?? "null"}: flag ON + ${pack ?? "null"} → empty tracks, hasTracksForCountry=false`, () => {
       const result = getTracksForCountry(pack, true);
-      expect(result.tracks).toHaveLength(4);
-      expect(result.hasTracksForCountry).toBe(true);
-      expect(result.regionCode).toBe("GLOBAL");
-      expect(result.defaultTrack).toBe("INTERNSHIP");
+      expect(result.tracks).toHaveLength(0);
+      expect(result.hasTracksForCountry).toBe(false);
     });
   }
-
-  // US now has tracks (V2 US Expansion Step 1)
-  it("T13-US: flag ON + US → 4 tracks, hasTracksForCountry=true", () => {
-    const result = getTracksForCountry("US", true);
-    expect(result.tracks).toHaveLength(4);
-    expect(result.hasTracksForCountry).toBe(true);
-    expect(result.regionCode).toBe("US");
-  });
 });
 
 // ─── Structural tests: shared/trackOptions.ts ────────────────────────────────

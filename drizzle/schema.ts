@@ -37,7 +37,6 @@ export const userProfiles = mysqlTable("user_profiles", {
   program: varchar("program", { length: 256 }),
   graduationDate: varchar("graduationDate", { length: 32 }),
   currentlyEnrolled: boolean("currentlyEnrolled").default(false),
-  highestEducationLevel: varchar("highestEducationLevel", { length: 64 }),
   onboardingComplete: boolean("onboardingComplete").default(false),
   onboardingSkippedAt: timestamp("onboardingSkippedAt"),
   workStatus: mysqlEnum("workStatus", ["citizen_pr", "temporary_resident", "unknown"]).default("unknown"),
@@ -443,14 +442,3 @@ export const opsStatus = mysqlTable("ops_status", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type OpsStatus = typeof opsStatus.$inferSelect;
-
-// ─── Admin Settings ──────────────────────────────────────────────────────────
-// Key-value store for admin-controlled runtime settings.
-// Each row is a single named setting; value_json holds any JSON-serializable value.
-export const adminSettings = mysqlTable("admin_settings", {
-  key: varchar("key", { length: 128 }).primaryKey(),
-  valueJson: text("value_json").notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
-export type AdminSetting = typeof adminSettings.$inferSelect;
-export type InsertAdminSetting = typeof adminSettings.$inferInsert;

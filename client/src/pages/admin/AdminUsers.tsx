@@ -227,23 +227,15 @@ export default function AdminUsers() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* V2 Pack Info */}
-                  <div className="flex flex-wrap gap-2 items-center" data-testid="user-detail-pack-info">
-                    {/* Country Pack badge */}
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-mono ${PACK_BADGE_COLORS[(userDetail.countryPackId ?? "GLOBAL")] ?? "text-gray-600 border-gray-300"}`}
-                      data-testid="user-detail-country-pack-badge"
-                    >
-                      {userDetail.countryPackId ?? "GLOBAL"}
-                    </Badge>
-                    {/* Language Mode badge */}
-                    <Badge
-                      variant="secondary"
-                      className="text-xs"
-                      data-testid="user-detail-language-mode-badge"
-                    >
-                      {userDetail.languageMode ?? "en"}
-                    </Badge>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">Country Pack:</span>{" "}
+                      <span className="font-mono font-medium">{userDetail.countryPackId ?? "GLOBAL"}</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Language Mode:</span>{" "}
+                      <span className="font-medium">{userDetail.languageMode ?? "en"}</span>
+                    </p>
                   </div>
 
                   {/* Profile */}

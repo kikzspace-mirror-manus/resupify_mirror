@@ -14,12 +14,11 @@ import {
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { ArrowRight, GraduationCap, Briefcase, Zap, Globe, MapPin } from "lucide-react";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
 import { getTracksForCountry, resolveLocale, getTranslatedTrackStepCopy, type TrackCode, type SupportedLocale } from "@shared/trackOptions";
-import { getEducationPlaceholders } from "@shared/educationPlaceholders";
 
 // ─── Country options shown in Step 0 ─────────────────────────────────────────
 
@@ -31,12 +30,6 @@ interface CountryOption {
 }
 
 const COUNTRY_OPTIONS: CountryOption[] = [
-  {
-    id: "GLOBAL",
-    label: "Global",
-    sublabel: "General job market outside specific regions",
-    flag: "🌐",
-  },
   {
     id: "CA",
     label: "Canada",
@@ -54,12 +47,6 @@ const COUNTRY_OPTIONS: CountryOption[] = [
     label: "Philippines",
     sublabel: "Internship, new grad & experienced roles in the Philippines",
     flag: "🇵🇭",
-  },
-  {
-    id: "US",
-    label: "United States",
-    sublabel: "Internship, new grad & experienced roles in the US",
-    flag: "🇺🇸",
   },
 ];
 
@@ -84,8 +71,6 @@ export default function Onboarding() {
   // Feature flags from server
   const { data: flags } = trpc.system.featureFlags.useQuery();
   const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
-  // Enabled country packs from admin_settings (falls back to ["CA"] when not set)
-  const enabledCountryPacks: string[] = flags?.enabledCountryPacks ?? ["CA"];
 
   // Determine effective country pack from auth.me user record (preselect if already set)
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
@@ -94,7 +79,7 @@ export default function Onboarding() {
   // Preselect existing countryPackId if set; default to CA for V1 compat
   const [selectedCountryPackId, setSelectedCountryPackId] = useState<CountryPackId>(
     () => {
-      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH" || userCountryPackId === "US" || userCountryPackId === "GLOBAL")) {
+      if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH")) {
         return userCountryPackId;
       }
       return "CA";
@@ -103,17 +88,7 @@ export default function Onboarding() {
 
   // Step number: when flag ON, step 0 is the country selector; steps 1/2/3 follow
   // When flag OFF, start at step 1 (V1 behaviour unchanged)
-  // Partial-setup guard: if user already has a countryPackId but no trackCode (e.g. GLOBAL
-  // users created before tracks existed), skip Step 0 and start at the Track step directly.
-  // This is safe to compute in the initializer because `user` is captured via closure at
-  // component mount — no conditional hook calls are introduced.
-  const [step, setStep] = useState(() => {
-    if (!v2CountryPacksEnabled) return 1; // V1: always start at step 1
-    const initPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
-    const initTrackCode = (user as any)?.trackCode as string | null | undefined;
-    if (initPackId && !initTrackCode) return 1; // partial setup: skip Step 0
-    return 0; // normal flow: show Step 0
-  });
+  const [step, setStep] = useState(() => v2CountryPacksEnabled ? 0 : 1);
 
   // The effective country pack for track selection:
   // - After Step 0 Continue: uses selectedCountryPackId (local state)
@@ -147,11 +122,7 @@ export default function Onboarding() {
 
   // Step 2: Education
   const [school, setSchool] = useState("");
-
-  // Pack-aware school placeholder — single source of truth via shared helper
-  const { schoolPlaceholder, fieldPlaceholder: eduFieldPlaceholder } = getEducationPlaceholders(effectiveCountryPackId);
   const [program, setProgram] = useState("");
-  const [highestEducationLevel, setHighestEducationLevel] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(true);
 
@@ -165,52 +136,7 @@ export default function Onboarding() {
   const skipOnboarding = trpc.profile.skip.useMutation();
   const setCountryPack = trpc.profile.setCountryPack.useMutation();
 
-  // ── Auto-skip Step 0 when only 1 country pack is enabled ─────────────────
-  // MUST be declared here (before any early returns) so hook order is stable.
-  // All guard conditions are inside the effect body, not around the hook call.
-  const autoSkipFired = useRef(false);
-  useEffect(() => {
-    if (autoSkipFired.current) return;
-    if (!v2CountryPacksEnabled) return;   // V1: no-op
-    if (!flags) return;                   // flags not loaded yet
-    if (!user) return;                    // user not loaded yet
-    if (step !== 0) return;               // already past Step 0
-    if (enabledCountryPacks.length !== 1) return; // 2+ packs → show Step 0 normally
-    autoSkipFired.current = true;
-    const onlyPack = enabledCountryPacks[0] as CountryPackId;
-    // Update local state immediately so Track step renders with the correct pack
-    setSelectedCountryPackId(onlyPack);
-    const { defaultTrack: newDefault } = getTracksForCountry(onlyPack, true);
-    setTrackCode(newDefault);
-    // Persist only if the user's pack is unset or different
-    const needsPersist = !userCountryPackId || userCountryPackId !== onlyPack;
-    if (needsPersist) {
-      setCountryPack.mutate(
-        { countryPackId: onlyPack },
-        {
-          onSuccess: () => utils.auth.me.invalidate(),
-          onError: (err: any) => toast.error(err.message || "Failed to save country"),
-        }
-      );
-    }
-    // Advance to Track step — no Step 0 UI rendered
-    setStep(1);
-  }, [v2CountryPacksEnabled, flags, user, step, enabledCountryPacks, userCountryPackId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Early returns (AFTER all hooks) ────────────────────────────────────
   if (loading) return null;
-
-  // ── V2 Re-entry guard ─────────────────────────────────────────────────────
-  // If V2 is enabled and the user already has a pack + track, redirect to /profile.
-  // This prevents accidental pack/track resets when a returning user visits /onboarding.
-  // V1 (flag OFF): no redirect — existing behaviour is preserved.
-  if (v2CountryPacksEnabled && user) {
-    const userTrackCode = (user as any)?.trackCode as string | null | undefined;
-    if (userCountryPackId && userTrackCode) {
-      setLocation("/profile");
-      return null;
-    }
-  }
 
   const handleSkip = async () => {
     try {
@@ -247,13 +173,11 @@ export default function Onboarding() {
         program: program || undefined,
         graduationDate: graduationDate || undefined,
         currentlyEnrolled: trackCode === "COOP" ? currentlyEnrolled : undefined,
-        highestEducationLevel: highestEducationLevel || undefined,
         onboardingComplete: true,
       });
 
-      // Only save work auth for CA/US users. Use selectedCountryPackId (not effectiveRegionCode)
-      // because effectiveRegionCode returns "CA" for GLOBAL as a fallback.
-      if ((selectedCountryPackId === "CA" || selectedCountryPackId === "US") && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
+      // Only save work auth for CA users (CA-specific eligibility checks)
+      if (effectiveRegionCode === "CA" && (workStatus !== "unknown" || needsSponsorship !== "unknown")) {
         await updateWorkStatus.mutateAsync({ workStatus, needsSponsorship });
       }
 
@@ -264,25 +188,10 @@ export default function Onboarding() {
     }
   };
 
-  // For CA+COOP track only: show enrollment-related UI and co-op specific copy.
-  // Non-CA packs (VN/PH/US/GLOBAL) must never show CA co-op messaging even if
-  // their track code happens to be COOP/INTERNSHIP.
-  const isCoopCA = selectedCountryPackId === "CA" && trackCode === "COOP";
-  // Work Auth step: only for CA and US packs. GLOBAL/VN/PH must NEVER show it.
-  // Note: effectiveRegionCode returns "CA" for GLOBAL as a fallback — we must use
-  // selectedCountryPackId directly to avoid that leak.
-  const showWorkAuthStep = selectedCountryPackId === "CA" || selectedCountryPackId === "US";
-
-  // Copy variant for Work Auth step: US uses US-specific labels
-  const workAuthStepCopy = selectedCountryPackId === "US"
-    ? {
-        workStatusLabel: "Work status in the United States",
-        sponsorshipLabel: "Will you now or in the future require employer sponsorship?",
-      }
-    : {
-        workStatusLabel: "Work status in Canada",
-        sponsorshipLabel: "Sponsorship needed?",
-      };
+  // For CA/COOP track: show enrollment-related UI
+  const isStudentTrack = trackCode === "COOP";
+  // For CA tracks: show work auth step
+  const showWorkAuthStep = effectiveRegionCode === "CA";
   // Total steps: flag ON adds Step 0; work auth adds Step 3
   const totalSteps = v2CountryPacksEnabled
     ? (showWorkAuthStep ? 4 : 3)
@@ -292,23 +201,6 @@ export default function Onboarding() {
   const progressStep = step;
 
   const isPending = upsertProfile.isPending || updateWorkStatus.isPending || skipOnboarding.isPending || setCountryPack.isPending;
-
-  // Step 0 grid: filter to enabled packs and pick a grid class that exactly fits
-  // the count so there are never blank trailing slots.
-  // 1 pack  → auto-skip fires; but if somehow shown, center it
-  // 2 packs → 2 columns, centered (no third empty slot)
-  // 3 packs → 3 columns
-  // 4 packs → 2 columns on small, 4 on medium+
-  // 5 packs → 2 columns on small, 3 on sm, 5 on md+ (original layout)
-  const filteredCountries = COUNTRY_OPTIONS.filter((c) => enabledCountryPacks.includes(c.id));
-  const countryGridClass = (() => {
-    const n = filteredCountries.length;
-    if (n <= 1) return "grid-cols-1 justify-items-center";
-    if (n === 2) return "grid-cols-2";
-    if (n === 3) return "grid-cols-3";
-    if (n === 4) return "grid-cols-2 md:grid-cols-4";
-    return "grid-cols-2 sm:grid-cols-3 md:grid-cols-5"; // 5
-  })();
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -341,17 +233,17 @@ export default function Onboarding() {
                 Where are you applying?
               </CardTitle>
               <CardDescription>
-                Choose your main job market so we can personalize the next steps.
+                Choose your primary job market. This helps us show the right tracks and eligibility checks.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <RadioGroup
                 value={selectedCountryPackId}
                 onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
-                className={`grid ${countryGridClass} gap-4`}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
                 data-testid="country-selector"
               >
-                {filteredCountries.map((country) => (
+                {COUNTRY_OPTIONS.map((country) => (
                   <Label
                     key={country.id}
                     htmlFor={`country-${country.id}`}
@@ -366,6 +258,7 @@ export default function Onboarding() {
                     <span className="text-4xl" role="img" aria-label={country.label}>{country.flag}</span>
                     <div className="text-center">
                       <div className="font-semibold">{country.label}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{country.sublabel}</div>
                     </div>
                   </Label>
                 ))}
@@ -482,60 +375,38 @@ export default function Onboarding() {
             <CardHeader>
               <CardTitle>Your education</CardTitle>
               <CardDescription>
-                {isCoopCA
+                {isStudentTrack
                   ? "Co-op employers verify enrollment status."
-                  : "Optional \u2014 helps tailor your recommendations."}
+                  : "Optional — helps with eligibility checks."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="highestEducationLevel">
-                  Highest education level <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
-                </Label>
-                <select
-                  id="highestEducationLevel"
-                  data-testid="education-level-select"
-                  value={highestEducationLevel}
-                  onChange={(e) => setHighestEducationLevel(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="">Select level...</option>
-                  <option value="high_school">High school</option>
-                  <option value="diploma_certificate">Diploma / Certificate</option>
-                  <option value="associate_degree">Associate degree</option>
-                  <option value="bachelors_degree">{"Bachelor's degree"}</option>
-                  <option value="masters_degree">{"Master's degree"}</option>
-                  <option value="doctorate">Doctorate (PhD)</option>
-                  <option value="other">Other / Prefer not to say</option>
-                </select>
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="school">
-                  School / Institution{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  School / Institution{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="school"
-                  placeholder={schoolPlaceholder}
-                  data-testid="school-input"
+                  placeholder="e.g., University of Waterloo"
                   value={school}
                   onChange={(e) => setSchool(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="program">
-                  Field of study{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  Program{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="program"
-                  placeholder={eduFieldPlaceholder}
+                  placeholder="e.g., Computer Science"
                   value={program}
                   onChange={(e) => setProgram(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gradDate">
-                  {isCoopCA ? "Expected Graduation" : "Graduation Date"}
-                  {!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  {isStudentTrack ? "Expected Graduation" : "Graduation Date"}
+                  {!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="gradDate"
@@ -544,7 +415,7 @@ export default function Onboarding() {
                   onChange={(e) => setGraduationDate(e.target.value)}
                 />
               </div>
-              {isCoopCA && (
+              {isStudentTrack && (
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
                     <Label>Currently Enrolled</Label>
@@ -588,7 +459,7 @@ export default function Onboarding() {
           </Card>
         )}
 
-        {/* Step 3: Work Authorization (CA and US) */}
+        {/* Step 3: Work Authorization (CA only) */}
         {step === 3 && showWorkAuthStep && (
           <Card>
             <CardHeader>
@@ -599,7 +470,7 @@ export default function Onboarding() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>{workAuthStepCopy.workStatusLabel}</Label>
+                <Label>Work status in Canada</Label>
                 <Select
                   value={workStatus}
                   onValueChange={(v) => setWorkStatus(v as typeof workStatus)}
@@ -615,7 +486,7 @@ export default function Onboarding() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{workAuthStepCopy.sponsorshipLabel}</Label>
+                <Label>Sponsorship needed?</Label>
                 <Select
                   value={needsSponsorship}
                   onValueChange={(v) => setNeedsSponsorship(v as typeof needsSponsorship)}

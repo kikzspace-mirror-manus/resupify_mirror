@@ -8,21 +8,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Package, Eye, Code } from "lucide-react";
 
-type CountryFilter = "ALL" | "CA" | "VN" | "PH" | "US";
+type CountryFilter = "ALL" | "CA" | "VN" | "PH";
 
 const COUNTRY_FILTER_OPTIONS: { value: CountryFilter; label: string }[] = [
   { value: "ALL", label: "All" },
   { value: "CA", label: "Canada (CA)" },
   { value: "VN", label: "Vietnam (VN)" },
   { value: "PH", label: "Philippines (PH)" },
-  { value: "US", label: "United States (US)" },
 ];
 
 const COUNTRY_BADGE_COLORS: Record<string, string> = {
   CA: "bg-red-100 text-red-700 border-red-200",
   VN: "bg-yellow-100 text-yellow-700 border-yellow-200",
   PH: "bg-blue-100 text-blue-700 border-blue-200",
-  US: "bg-green-100 text-green-700 border-green-200",
 };
 
 export default function AdminPacks() {

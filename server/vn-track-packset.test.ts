@@ -22,9 +22,8 @@ describe("VN/INTERNSHIP track", () => {
     expect(pack.trackCode).toBe("INTERNSHIP");
   });
 
-  it("V3: label contains Internship (no country prefix)", () => {
-    // Country prefix removed in V2 Onboarding Phase 2
-    expect(pack.label).not.toContain("Vietnam");
+  it("V3: label contains Vietnam and Internship", () => {
+    expect(pack.label).toContain("Vietnam");
     expect(pack.label).toContain("Internship");
   });
 
@@ -73,9 +72,8 @@ describe("VN/NEW_GRAD track", () => {
     expect(pack.trackCode).toBe("NEW_GRAD");
   });
 
-  it("V13: label contains New Graduate (no country prefix)", () => {
-    // Country prefix removed in V2 Onboarding Phase 2
-    expect(pack.label).not.toContain("Vietnam");
+  it("V13: label contains Vietnam and New Graduate", () => {
+    expect(pack.label).toContain("Vietnam");
     expect(pack.label).toContain("New Graduate");
   });
 
@@ -120,9 +118,8 @@ describe("VN/EARLY_CAREER track", () => {
     expect(pack.trackCode).toBe("EARLY_CAREER");
   });
 
-  it("V22: label contains Early Career (no country prefix)", () => {
-    // Country prefix removed in V2 Onboarding Phase 2
-    expect(pack.label).not.toContain("Vietnam");
+  it("V22: label contains Vietnam and Early Career", () => {
+    expect(pack.label).toContain("Vietnam");
     expect(pack.label).toContain("Early Career");
   });
 
@@ -167,9 +164,8 @@ describe("VN/EXPERIENCED track", () => {
     expect(pack.trackCode).toBe("EXPERIENCED");
   });
 
-  it("V31: label contains Experienced (no country prefix)", () => {
-    // Country prefix removed in V2 Onboarding Phase 2
-    expect(pack.label).not.toContain("Vietnam");
+  it("V31: label contains Vietnam and Experienced", () => {
+    expect(pack.label).toContain("Vietnam");
     expect(pack.label).toContain("Experienced");
   });
 

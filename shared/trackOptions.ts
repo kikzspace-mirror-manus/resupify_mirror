@@ -120,25 +120,25 @@ export const VN_TRACKS: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "VN",
-    label: "Internship / Student",
+    label: "Vietnam — Internship / Student",
     sublabel: "Best for students applying for internships",
   },
   {
     code: "NEW_GRAD",
     regionCode: "VN",
-    label: "New Graduate",
+    label: "Vietnam — New Graduate",
     sublabel: "Best for 0–1 years experience",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "VN",
-    label: "Early Career (1–5 years)",
+    label: "Vietnam — Early Career (1–5 years)",
     sublabel: "Best for early professionals building experience",
   },
   {
     code: "EXPERIENCED",
     regionCode: "VN",
-    label: "Experienced (5+ years)",
+    label: "Vietnam — Experienced (5+ years)",
     sublabel: "Best for senior individual contributors or managers",
   },
 ];
@@ -150,115 +150,54 @@ export const PH_TRACKS: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "PH",
-    label: "Internship / Student",
+    label: "Philippines — Internship / Student",
     sublabel: "Best for students applying for internships",
   },
   {
     code: "NEW_GRAD",
     regionCode: "PH",
-    label: "New Graduate",
+    label: "Philippines — New Graduate",
     sublabel: "Best for 0–1 years experience",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "PH",
-    label: "Early Career (1–5 years)",
+    label: "Philippines — Early Career (1–5 years)",
     sublabel: "Best for early professionals building experience",
   },
   {
     code: "EXPERIENCED",
     regionCode: "PH",
-    label: "Experienced (5+ years)",
+    label: "Philippines — Experienced (5+ years)",
     sublabel: "Best for senior individual contributors or managers",
   },
 ];
 
-// ─── Track definitions (US — English-only) ─────────────────────────────────
-// US tracks are always returned in English regardless of locale.
-
-export const US_TRACKS: TrackOption[] = [
-  {
-    code: "INTERNSHIP",
-    regionCode: "US",
-    label: "Internship / Student",
-    sublabel: "Students applying for internships",
-  },
-  {
-    code: "NEW_GRAD",
-    regionCode: "US",
-    label: "New Graduate",
-    sublabel: "0–2 years experience",
-  },
-  {
-    code: "EARLY_CAREER",
-    regionCode: "US",
-    label: "Early Career (1–5 years)",
-    sublabel: "1–5 years experience",
-  },
-  {
-    code: "EXPERIENCED",
-    regionCode: "US",
-    label: "Experienced (5+ years)",
-    sublabel: "5+ years (senior IC/manager)",
-  },
-];
-
-/// ─── Track definitions (GLOBAL — English-only, neutral) ─────────────────────
-// GLOBAL tracks are always English-only. No region-specific eligibility
-// checks or work auth rules apply. Locale param is intentionally ignored.
-
-export const GLOBAL_TRACKS: TrackOption[] = [
-  {
-    code: "INTERNSHIP",
-    regionCode: "GLOBAL",
-    label: "Internship / Student",
-    sublabel: "Students applying for internships",
-  },
-  {
-    code: "NEW_GRAD",
-    regionCode: "GLOBAL",
-    label: "New Graduate",
-    sublabel: "0–2 years experience",
-  },
-  {
-    code: "EARLY_CAREER",
-    regionCode: "GLOBAL",
-    label: "Early Career (1–5 years)",
-    sublabel: "1–5 years experience",
-  },
-  {
-    code: "EXPERIENCED",
-    regionCode: "GLOBAL",
-    label: "Experienced (5+ years)",
-    sublabel: "5+ years (senior IC/manager)",
-  },
-];
-
-// ─── Track definitions (VI) ──────────────────────────────────────────────
+// ─── Track definitions (VI) ──────────────────────────────────────────────────
 
 export const VN_TRACKS_VI: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "VN",
-    label: "Thực tập / Sinh viên",
+    label: "Việt Nam — Thực tập / Sinh viên",
     sublabel: "Phù hợp cho sinh viên ứng tuyển thực tập",
   },
   {
     code: "NEW_GRAD",
     regionCode: "VN",
-    label: "Mới tốt nghiệp",
+    label: "Việt Nam — Mới tốt nghiệp",
     sublabel: "Phù hợp cho 0–1 năm kinh nghiệm",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "VN",
-    label: "Đi làm (1–5 năm)",
+    label: "Việt Nam — Đi làm (1–5 năm)",
     sublabel: "Phù hợp cho người mới đi làm tích lũy kinh nghiệm",
   },
   {
     code: "EXPERIENCED",
     regionCode: "VN",
-    label: "Kinh nghiệm (5+ năm)",
+    label: "Việt Nam — Kinh nghiệm (5+ năm)",
     sublabel: "Phù hợp cho senior/manager",
   },
 ];
@@ -297,9 +236,8 @@ export function getTranslatedTrackStepCopy(locale: SupportedLocale): TrackStepCo
  * | true      | CA            | any    | CA_TRACKS(en) | COOP         | CA         |
  * | true      | VN            | en     | VN_TRACKS(en) | NEW_GRAD     | VN         |
  * | true      | VN            | vi     | VN_TRACKS(vi) | NEW_GRAD     | VN         |
- * | true      | US            | any    | US_TRACKS(en) | INTERNSHIP   | US         |
- * | true      | GLOBAL        | any    | GLOBAL_TRACKS | INTERNSHIP   | GLOBAL     |
- * | true      | null/undefined| any    | GLOBAL_TRACKS | INTERNSHIP   | GLOBAL     |
+ * | true      | GLOBAL/PH/US  | any    | []            | NEW_GRAD     | CA         |
+ * | true      | null/undefined| any    | []            | NEW_GRAD     | CA         |
  */
 export function getTracksForCountry(
   countryPackId: CountryPackId | null | undefined,
@@ -346,24 +284,11 @@ export function getTracksForCountry(
     };
   }
 
-  if (effectivePack === "US") {
-    // US is always English-only — locale param is intentionally ignored
-    return {
-      tracks: US_TRACKS,
-      defaultTrack: "INTERNSHIP",
-      hasTracksForCountry: true,
-      regionCode: "US",
-    };
-  }
-
-  // GLOBAL (or unknown pack) — return neutral GLOBAL tracks.
-  // IMPORTANT: must return regionCode="GLOBAL", NOT "CA".
-  // Returning "CA" here caused CA-only gating (Work Auth, co-op copy) to leak
-  // into GLOBAL users. GLOBAL tracks are English-only with no region-specific rules.
+  // GLOBAL / US — no tracks defined yet
   return {
-    tracks: GLOBAL_TRACKS,
-    defaultTrack: "INTERNSHIP",
-    hasTracksForCountry: true,
-    regionCode: "GLOBAL",
+    tracks: [],
+    defaultTrack: "NEW_GRAD",
+    hasTracksForCountry: false,
+    regionCode: "CA",
   };
 }

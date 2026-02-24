@@ -73,127 +73,6 @@ export type RegionPack = {
   trackTips: string[];
 };
 
-// ─── GLOBAL Packs (neutral, no region-specific rules) ───────────────────────
-const GLOBAL_COOP: RegionPack = {
-  regionCode: "GLOBAL",
-  trackCode: "COOP",
-  label: "Global — Co-op / Internship",
-  resumeDefaults: {
-    sections: ["education", "skills", "projects", "experience", "certifications"],
-    educationFirst: true,
-    includeObjective: false,
-    maxPages: 1,
-  },
-  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: true, convertProjectsToExperience: true },
-  schoolCycles: [
-    { name: "Fall", code: "fall", months: [8, 9, 10, 11] },
-    { name: "Winter", code: "winter", months: [0, 1, 2, 3] },
-    { name: "Summer", code: "summer", months: [4, 5, 6, 7] },
-  ],
-  eligibilityChecks: [],
-  workAuthRules: [],
-  scoringWeights: { eligibility: 0.20, tools: 0.25, responsibilities: 0.20, skills: 0.20, softSkills: 0.15 },
-  templates: { coverLetterStyle: "formal-academic", outreachTone: "professional-eager", followUpDays: 5 },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
-    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
-    stage_archived: "Archived", track_label: "Co-op", season_fall: "Fall Hiring",
-    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
-  },
-  trackTips: [
-    "Put education section first — internship employers check enrollment status.",
-    "Highlight relevant coursework and academic projects.",
-    "Quantify any results from previous internships or projects.",
-  ],
-};
-const GLOBAL_NEW_GRAD: RegionPack = {
-  regionCode: "GLOBAL",
-  trackCode: "NEW_GRAD",
-  label: "Global — New Graduate",
-  resumeDefaults: {
-    sections: ["experience", "education", "skills", "projects", "certifications"],
-    educationFirst: false,
-    includeObjective: false,
-    maxPages: 1,
-  },
-  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: true, convertProjectsToExperience: true },
-  schoolCycles: [
-    { name: "Spring Convocation", code: "spring", months: [4, 5] },
-    { name: "Fall Convocation", code: "fall", months: [9, 10] },
-  ],
-  eligibilityChecks: [],
-  workAuthRules: [],
-  scoringWeights: { eligibility: 0.15, tools: 0.25, responsibilities: 0.25, skills: 0.20, softSkills: 0.15 },
-  templates: { coverLetterStyle: "professional-concise", outreachTone: "professional-confident", followUpDays: 5 },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
-    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
-    stage_archived: "Archived", track_label: "New Graduate", season_fall: "Fall Hiring",
-    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
-  },
-  trackTips: [
-    "Lead with experience if you have any — even part-time or freelance counts.",
-    "Include your graduation date prominently.",
-    "Convert capstone projects and volunteer work into quantified bullets.",
-  ],
-};
-const GLOBAL_EARLY_CAREER: RegionPack = {
-  regionCode: "GLOBAL",
-  trackCode: "EARLY_CAREER",
-  label: "Global — Early Career (0–5 years)",
-  resumeDefaults: {
-    sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
-    educationFirst: false,
-    includeObjective: false,
-    maxPages: 1,
-  },
-  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: false, convertProjectsToExperience: false },
-  schoolCycles: [],
-  eligibilityChecks: [],
-  workAuthRules: [],
-  scoringWeights: { eligibility: 0.15, tools: 0.20, responsibilities: 0.30, skills: 0.20, softSkills: 0.15 },
-  templates: { coverLetterStyle: "professional-concise", outreachTone: "professional-confident", followUpDays: 5 },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
-    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
-    stage_archived: "Archived", track_label: "Early Career", season_fall: "Fall Hiring",
-    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
-  },
-  trackTips: [
-    "Lead with your strongest experience — even internships count.",
-    "Quantify achievements wherever possible.",
-    "Highlight tools and technologies prominently.",
-  ],
-};
-const GLOBAL_EXPERIENCED: RegionPack = {
-  regionCode: "GLOBAL",
-  trackCode: "EXPERIENCED",
-  label: "Global — Experienced (5+ years)",
-  resumeDefaults: {
-    sections: ["experience", "leadership", "achievements", "skills", "education"],
-    educationFirst: false,
-    includeObjective: false,
-    maxPages: 2,
-  },
-  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: false, convertProjectsToExperience: false },
-  schoolCycles: [],
-  eligibilityChecks: [],
-  workAuthRules: [],
-  scoringWeights: { eligibility: 0.20, tools: 0.10, responsibilities: 0.40, skills: 0.15, softSkills: 0.15 },
-  templates: { coverLetterStyle: "executive-brief", outreachTone: "professional-executive", followUpDays: 7 },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
-    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
-    stage_archived: "Archived", track_label: "Experienced", season_fall: "Fall Hiring",
-    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
-  },
-  trackTips: [
-    "Lead with impact and leadership — quantify scope and team size.",
-    "Focus on strategic contributions over task lists.",
-    "Keep to 2 pages maximum; cut roles older than 15 years.",
-  ],
-};
-
 const CA_COOP: RegionPack = {
   regionCode: "CA",
   trackCode: "COOP",
@@ -573,7 +452,7 @@ const CA_EXPERIENCED: RegionPack = {
 const VN_INTERNSHIP: RegionPack = {
   regionCode: "VN",
   trackCode: "INTERNSHIP",
-  label: "Internship / Student",
+  label: "Vietnam — Internship / Student",
   resumeDefaults: {
     sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
     educationFirst: true,
@@ -620,7 +499,7 @@ const VN_INTERNSHIP: RegionPack = {
 const VN_NEW_GRAD: RegionPack = {
   regionCode: "VN",
   trackCode: "NEW_GRAD",
-  label: "New Graduate",
+  label: "Vietnam — New Graduate",
   resumeDefaults: {
     sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
     educationFirst: false,
@@ -667,7 +546,7 @@ const VN_NEW_GRAD: RegionPack = {
 const VN_EARLY_CAREER: RegionPack = {
   regionCode: "VN",
   trackCode: "EARLY_CAREER",
-  label: "Early Career (1–5 years)",
+  label: "Vietnam — Early Career (1–5 years)",
   resumeDefaults: {
     sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
     educationFirst: false,
@@ -714,7 +593,7 @@ const VN_EARLY_CAREER: RegionPack = {
 const VN_EXPERIENCED: RegionPack = {
   regionCode: "VN",
   trackCode: "EXPERIENCED",
-  label: "Experienced (5+ years)",
+  label: "Vietnam — Experienced (5+ years)",
   resumeDefaults: {
     sections: ["experience", "leadership", "achievements", "skills", "education"],
     educationFirst: false,
@@ -763,7 +642,7 @@ const VN_EXPERIENCED: RegionPack = {
 const PH_INTERNSHIP: RegionPack = {
   regionCode: "PH",
   trackCode: "INTERNSHIP",
-  label: "Internship / Student",
+  label: "Philippines — Internship / Student",
   resumeDefaults: {
     sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
     educationFirst: true,
@@ -810,7 +689,7 @@ const PH_INTERNSHIP: RegionPack = {
 const PH_NEW_GRAD: RegionPack = {
   regionCode: "PH",
   trackCode: "NEW_GRAD",
-  label: "New Graduate",
+  label: "Philippines — New Graduate",
   resumeDefaults: {
     sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
     educationFirst: false,
@@ -857,7 +736,7 @@ const PH_NEW_GRAD: RegionPack = {
 const PH_EARLY_CAREER: RegionPack = {
   regionCode: "PH",
   trackCode: "EARLY_CAREER",
-  label: "Early Career (1–5 years)",
+  label: "Philippines — Early Career (1–5 years)",
   resumeDefaults: {
     sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
     educationFirst: false,
@@ -904,7 +783,7 @@ const PH_EARLY_CAREER: RegionPack = {
 const PH_EXPERIENCED: RegionPack = {
   regionCode: "PH",
   trackCode: "EXPERIENCED",
-  label: "Experienced (5+ years)",
+  label: "Philippines — Experienced (5+ years)",
   resumeDefaults: {
     sections: ["experience", "leadership", "achievements", "skills", "education"],
     educationFirst: false,
@@ -948,201 +827,7 @@ const PH_EXPERIENCED: RegionPack = {
   ],
 };
 
-// ─── US Packs (V2 US Expansion Step 1) ──────────────────────────────────────
-
-const US_INTERNSHIP: RegionPack = {
-  regionCode: "US",
-  trackCode: "INTERNSHIP",
-  label: "Internship / Student",
-  resumeDefaults: {
-    sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
-    educationFirst: true,
-    includeObjective: false,
-    maxPages: 1,
-  },
-  copyRules: {
-    noInventedFacts: true,
-    needsConfirmationLabel: "Needs confirmation",
-    noExperienceHelper: true,
-    convertProjectsToExperience: true,
-  },
-  schoolCycles: [],
-  eligibilityChecks: [],
-  scoringWeights: {
-    eligibility: 0.15,
-    tools: 0.20,
-    responsibilities: 0.20,
-    skills: 0.20,
-    softSkills: 0.25,
-  },
-  templates: {
-    coverLetterStyle: "professional-concise",
-    outreachTone: "professional-eager",
-    followUpDays: 5,
-  },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked",
-    stage_applying: "Applying",
-    stage_applied: "Applied",
-    stage_interviewing: "Interviewing",
-    stage_offered: "Offered",
-    stage_rejected: "Rejected",
-    stage_archived: "Archived",
-    track_label: "Internship / Student",
-  },
-  trackTips: [
-    "Lead with education and relevant coursework if experience is limited.",
-    "Convert academic projects and org activities into quantified bullets.",
-    "Highlight any part-time work, freelance, or volunteer experience.",
-  ],
-};
-
-const US_NEW_GRAD: RegionPack = {
-  regionCode: "US",
-  trackCode: "NEW_GRAD",
-  label: "New Graduate",
-  resumeDefaults: {
-    sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
-    educationFirst: false,
-    includeObjective: false,
-    maxPages: 1,
-  },
-  copyRules: {
-    noInventedFacts: true,
-    needsConfirmationLabel: "Needs confirmation",
-    noExperienceHelper: true,
-    convertProjectsToExperience: true,
-  },
-  schoolCycles: [],
-  eligibilityChecks: [],
-  scoringWeights: {
-    eligibility: 0.15,
-    tools: 0.20,
-    responsibilities: 0.25,
-    skills: 0.20,
-    softSkills: 0.20,
-  },
-  templates: {
-    coverLetterStyle: "professional-concise",
-    outreachTone: "professional-confident",
-    followUpDays: 5,
-  },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked",
-    stage_applying: "Applying",
-    stage_applied: "Applied",
-    stage_interviewing: "Interviewing",
-    stage_offered: "Offered",
-    stage_rejected: "Rejected",
-    stage_archived: "Archived",
-    track_label: "New Graduate",
-  },
-  trackTips: [
-    "Lead with any internship or part-time experience before education.",
-    "Convert capstone projects and hackathons into quantified bullets.",
-    "Include graduation date prominently to confirm new-grad eligibility.",
-  ],
-};
-
-const US_EARLY_CAREER: RegionPack = {
-  regionCode: "US",
-  trackCode: "EARLY_CAREER",
-  label: "Early Career (1\u20135 years)",
-  resumeDefaults: {
-    sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
-    educationFirst: false,
-    includeObjective: false,
-    maxPages: 2,
-  },
-  copyRules: {
-    noInventedFacts: true,
-    needsConfirmationLabel: "Needs confirmation",
-    noExperienceHelper: false,
-    convertProjectsToExperience: false,
-  },
-  schoolCycles: [],
-  eligibilityChecks: [],
-  scoringWeights: {
-    eligibility: 0.15,
-    tools: 0.15,
-    responsibilities: 0.35,
-    skills: 0.20,
-    softSkills: 0.15,
-  },
-  templates: {
-    coverLetterStyle: "professional-concise",
-    outreachTone: "professional-direct",
-    followUpDays: 5,
-  },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked",
-    stage_applying: "Applying",
-    stage_applied: "Applied",
-    stage_interviewing: "Interviewing",
-    stage_offered: "Offered",
-    stage_rejected: "Rejected",
-    stage_archived: "Archived",
-    track_label: "Early Career",
-  },
-  trackTips: [
-    "Lead with your strongest work experience — impact metrics matter.",
-    "2 pages are acceptable if you have 3+ years of relevant experience.",
-    "Highlight promotions or scope expansions to show growth.",
-  ],
-};
-
-const US_EXPERIENCED: RegionPack = {
-  regionCode: "US",
-  trackCode: "EXPERIENCED",
-  label: "Experienced (5+ years)",
-  resumeDefaults: {
-    sections: ["experience", "leadership", "achievements", "skills", "education"],
-    educationFirst: false,
-    includeObjective: false,
-    maxPages: 2,
-  },
-  copyRules: {
-    noInventedFacts: true,
-    needsConfirmationLabel: "Needs confirmation",
-    noExperienceHelper: false,
-    convertProjectsToExperience: false,
-  },
-  schoolCycles: [],
-  eligibilityChecks: [],
-  scoringWeights: {
-    eligibility: 0.20,
-    tools: 0.10,
-    responsibilities: 0.40,
-    skills: 0.15,
-    softSkills: 0.15,
-  },
-  templates: {
-    coverLetterStyle: "professional-concise",
-    outreachTone: "professional-executive",
-    followUpDays: 5,
-  },
-  localizationLabels: {
-    stage_bookmarked: "Bookmarked",
-    stage_applying: "Applying",
-    stage_applied: "Applied",
-    stage_interviewing: "Interviewing",
-    stage_offered: "Offered",
-    stage_rejected: "Rejected",
-    stage_archived: "Archived",
-    track_label: "Experienced",
-  },
-  trackTips: [
-    "Lead with a concise executive summary (2\u20133 lines) at the top.",
-    "Focus on leadership impact: team size, budget, business outcomes.",
-    "Trim older roles to 2\u20133 bullets; keep the last 10 years detailed.",
-  ],
-};
-
 const PACKS: Record<string, RegionPack> = {
-  "GLOBAL_COOP": GLOBAL_COOP,
-  "GLOBAL_NEW_GRAD": GLOBAL_NEW_GRAD,
-  "GLOBAL_EARLY_CAREER": GLOBAL_EARLY_CAREER,
-  "GLOBAL_EXPERIENCED": GLOBAL_EXPERIENCED,
   "CA_COOP": CA_COOP,
   "CA_NEW_GRAD": CA_NEW_GRAD,
   "CA_EARLY_CAREER": CA_EARLY_CAREER,
@@ -1155,10 +840,6 @@ const PACKS: Record<string, RegionPack> = {
   "PH_NEW_GRAD": PH_NEW_GRAD,
   "PH_EARLY_CAREER": PH_EARLY_CAREER,
   "PH_EXPERIENCED": PH_EXPERIENCED,
-  "US_INTERNSHIP": US_INTERNSHIP,
-  "US_NEW_GRAD": US_NEW_GRAD,
-  "US_EARLY_CAREER": US_EARLY_CAREER,
-  "US_EXPERIENCED": US_EXPERIENCED,
 };
 
 export function getRegionPack(regionCode: string, trackCode: string): RegionPack {

@@ -156,7 +156,7 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
   });
 
   it("T16: Onboarding.tsx maps over COUNTRY_OPTIONS to render country cards", () => {
-    expect(content).toContain("COUNTRY_OPTIONS.filter");
+    expect(content).toContain("COUNTRY_OPTIONS.map");
   });
 
   it("T17: Onboarding.tsx has country-continue-btn testid", () => {
@@ -179,18 +179,19 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
     expect(content).toContain("selectedCountryPackId");
   });
 
-  it("T21: COUNTRY_OPTIONS contains GLOBAL, CA, VN, PH, and US", () => {
-    // COUNTRY_OPTIONS array now has 5 entries: GLOBAL (added Phase 4), CA, VN, PH, US
-    expect(content).toContain("id: \"GLOBAL\""); // GLOBAL added in V2 Onboarding Phase 4
+  it("T21: COUNTRY_OPTIONS contains CA, VN, and PH (not GLOBAL/US)", () => {
+    // COUNTRY_OPTIONS array has CA, VN, and PH entries (PH added in V2)
     expect(content).toContain("id: \"CA\"");
     expect(content).toContain("id: \"VN\"");
     expect(content).toContain("id: \"PH\""); // PH added in V2
-    expect(content).toContain("id: \"US\""); // US added in V2 US Expansion Step 2
+    // GLOBAL/US should not be in the Step 0 country options array
+    expect(content).not.toContain("id: \"GLOBAL\"");
+    expect(content).not.toContain("id: \"US\"");
   });
 
   it("T22: Flag OFF → step starts at 1 (V1 regression)", () => {
     // useState initializer: v2CountryPacksEnabled ? 0 : 1
-    expect(content).toContain("if (!v2CountryPacksEnabled) return 1");
+    expect(content).toContain("v2CountryPacksEnabled ? 0 : 1");
   });
 
   it("T23: Onboarding.tsx imports setCountryPack via trpc.profile.setCountryPack", () => {

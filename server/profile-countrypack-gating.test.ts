@@ -45,18 +45,16 @@ describe("Profile track options: always derived from countryPackId", () => {
     expect(result.tracks.map((t) => t.code)).toContain("EXPERIENCED");
   });
 
-  it("P4: GLOBAL countryPackId returns 4 GLOBAL_TRACKS (V2 Global Career Stages)", () => {
+  it("P4: GLOBAL countryPackId returns empty tracks (coming soon)", () => {
     const result = getTracksForCountry("GLOBAL" as CountryPackId, true, "en");
-    expect(result.tracks.length).toBe(4);
-    expect(result.hasTracksForCountry).toBe(true);
-    expect(result.regionCode).toBe("GLOBAL");
+    expect(result.tracks.length).toBe(0);
+    expect(result.hasTracksForCountry).toBe(false);
   });
 
-  it("P5: null countryPackId returns GLOBAL_TRACKS (V2 Global Career Stages)", () => {
+  it("P5: null countryPackId returns empty tracks (coming soon)", () => {
     const result = getTracksForCountry(null, true, "en");
-    expect(result.tracks.length).toBe(4);
-    expect(result.hasTracksForCountry).toBe(true);
-    expect(result.regionCode).toBe("GLOBAL");
+    expect(result.tracks.length).toBe(0);
+    expect(result.hasTracksForCountry).toBe(false);
   });
 
   it("P6: flag OFF always returns CA tracks regardless of countryPackId", () => {
@@ -87,9 +85,11 @@ describe("Profile track options: always derived from countryPackId", () => {
     // PH tracks should be identical regardless of locale
     expect(enResult.tracks.map((t) => t.label)).toEqual(viResult.tracks.map((t) => t.label));
   });
-});// ─── Work Authorization card is CA+US ─────────────────────────────────────────────
+});
 
-describe("Profile Work Authorization card: CA+US gating", () => {
+// ─── Work Authorization card is CA-only ──────────────────────────────────────
+
+describe("Profile Work Authorization card: CA-only gating", () => {
   it("P9: showWorkAuthCard uses userCountryPackId === 'CA' directly", () => {
     // The fix: gate on userCountryPackId, not effectiveRegionCode
     expect(profileContent).toContain("userCountryPackId === \"CA\"");
@@ -108,9 +108,8 @@ describe("Profile Work Authorization card: CA+US gating", () => {
     expect(profileContent).toContain("Work Authorization");
   });
 
-  it("P12: Work Authorization card comment says CA and US", () => {
-    // Comment updated: now says 'CA and US'
-    expect(profileContent).toContain("CA and US");
+  it("P12: Work Authorization card comment says CA only", () => {
+    expect(profileContent).toContain("CA only");
   });
 
   it("P13: CA-only logic: userCountryPackId=CA → showWorkAuthCard true", () => {

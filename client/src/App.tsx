@@ -36,7 +36,6 @@ import AdminOperationalEvents from "./pages/admin/AdminOperationalEvents";
 import AdminStripeEvents from "./pages/admin/AdminStripeEvents";
 import AdminEarlyAccess from "./pages/admin/AdminEarlyAccess";
 import AdminGrowthDashboard from "./pages/admin/AdminGrowthDashboard";
-import AdminSettings from "./pages/admin/AdminSettings";
 import AdminRefunds from "./pages/admin/AdminRefunds";
 import AdminBillingReceipts from "./pages/admin/AdminBillingReceipts";
 import AdminOps from "./pages/admin/AdminOps";
@@ -156,7 +155,6 @@ function Router() {
         <Route path="/admin/refunds" component={AdminRefunds} />
         <Route path="/admin/billing-receipts" component={AdminBillingReceipts} />
         <Route path="/admin/ops" component={AdminOps} />
-        <Route path="/admin/settings" component={AdminSettings} />
 
         {/* Browser Capture helper — opened in new tab by fallback button */}
         <Route path="/capture" component={BrowserCapture} />
