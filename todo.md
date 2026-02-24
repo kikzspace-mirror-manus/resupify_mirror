@@ -1439,3 +1439,37 @@
 - [x] Add CA_EXPERIENCED pack to shared/regionPacks.ts (maxPages 2, weights sum 1.0)
 - [x] Extend CA_TRACKS in shared/trackOptions.ts to 4 options (COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED)
 - [x] Write tests: weights sum 1.0, CA_COOP/CA_NEW_GRAD unchanged, 4-option CA dropdown
+
+## V2 — Admin Growth: Country Pack Adoption Chart
+- [x] Add getCountryPackAdoption(rangeDays) query to server/db.ts
+- [x] Add admin.countryPackAdoption.daily tRPC query to server/routers/admin.ts
+- [x] Add Country Pack Adoption card to AdminGrowthDashboard.tsx (line chart + totals row)
+- [x] Write tests: backend query shape, totals, empty state, regression
+
+## V2 — Job Cards Bulk Archive Safety Confirmation (>100)
+- [x] Add bulkArchiveLargeConfirmOpen state variable
+- [x] Branch Archive button onClick: >100 → open large confirm dialog, ≤100 → open existing dialog
+- [x] Add large confirm AlertDialog with "Archive {N} jobs?" title and "You can't undo this from the list view." body
+- [x] Large confirm "Confirm Archive" button triggers the same archive runner
+- [x] Write tests: 101 selected shows large dialog, cancel blocks, confirm proceeds; 100 selected uses existing dialog
+
+## V2 — Onboarding Education Step: Add Highest Education Level Dropdown
+- [x] Restore highestEducationLevel state + useEffect hydration in Profile.tsx (was lost in divergence commit)
+- [x] Restore highestEducationLevel to Profile Education save payload
+- [x] Add highestEducationLevel state variable to Onboarding.tsx Education step
+- [x] Add schoolPlaceholder IIFE (pack-aware) to Onboarding.tsx
+- [x] Add isCoopCA guard to Onboarding.tsx (CA+COOP only for enrollment toggle/co-op copy)
+- [x] Add Highest education level dropdown above School/Institution in Onboarding Education step
+- [x] Update handleComplete to pass highestEducationLevel in upsertProfile payload
+- [x] Rename "Program" label → "Field of study" in Onboarding Education step
+- [x] Write tests: dropdown renders 7 options, value included in mutation payload, regression
+
+## Restore 1/2 — Admin Settings + enabledCountryPacks (from cad05d1)
+- [x] Restore client/src/pages/admin/AdminSettings.tsx from cad05d1
+- [x] Restore /admin/settings route in client/src/App.tsx
+- [x] Restore Settings nav item in client/src/components/AdminLayout.tsx
+- [x] Restore db.getEnabledCountryPacks + db.setAdminSetting in server/db.ts
+- [x] Restore enabledCountryPacks in system.featureFlags query in server/_core/systemRouter.ts
+- [x] Restore system.setEnabledCountryPacks admin mutation in server/_core/systemRouter.ts
+- [x] Re-declare admin_settings table in drizzle/schema.ts (no migration, table exists in DB)
+- [x] Write tests: route exists, featureFlags returns enabledCountryPacks, setEnabledCountryPacks persists
