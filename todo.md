@@ -1473,3 +1473,13 @@
 - [x] Restore system.setEnabledCountryPacks admin mutation in server/_core/systemRouter.ts
 - [x] Re-declare admin_settings table in drizzle/schema.ts (no migration, table exists in DB)
 - [x] Write tests: route exists, featureFlags returns enabledCountryPacks, setEnabledCountryPacks persists
+
+## Restore 2/2 — Onboarding Step 0 UX + Track Labels + enabledCountryPacks Filtering
+- [x] Update Onboarding.tsx Step 0 helper copy: "Choose your main job market so we can personalize the next steps."
+- [x] Remove country sublabel paragraphs from Step 0 country cards
+- [x] Filter Step 0 country cards by featureFlags.enabledCountryPacks
+- [x] Auto-skip Step 0 when enabledCountryPacks.length === 1
+- [x] Fix Step 0 grid layout: 1 card centered, 2 cards 2-col, 3+ cards responsive
+- [x] Remove country prefixes from VN/PH/US track labels in shared/trackOptions.ts
+- [x] Ensure GLOBAL and US are present as options in COUNTRY_OPTIONS
+- [x] Write tests: helper copy, no sublabel, enabledCountryPacks filter, grid class, track labels

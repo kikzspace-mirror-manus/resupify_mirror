@@ -80,19 +80,19 @@ describe("getTracksForCountry() with locale", () => {
   it("T10: flag ON + VN + en locale → EN VN tracks", () => {
     const result = getTracksForCountry("VN", true, "en");
     expect(result.tracks).toEqual(VN_TRACKS);
-    expect(result.tracks[0].label).toBe("Vietnam — Internship / Student");
-    expect(result.tracks[1].label).toBe("Vietnam — New Graduate");
-    expect(result.tracks[2].label).toBe("Vietnam — Early Career (1–5 years)");
-    expect(result.tracks[3].label).toBe("Vietnam — Experienced (5+ years)");
+    expect(result.tracks[0].label).toBe("Internship / Student");
+    expect(result.tracks[1].label).toBe("New Graduate");
+    expect(result.tracks[2].label).toBe("Early Career (1–5 years)");
+    expect(result.tracks[3].label).toBe("Experienced (5+ years)");
   });
 
   it("T11: flag ON + VN + vi locale → VI VN tracks", () => {
     const result = getTracksForCountry("VN", true, "vi");
     expect(result.tracks).toEqual(VN_TRACKS_VI);
-    expect(result.tracks[0].label).toBe("Việt Nam — Thực tập / Sinh viên");
-    expect(result.tracks[1].label).toBe("Việt Nam — Mới tốt nghiệp");
-    expect(result.tracks[2].label).toBe("Việt Nam — Đi làm (1–5 năm)");
-    expect(result.tracks[3].label).toBe("Việt Nam — Kinh nghiệm (5+ năm)");
+    expect(result.tracks[0].label).toBe("Thực tập / Sinh viên");
+    expect(result.tracks[1].label).toBe("Mới tốt nghiệp");
+    expect(result.tracks[2].label).toBe("Đi làm (1–5 năm)");
+    expect(result.tracks[3].label).toBe("Kinh nghiệm (5+ năm)");
   });
 
   it("T12: flag ON + VN + vi locale → VI sublabels", () => {
@@ -143,25 +143,25 @@ describe("VN_TRACKS_VI structure", () => {
 
   it("T19: VN_TRACKS_VI INTERNSHIP has correct VI label", () => {
     const t = VN_TRACKS_VI.find((t) => t.code === "INTERNSHIP")!;
-    expect(t.label).toBe("Việt Nam — Thực tập / Sinh viên");
+    expect(t.label).toBe("Thực tập / Sinh viên");
     expect(t.sublabel).toBe("Phù hợp cho sinh viên ứng tuyển thực tập");
   });
 
   it("T20: VN_TRACKS_VI NEW_GRAD has correct VI label", () => {
     const t = VN_TRACKS_VI.find((t) => t.code === "NEW_GRAD")!;
-    expect(t.label).toBe("Việt Nam — Mới tốt nghiệp");
+    expect(t.label).toBe("Mới tốt nghiệp");
     expect(t.sublabel).toBe("Phù hợp cho 0–1 năm kinh nghiệm");
   });
 
   it("T21: VN_TRACKS_VI EARLY_CAREER has correct VI label", () => {
     const t = VN_TRACKS_VI.find((t) => t.code === "EARLY_CAREER")!;
-    expect(t.label).toBe("Việt Nam — Đi làm (1–5 năm)");
+    expect(t.label).toBe("Đi làm (1–5 năm)");
     expect(t.sublabel).toBe("Phù hợp cho người mới đi làm tích lũy kinh nghiệm");
   });
 
   it("T22: VN_TRACKS_VI EXPERIENCED has correct VI label", () => {
     const t = VN_TRACKS_VI.find((t) => t.code === "EXPERIENCED")!;
-    expect(t.label).toBe("Việt Nam — Kinh nghiệm (5+ năm)");
+    expect(t.label).toBe("Kinh nghiệm (5+ năm)");
     expect(t.sublabel).toBe("Phù hợp cho senior/manager");
   });
 });

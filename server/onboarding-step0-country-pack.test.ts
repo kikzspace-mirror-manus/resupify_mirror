@@ -155,8 +155,9 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
     expect(content).toContain("`country-option-${country.id}`");
   });
 
-  it("T16: Onboarding.tsx maps over COUNTRY_OPTIONS to render country cards", () => {
-    expect(content).toContain("COUNTRY_OPTIONS.map");
+  it("T16: Onboarding.tsx maps over filteredCountries to render country cards", () => {
+    // Restore 2/2: Now filters by enabledCountryPacks, so maps over filteredCountries
+    expect(content).toContain("filteredCountries.map");
   });
 
   it("T17: Onboarding.tsx has country-continue-btn testid", () => {
@@ -179,19 +180,19 @@ describe("Onboarding.tsx Step 0 UI structure", () => {
     expect(content).toContain("selectedCountryPackId");
   });
 
-  it("T21: COUNTRY_OPTIONS contains CA, VN, and PH (not GLOBAL/US)", () => {
-    // COUNTRY_OPTIONS array has CA, VN, and PH entries (PH added in V2)
+  it("T21: COUNTRY_OPTIONS contains GLOBAL, CA, VN, PH, and US", () => {
+    // COUNTRY_OPTIONS array now includes GLOBAL and US (Restore 2/2)
+    expect(content).toContain("id: \"GLOBAL\"");
     expect(content).toContain("id: \"CA\"");
     expect(content).toContain("id: \"VN\"");
-    expect(content).toContain("id: \"PH\""); // PH added in V2
-    // GLOBAL/US should not be in the Step 0 country options array
-    expect(content).not.toContain("id: \"GLOBAL\"");
-    expect(content).not.toContain("id: \"US\"");
+    expect(content).toContain("id: \"PH\"");
+    expect(content).toContain("id: \"US\"");
   });
 
-  it("T22: Flag OFF → step starts at 1 (V1 regression)", () => {
-    // useState initializer: v2CountryPacksEnabled ? 0 : 1
-    expect(content).toContain("v2CountryPacksEnabled ? 0 : 1");
+  it("T22: Flag OFF or single pack → step starts at 1 (V1 compat + auto-skip)", () => {
+    // useState initializer checks: flag OFF or enabledCountryPacks.length === 1 → return 1
+    expect(content).toContain("!v2CountryPacksEnabled");
+    expect(content).toContain("enabledCountryPacks.length === 1");
   });
 
   it("T23: Onboarding.tsx imports setCountryPack via trpc.profile.setCountryPack", () => {
