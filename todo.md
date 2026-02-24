@@ -1725,3 +1725,9 @@
 - [x] Ensure selectedCountryPackId is already initialized from userCountryPackId (already done)
 - [x] Tests use source-scan pattern (no testid needed)
 - [x] Write tests: partial-setup guard, full redirect, no-pack Step 0, regression
+
+## V2 — Profile Education Pack-Aware Placeholders
+- [x] Create shared/educationPlaceholders.ts with getEducationPlaceholders(countryPackId)
+- [x] Update Profile.tsx school Input placeholder to use getEducationPlaceholders(userCountryPackId).schoolPlaceholder
+- [x] Verify field placeholder stays generic (already correct, just confirm)
+- [x] Write tests: each pack returns correct school placeholder

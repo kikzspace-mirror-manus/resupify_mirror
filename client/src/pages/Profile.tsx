@@ -18,6 +18,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
 import { getTracksForCountry, resolveLocale, type TrackCode, type SupportedLocale } from "@shared/trackOptions";
+import { getEducationPlaceholders } from "@shared/educationPlaceholders";
 
 export default function Profile() {
   const utils = trpc.useUtils();
@@ -469,7 +470,7 @@ export default function Profile() {
               <Input
                 id="school"
                 data-testid="profile-school-input"
-                placeholder="e.g., University of Waterloo"
+                placeholder={getEducationPlaceholders(userCountryPackId).schoolPlaceholder}
                 value={school}
                 maxLength={MAX_LENGTHS.PROFILE_SCHOOL}
                 onChange={(e) => { setSchool(e.target.value); setEduSavedAt(null); }}
