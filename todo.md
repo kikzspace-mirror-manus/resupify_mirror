@@ -1529,3 +1529,10 @@
 - [x] Update helper text: "Choose your primary job market. This helps us show the right tracks and eligibility checks." → "Choose your main job market so we can personalize the next steps."
 - [x] Remove sublabel paragraph from each country card (CA/VN/PH/US) — keep flag + name only
 - [x] Write tests: assert old helper text absent, new helper text present, sublabel text absent, cards still render, selection still works
+
+## V2 — Track step: remove country name prefix from VN/PH/US track labels
+- [x] VN_TRACKS: remove "Vietnam — " prefix from all 4 English labels
+- [x] VN_TRACKS_VI: remove "Việt Nam — " prefix from all 4 Vietnamese labels
+- [x] PH_TRACKS: remove "Philippines — " prefix from all 4 labels
+- [x] US_TRACKS: remove "United States — " prefix from all 4 labels
+- [x] Write tests: assert no country prefix in VN/PH/US track labels; CA labels unchanged; sublabels unchanged

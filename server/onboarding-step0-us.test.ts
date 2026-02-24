@@ -128,10 +128,12 @@ describe("Onboarding Step 0 — US tracks shown after selection", () => {
     expect(en.tracks.map((t) => t.label)).toEqual(vi.tracks.map((t) => t.label));
   });
 
-  it("T16: all US track labels start with 'United States'", () => {
+  it("T16: all US track labels have no country prefix (V2 Onboarding Phase 2)", () => {
     const result = getTracksForCountry("US", true, "en");
     for (const t of result.tracks) {
-      expect(t.label).toMatch(/^United States/);
+      // Country prefix removed in V2 Onboarding Phase 2
+      expect(t.label).not.toMatch(/^United States/);
+      expect(t.label).toMatch(/^(Internship|New Graduate|Early Career|Experienced)/);
     }
   });
 });

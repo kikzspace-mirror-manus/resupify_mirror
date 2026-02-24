@@ -452,7 +452,7 @@ const CA_EXPERIENCED: RegionPack = {
 const VN_INTERNSHIP: RegionPack = {
   regionCode: "VN",
   trackCode: "INTERNSHIP",
-  label: "Vietnam — Internship / Student",
+  label: "Internship / Student",
   resumeDefaults: {
     sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
     educationFirst: true,
@@ -499,7 +499,7 @@ const VN_INTERNSHIP: RegionPack = {
 const VN_NEW_GRAD: RegionPack = {
   regionCode: "VN",
   trackCode: "NEW_GRAD",
-  label: "Vietnam — New Graduate",
+  label: "New Graduate",
   resumeDefaults: {
     sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
     educationFirst: false,
@@ -546,7 +546,7 @@ const VN_NEW_GRAD: RegionPack = {
 const VN_EARLY_CAREER: RegionPack = {
   regionCode: "VN",
   trackCode: "EARLY_CAREER",
-  label: "Vietnam — Early Career (1–5 years)",
+  label: "Early Career (1–5 years)",
   resumeDefaults: {
     sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
     educationFirst: false,
@@ -593,7 +593,7 @@ const VN_EARLY_CAREER: RegionPack = {
 const VN_EXPERIENCED: RegionPack = {
   regionCode: "VN",
   trackCode: "EXPERIENCED",
-  label: "Vietnam — Experienced (5+ years)",
+  label: "Experienced (5+ years)",
   resumeDefaults: {
     sections: ["experience", "leadership", "achievements", "skills", "education"],
     educationFirst: false,
@@ -642,7 +642,7 @@ const VN_EXPERIENCED: RegionPack = {
 const PH_INTERNSHIP: RegionPack = {
   regionCode: "PH",
   trackCode: "INTERNSHIP",
-  label: "Philippines — Internship / Student",
+  label: "Internship / Student",
   resumeDefaults: {
     sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
     educationFirst: true,
@@ -689,7 +689,7 @@ const PH_INTERNSHIP: RegionPack = {
 const PH_NEW_GRAD: RegionPack = {
   regionCode: "PH",
   trackCode: "NEW_GRAD",
-  label: "Philippines — New Graduate",
+  label: "New Graduate",
   resumeDefaults: {
     sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
     educationFirst: false,
@@ -736,7 +736,7 @@ const PH_NEW_GRAD: RegionPack = {
 const PH_EARLY_CAREER: RegionPack = {
   regionCode: "PH",
   trackCode: "EARLY_CAREER",
-  label: "Philippines — Early Career (1–5 years)",
+  label: "Early Career (1–5 years)",
   resumeDefaults: {
     sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
     educationFirst: false,
@@ -783,7 +783,7 @@ const PH_EARLY_CAREER: RegionPack = {
 const PH_EXPERIENCED: RegionPack = {
   regionCode: "PH",
   trackCode: "EXPERIENCED",
-  label: "Philippines — Experienced (5+ years)",
+  label: "Experienced (5+ years)",
   resumeDefaults: {
     sections: ["experience", "leadership", "achievements", "skills", "education"],
     educationFirst: false,
@@ -832,7 +832,7 @@ const PH_EXPERIENCED: RegionPack = {
 const US_INTERNSHIP: RegionPack = {
   regionCode: "US",
   trackCode: "INTERNSHIP",
-  label: "United States — Internship / Student",
+  label: "Internship / Student",
   resumeDefaults: {
     sections: ["education", "projects", "skills", "experience", "certifications", "activities"],
     educationFirst: true,
@@ -879,7 +879,7 @@ const US_INTERNSHIP: RegionPack = {
 const US_NEW_GRAD: RegionPack = {
   regionCode: "US",
   trackCode: "NEW_GRAD",
-  label: "United States — New Graduate",
+  label: "New Graduate",
   resumeDefaults: {
     sections: ["experience", "projects", "education", "skills", "certifications", "volunteering"],
     educationFirst: false,
@@ -926,7 +926,7 @@ const US_NEW_GRAD: RegionPack = {
 const US_EARLY_CAREER: RegionPack = {
   regionCode: "US",
   trackCode: "EARLY_CAREER",
-  label: "United States — Early Career (1\u20135 years)",
+  label: "Early Career (1\u20135 years)",
   resumeDefaults: {
     sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
     educationFirst: false,
@@ -973,7 +973,7 @@ const US_EARLY_CAREER: RegionPack = {
 const US_EXPERIENCED: RegionPack = {
   regionCode: "US",
   trackCode: "EXPERIENCED",
-  label: "United States — Experienced (5+ years)",
+  label: "Experienced (5+ years)",
   resumeDefaults: {
     sections: ["experience", "leadership", "achievements", "skills", "education"],
     educationFirst: false,

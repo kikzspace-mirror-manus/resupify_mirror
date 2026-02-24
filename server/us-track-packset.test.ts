@@ -50,28 +50,28 @@ describe("A) US pack definitions — shared/regionPacks.ts", () => {
     const pack = getRegionPack("US", "INTERNSHIP");
     expect(pack.regionCode).toBe("US");
     expect(pack.trackCode).toBe("INTERNSHIP");
-    expect(pack.label).toBe("United States — Internship / Student");
+    expect(pack.label).toBe("Internship / Student");
   });
 
   it("T6: US/NEW_GRAD has correct regionCode, trackCode, label", () => {
     const pack = getRegionPack("US", "NEW_GRAD");
     expect(pack.regionCode).toBe("US");
     expect(pack.trackCode).toBe("NEW_GRAD");
-    expect(pack.label).toBe("United States — New Graduate");
+    expect(pack.label).toBe("New Graduate");
   });
 
   it("T7: US/EARLY_CAREER has correct regionCode, trackCode, label", () => {
     const pack = getRegionPack("US", "EARLY_CAREER");
     expect(pack.regionCode).toBe("US");
     expect(pack.trackCode).toBe("EARLY_CAREER");
-    expect(pack.label).toBe("United States — Early Career (1–5 years)");
+    expect(pack.label).toBe("Early Career (1–5 years)");
   });
 
   it("T8: US/EXPERIENCED has correct regionCode, trackCode, label", () => {
     const pack = getRegionPack("US", "EXPERIENCED");
     expect(pack.regionCode).toBe("US");
     expect(pack.trackCode).toBe("EXPERIENCED");
-    expect(pack.label).toBe("United States — Experienced (5+ years)");
+    expect(pack.label).toBe("Experienced (5+ years)");
   });
 
   it("T9: all US packs have no eligibility checks", () => {
@@ -175,27 +175,27 @@ describe("B) US_TRACKS — shared/trackOptions.ts", () => {
     }
   });
 
-  it("T23: US_TRACKS INTERNSHIP label is 'United States — Internship / Student'", () => {
+  it("T23: US_TRACKS INTERNSHIP label is 'Internship / Student'", () => {
     const t = US_TRACKS.find((t) => t.code === "INTERNSHIP")!;
-    expect(t.label).toBe("United States — Internship / Student");
+    expect(t.label).toBe("Internship / Student");
     expect(t.sublabel).toBe("Students applying for internships");
   });
 
-  it("T24: US_TRACKS NEW_GRAD label is 'United States — New Graduate'", () => {
+  it("T24: US_TRACKS NEW_GRAD label is 'New Graduate'", () => {
     const t = US_TRACKS.find((t) => t.code === "NEW_GRAD")!;
-    expect(t.label).toBe("United States — New Graduate");
+    expect(t.label).toBe("New Graduate");
     expect(t.sublabel).toBe("0–2 years experience");
   });
 
-  it("T25: US_TRACKS EARLY_CAREER label is 'United States — Early Career (1–5 years)'", () => {
+  it("T25: US_TRACKS EARLY_CAREER label is 'Early Career (1–5 years)'", () => {
     const t = US_TRACKS.find((t) => t.code === "EARLY_CAREER")!;
-    expect(t.label).toBe("United States — Early Career (1–5 years)");
+    expect(t.label).toBe("Early Career (1–5 years)");
     expect(t.sublabel).toBe("1–5 years experience");
   });
 
-  it("T26: US_TRACKS EXPERIENCED label is 'United States — Experienced (5+ years)'", () => {
+  it("T26: US_TRACKS EXPERIENCED label is 'Experienced (5+ years)'", () => {
     const t = US_TRACKS.find((t) => t.code === "EXPERIENCED")!;
-    expect(t.label).toBe("United States — Experienced (5+ years)");
+    expect(t.label).toBe("Experienced (5+ years)");
     expect(t.sublabel).toBe("5+ years (senior IC/manager)");
   });
 });
@@ -215,9 +215,10 @@ describe("C) getTracksForCountry('US') — locale-agnostic, English-only", () =>
     expect(result.tracks).toHaveLength(4);
     expect(result.hasTracksForCountry).toBe(true);
     expect(result.regionCode).toBe("US");
-    // Labels must be English regardless of vi locale
+    // Labels must be English regardless of vi locale; no country prefix (removed in V2 Onboarding Phase 2)
     for (const t of result.tracks) {
-      expect(t.label).toMatch(/^United States/);
+      expect(t.label).not.toMatch(/^United States/);
+      expect(t.label).toMatch(/^(Internship|New Graduate|Early Career|Experienced)/);
     }
   });
 
@@ -269,8 +270,9 @@ describe("D) Regression — existing CA/VN/PH packs and GLOBAL fallback unchange
   it("T36: VN tracks still return 4 entries (vi)", () => {
     const result = getTracksForCountry("VN", true, "vi");
     expect(result.tracks).toHaveLength(4);
+    // Labels no longer contain country prefix (removed in V2 Onboarding Phase 2)
     for (const t of result.tracks) {
-      expect(t.label).toMatch(/^Việt Nam/);
+      expect(t.label).not.toMatch(/^Việt Nam/);
     }
   });
 

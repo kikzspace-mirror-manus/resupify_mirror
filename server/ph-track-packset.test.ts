@@ -23,25 +23,25 @@ describe("PH pack definitions — shared/regionPacks.ts", () => {
     const pack = getRegionPack("PH", "INTERNSHIP");
     expect(pack.regionCode).toBe("PH");
     expect(pack.trackCode).toBe("INTERNSHIP");
-    expect(pack.label).toBe("Philippines — Internship / Student");
+    expect(pack.label).toBe("Internship / Student");
   });
   it("T6: PH/NEW_GRAD has correct regionCode, trackCode, label", () => {
     const pack = getRegionPack("PH", "NEW_GRAD");
     expect(pack.regionCode).toBe("PH");
     expect(pack.trackCode).toBe("NEW_GRAD");
-    expect(pack.label).toBe("Philippines — New Graduate");
+    expect(pack.label).toBe("New Graduate");
   });
   it("T7: PH/EARLY_CAREER has correct regionCode, trackCode, label", () => {
     const pack = getRegionPack("PH", "EARLY_CAREER");
     expect(pack.regionCode).toBe("PH");
     expect(pack.trackCode).toBe("EARLY_CAREER");
-    expect(pack.label).toBe("Philippines — Early Career (1–5 years)");
+    expect(pack.label).toBe("Early Career (1–5 years)");
   });
   it("T8: PH/EXPERIENCED has correct regionCode, trackCode, label", () => {
     const pack = getRegionPack("PH", "EXPERIENCED");
     expect(pack.regionCode).toBe("PH");
     expect(pack.trackCode).toBe("EXPERIENCED");
-    expect(pack.label).toBe("Philippines — Experienced (5+ years)");
+    expect(pack.label).toBe("Experienced (5+ years)");
   });
 
   it("T9: PH packs have no eligibility checks", () => {
@@ -171,7 +171,9 @@ describe("PH track options — shared/trackOptions.ts", () => {
     const result = getTracksForCountry("VN", true, "vi");
     expect(result.tracks).toHaveLength(4);
     expect(result.regionCode).toBe("VN");
-    expect(result.tracks[0].label).toContain("Việt Nam");
+    // Labels no longer contain country prefix (removed in V2 Onboarding Phase 2)
+    expect(result.tracks[0].label).not.toContain("Việt Nam");
+    expect(result.tracks[0].label).toBe("Thực tập / Sinh viên");
   });
 
   it("T30: GLOBAL still returns empty tracks (unchanged)", () => {
@@ -182,13 +184,13 @@ describe("PH track options — shared/trackOptions.ts", () => {
 
   it("T31: PH/INTERNSHIP label and sublabel are correct", () => {
     const track = PH_TRACKS.find(t => t.code === "INTERNSHIP")!;
-    expect(track.label).toBe("Philippines — Internship / Student");
+    expect(track.label).toBe("Internship / Student");
     expect(track.sublabel).toBe("Best for students applying for internships");
   });
 
   it("T32: PH/EXPERIENCED label and sublabel are correct", () => {
     const track = PH_TRACKS.find(t => t.code === "EXPERIENCED")!;
-    expect(track.label).toBe("Philippines — Experienced (5+ years)");
+    expect(track.label).toBe("Experienced (5+ years)");
     expect(track.sublabel).toBe("Best for senior individual contributors or managers");
   });
 });
