@@ -144,6 +144,18 @@ export default function Onboarding() {
 
   if (loading) return null;
 
+  // ── V2 Re-entry guard ─────────────────────────────────────────────────────
+  // If V2 is enabled and the user already has a pack + track, redirect to /profile.
+  // This prevents accidental pack/track resets when a returning user visits /onboarding.
+  // V1 (flag OFF): no redirect — existing behaviour is preserved.
+  if (v2CountryPacksEnabled && user) {
+    const userTrackCode = (user as any)?.trackCode as string | null | undefined;
+    if (userCountryPackId && userTrackCode) {
+      setLocation("/profile");
+      return null;
+    }
+  }
+
   const handleSkip = async () => {
     try {
       await skipOnboarding.mutateAsync();

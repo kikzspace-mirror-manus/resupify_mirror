@@ -1512,3 +1512,9 @@
 - [x] Improve visual hierarchy: section headers with icons, max-w-[1200px] container
 - [x] Improve KPI cards: icon, stronger number weight, responsive wrap
 - [x] Write tests: Refresh triggers invalidate, button disabled, last updated changes
+
+## V2 — Onboarding Re-entry Guard
+- [x] If V2 flag ON AND user has countryPackId + trackCode: redirect to /profile on /onboarding load
+- [x] Render minimal loading state while redirecting (no Step 0 flash)
+- [x] V1 (flag OFF): no new redirects, behavior unchanged
+- [x] Write tests: V2 complete → redirect, V2 incomplete → stays, V1 → unchanged
