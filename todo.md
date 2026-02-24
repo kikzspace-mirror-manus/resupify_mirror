@@ -1648,3 +1648,25 @@
 - [x] Apply same pattern to Job Market + Career Stage buttons for full consistency
 - [x] Add data-testids for saved state detection
 - [x] Write tests: saved state after success, reverts on field change
+
+## Generation Context Audit — Non-PII LLM Instrumentation
+- [ ] Create server/generation/logGenerationContext.ts helper
+- [ ] Wire logGenerationContext into evidence.run (Evidence Scan)
+- [ ] Wire logGenerationContext into evidence.batchSprint (Batch Sprint)
+- [ ] Wire logGenerationContext into outreach.generatePack (Outreach Pack)
+- [ ] Wire logGenerationContext into applicationKits.generate (Application Kit + Cover Letter)
+- [ ] Wire logGenerationContext into v2Translation.ts (Translation)
+- [ ] Write tests: no raw text logged, boolean presence flags, flow names correct
+
+## V2 — Generation Context Audit (logGenerationContext)
+
+- [x] Create server/generation/logGenerationContext.ts helper with GenerationContextRecord type
+- [x] Add buildEducationContext helper (boolean presence flags, no raw strings)
+- [x] Add buildWorkAuthContext helper (CA/US only, boolean presence flags)
+- [x] Add getProviderMeta export to llmProvider.ts
+- [x] Wire logGenerationContext into evidence.run (Evidence Scan)
+- [x] Wire logGenerationContext into evidence.batchSprint (Batch Sprint)
+- [x] Wire logGenerationContext into outreach.generatePack (Outreach Pack)
+- [x] Wire logGenerationContext into applicationKits.generate (Application Kit)
+- [x] Update source-scan test windows (C1, E1) to 9000 chars after instrumentation added
+- [x] Write 43 tests: PII safety contract, boolean flags, flow names, workAuth guard

@@ -20,7 +20,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
-import { callLLM } from "./llmProvider";
+import { callLLM, getProviderMeta } from "./llmProvider";
 import { extractFromJson } from "@shared/jdJsonExtractors";
 import { getRegionPack, getAvailablePacks } from "../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../shared/outreachHelpers";
@@ -37,6 +37,7 @@ import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
 import { safeNormalizeJobUrl } from "../shared/urlNormalize";
 import { COUNTRY_PACK_IDS } from "../shared/countryPacks";
 import { logAnalyticsEvent } from "./analytics";
+import { logGenerationContext, buildEducationContext, buildWorkAuthContext } from "./generation/logGenerationContext";
 import {
   EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
   EVT_OUTREACH_GENERATED, EVT_PAYWALL_VIEWED, EVT_COUNTRY_PACK_SELECTED,
@@ -983,11 +984,28 @@ export const appRouter = router({
       const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
       const topSources = personalizationSources.slice(0, 3);
       const personalizationBlock = buildPersonalizationBlock(topSources);
+      // ── Instrumentation: log non-PII generation context ──────────────
+      const _evidenceProviderMeta = getProviderMeta();
+      logGenerationContext({
+        flow: "evidence_scan",
+        userId: ctx.user.id,
+        countryPackId: v2PackCtx.countryPackId,
+        trackCode: profile?.trackCode ?? null,
+        languageMode: v2PackCtx.languageMode,
+        education: buildEducationContext(profile),
+        workAuth: buildWorkAuthContext(profile, v2PackCtx.countryPackId),
+        promptMeta: {
+          model: _evidenceProviderMeta.model,
+          provider: _evidenceProviderMeta.provider,
+          promptPrefixKey: v2PackCtx.templateStyleKey,
+          promptVersion: "evidence_scan_v2",
+        },
+      });
       const llmResult = await callLLM({
-          messages: [
-            {
-              role: "system",
-              content: [
+        messages: [
+          {
+            role: "system",
+            content: [
                 ...(v2PackCtx.packPromptPrefix ? [v2PackCtx.packPromptPrefix, ``] : []),
                 `You are an expert ATS resume analyzer for the ${pack.label} track.`,
                 `You will receive a numbered list of job requirements and a resume.`,
@@ -1282,8 +1300,24 @@ export const appRouter = router({
             jdSnapshotId: jdSnapshot.id, regionCode, trackCode, status: "running",
           });
           if (!runId) { results.push({ jobCardId, runId: null, error: "Failed to create run" }); continue; }
-
           const pack = getRegionPack(regionCode, trackCode);
+          // ── Instrumentation: log non-PII generation context ──────────────
+          const _batchProviderMeta = getProviderMeta();
+          logGenerationContext({
+            flow: "batch_sprint",
+            userId: ctx.user.id,
+            countryPackId: (ctx.user as any).countryPackId ?? regionCode,
+            trackCode: trackCode,
+            languageMode: (ctx.user as any).languageMode ?? "en",
+            education: buildEducationContext(profile),
+            workAuth: buildWorkAuthContext(profile, (ctx.user as any).countryPackId ?? regionCode),
+            promptMeta: {
+              model: _batchProviderMeta.model,
+              provider: _batchProviderMeta.provider,
+              promptPrefixKey: regionCode.toLowerCase() + "_english",
+              promptVersion: "batch_sprint",
+            },
+          });
           const llmResult = await callLLM({
             messages: [
               { role: "system", content: `You are an ATS analyzer for ${pack.label}. Analyze JD vs resume. Return JSON with overall_score (0-100), summary, and top_3_changes (array of 3 strings with the most impactful changes).` },
@@ -1531,6 +1565,23 @@ export const appRouter = router({
       const personalizationSources = await db.getPersonalizationSources(input.jobCardId, ctx.user.id);
       const topSources = personalizationSources.slice(0, 3);
       const personalizationBlock = buildPersonalizationBlock(topSources);
+      // ── Instrumentation: log non-PII generation context ──────────────
+      const _outreachProviderMeta = getProviderMeta();
+      logGenerationContext({
+        flow: "outreach_pack",
+        userId: ctx.user.id,
+        countryPackId: (ctx.user as any).countryPackId ?? profile?.regionCode ?? "GLOBAL",
+        trackCode: profile?.trackCode ?? null,
+        languageMode: (ctx.user as any).languageMode ?? "en",
+        education: buildEducationContext(profile),
+        workAuth: buildWorkAuthContext(profile, (ctx.user as any).countryPackId ?? profile?.regionCode ?? "GLOBAL"),
+        promptMeta: {
+          model: _outreachProviderMeta.model,
+          provider: _outreachProviderMeta.provider,
+          promptPrefixKey: profile?.regionCode?.toLowerCase() + "_english",
+          promptVersion: "outreach_pack",
+        },
+      });
       const llmResult = await callLLM({
         messages: [
           {
@@ -1717,7 +1768,23 @@ ${buildToneSystemPrompt()}`
       const topChangesForPrompt = topChangesItems.map((item, i) =>
         `${i + 1}. [${item.status.toUpperCase()}] ${item.jdRequirement} — ${item.fix}`
       ).join("\n");
-
+      // ── Instrumentation: log non-PII generation context ──────────────
+      const _kitProviderMeta = getProviderMeta();
+      logGenerationContext({
+        flow: "application_kit",
+        userId: ctx.user.id,
+        countryPackId: v2PackCtx.countryPackId,
+        trackCode: profile?.trackCode ?? null,
+        languageMode: v2PackCtx.languageMode,
+        education: buildEducationContext(profile),
+        workAuth: buildWorkAuthContext(profile, v2PackCtx.countryPackId),
+        promptMeta: {
+          model: _kitProviderMeta.model,
+          provider: _kitProviderMeta.provider,
+          promptPrefixKey: v2PackCtx.templateStyleKey,
+          promptVersion: "application_kit",
+        },
+      });
       const llmResult = await callLLM({
         messages: [
           {

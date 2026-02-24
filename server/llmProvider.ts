@@ -69,6 +69,17 @@ async function callOpenAI(params: InvokeParams): Promise<InvokeResult> {
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Returns the current LLM provider and model name for instrumentation.
+ * Safe to call from any server-side code — never exposes API keys.
+ */
+export function getProviderMeta(): { provider: string; model: string } {
+  const provider = ENV.LLM_PROVIDER ?? "manus";
+  const model = provider === "openai" ? (ENV.LLM_MODEL_OPENAI || "gpt-4.1") : "gemini-2.5-flash";
+  return { provider, model };
+}
+
 /**
  * Drop-in replacement for invokeLLM that respects LLM_PROVIDER.
  * All call sites pass the same InvokeParams they previously passed to invokeLLM.
