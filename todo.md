@@ -1613,3 +1613,10 @@
 - [x] Rename "Program" label to "Field of study" in Onboarding.tsx
 - [x] Pass highestEducationLevel to handleComplete mutation call
 - [x] Write tests: dropdown renders, Field of study label, save mutation includes highestEducationLevel
+
+## V2 — Fix GLOBAL regionCode fallback + audit gating
+- [x] Fix getTracksForCountry: GLOBAL fallback returns regionCode="GLOBAL" (not "CA")
+- [x] Update behaviour matrix comment in trackOptions.ts
+- [x] Audit effectiveRegionCode usages: confirm no gating decisions use it for CA/US checks
+- [x] Confirm totalSteps already correct for GLOBAL (3 steps, not 4)
+- [x] Write tests: getTracksForCountry("GLOBAL") returns regionCode="GLOBAL", not "CA"; GLOBAL onboarding no CA copy; progress count correct

@@ -267,8 +267,8 @@ export function getTranslatedTrackStepCopy(locale: SupportedLocale): TrackStepCo
  * | true      | VN            | en     | VN_TRACKS(en) | NEW_GRAD     | VN         |
  * | true      | VN            | vi     | VN_TRACKS(vi) | NEW_GRAD     | VN         |
  * | true      | US            | any    | US_TRACKS(en) | INTERNSHIP   | US         |
- * | true      | GLOBAL        | any    | []            | NEW_GRAD     | CA         |
- * | true      | null/undefined| any    | []            | NEW_GRAD     | CA         |
+ * | true      | GLOBAL        | any    | []            | NEW_GRAD     | GLOBAL     |
+ * | true      | null/undefined| any    | []            | NEW_GRAD     | GLOBAL     |
  */
 export function getTracksForCountry(
   countryPackId: CountryPackId | null | undefined,
@@ -325,11 +325,15 @@ export function getTracksForCountry(
     };
   }
 
-  // GLOBAL — no tracks defined
+  // GLOBAL (or unknown pack) — no tracks defined.
+  // IMPORTANT: must return regionCode="GLOBAL", NOT "CA".
+  // Returning "CA" here caused CA-only gating (Work Auth, co-op copy) to leak
+  // into GLOBAL users. Any consumer that needs a region for LLM/scoring should
+  // treat "GLOBAL" as a neutral fallback and not apply CA-specific rules.
   return {
     tracks: [],
     defaultTrack: "NEW_GRAD",
     hasTracksForCountry: false,
-    regionCode: "CA",
+    regionCode: "GLOBAL",
   };
 }
