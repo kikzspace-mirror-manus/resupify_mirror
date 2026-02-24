@@ -1487,3 +1487,9 @@
 - [x] Add US filter button to the filter row
 - [x] Ensure US packs appear when US filter is selected
 - [x] Write tests: US filter shows 4 US packs, All filter includes US packs
+
+## V2 — Admin Growth: Pack Adoption KPI Cards
+- [x] Add 4 KPI stat cards (CA/VN/PH/US) above Country Pack Adoption chart
+- [x] Cards use existing totals from countryPackAdoption query (no backend changes)
+- [x] Cards update when range selector changes
+- [x] Write tests: KPI cards render with correct values

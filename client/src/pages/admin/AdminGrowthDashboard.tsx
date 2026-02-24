@@ -332,7 +332,34 @@ export default function AdminGrowthDashboard() {
               </CardContent>
             </Card>
 
-            {/* ── Country Pack Adoption ─────────────────────────── */}
+            {/* -- Pack Adoption KPI Cards -- */}
+            {growthEnabled && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" data-testid="pack-adoption-kpi-cards">
+                {([
+                  { key: "CA", label: "Canada", color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30", dot: "bg-red-500" },
+                  { key: "VN", label: "Vietnam", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", dot: "bg-amber-500" },
+                  { key: "PH", label: "Philippines", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", dot: "bg-blue-500" },
+                  { key: "US", label: "United States", color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/30", dot: "bg-green-500" },
+                ] as const).map(({ key, label, color, bg, dot }) => (
+                  <div
+                    key={key}
+                    className={`rounded-xl border p-4 ${bg}`}
+                    data-testid={`pack-kpi-${key}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />
+                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                    </div>
+                    <div className={`text-2xl font-bold ${color}`} data-testid={`pack-kpi-${key}-value`}>
+                      {adoptionLoading ? "—" : (adoptionData?.totals?.[key] ?? 0).toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Selections ({adoptionRange}d)</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Country Pack Adoption ──────────────────────────────────── */}
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
