@@ -76,6 +76,7 @@ export default function Profile() {
   const [program, setProgram] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(false);
+  const [highestEducationLevel, setHighestEducationLevel] = useState("");
 
   // Contact info fields
   const [phone, setPhone] = useState("");
@@ -97,6 +98,7 @@ export default function Profile() {
       setProgram(profile.program ?? "");
       setGraduationDate(profile.graduationDate ?? "");
       setCurrentlyEnrolled(profile.currentlyEnrolled ?? false);
+      setHighestEducationLevel((profile as any).highestEducationLevel ?? "");
       setPhone((profile as any).phone ?? "");
       setLinkedinUrl((profile as any).linkedinUrl ?? "");
       setWorkStatus((profile.workStatus as any) ?? "unknown");
@@ -175,6 +177,10 @@ export default function Profile() {
   // Show work auth card for CA and US users — gate on countryPackId directly,
   // NOT on effectiveRegionCode (which defaults to "CA" in V1 mode for all users).
   const showWorkAuthCard = userCountryPackId === "CA" || userCountryPackId === "US";
+
+  // CA+COOP guard: Currently Enrolled toggle and co-op note are only relevant for
+  // co-op students in Canada. Mirrors the isCoopCA check in Onboarding.tsx.
+  const isCoopCA = userCountryPackId === "CA" && trackCode === "COOP";
 
   // Copy variant: US uses US-specific labels; CA keeps existing labels.
   const workAuthCopy = userCountryPackId === "US"
@@ -387,20 +393,49 @@ export default function Profile() {
       )}
 
       {/* Education Card */}
-      <Card>
+      <Card data-testid="profile-education-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="h-4 w-4" />
             Education
           </CardTitle>
-          <CardDescription>Optional — helps tailor your recommendations.</CardDescription>
+          <CardDescription>
+            {isCoopCA
+              ? "Co-op employers verify enrollment status."
+              : "Optional — helps tailor your recommendations."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Highest education level dropdown */}
+          <div className="space-y-2">
+            <Label htmlFor="profile-highestEducationLevel">
+              Highest education level{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+            </Label>
+            <select
+              id="profile-highestEducationLevel"
+              data-testid="profile-education-level-select"
+              value={highestEducationLevel}
+              onChange={(e) => setHighestEducationLevel(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">Select level...</option>
+              <option value="high_school">High school</option>
+              <option value="diploma_certificate">Diploma / Certificate</option>
+              <option value="associate_degree">Associate degree</option>
+              <option value="bachelors_degree">{"Bachelor's degree"}</option>
+              <option value="masters_degree">{"Master's degree"}</option>
+              <option value="doctorate">Doctorate (PhD)</option>
+              <option value="other">Other / Prefer not to say</option>
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="school">School / Institution</Label>
+              <Label htmlFor="school">
+                School / Institution{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+              </Label>
               <Input
                 id="school"
+                data-testid="profile-school-input"
                 placeholder="e.g., University of Waterloo"
                 value={school}
                 maxLength={MAX_LENGTHS.PROFILE_SCHOOL}
@@ -408,10 +443,13 @@ export default function Profile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="program">Program</Label>
+              <Label htmlFor="program">
+                Field of study{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+              </Label>
               <Input
                 id="program"
-                placeholder="e.g., Computer Science"
+                data-testid="profile-field-of-study-input"
+                placeholder="e.g., Computer Science / Business / Marketing"
                 value={program}
                 maxLength={MAX_LENGTHS.PROFILE_PROGRAM}
                 onChange={(e) => setProgram(e.target.value)}
@@ -419,7 +457,10 @@ export default function Profile() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="gradDate">Graduation Date</Label>
+            <Label htmlFor="gradDate">
+              {isCoopCA ? "Expected Graduation" : "Graduation Date"}
+              {!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+            </Label>
             <Input
               id="gradDate"
               type="month"
@@ -428,15 +469,32 @@ export default function Profile() {
               className="w-48"
             />
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <Label>Currently Enrolled</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Required for co-op eligibility</p>
+          {/* Currently Enrolled: CA+COOP only */}
+          {isCoopCA && (
+            <div
+              className="flex items-center justify-between rounded-lg border p-4"
+              data-testid="profile-currently-enrolled-row"
+            >
+              <div>
+                <Label>Currently Enrolled</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Co-op employers verify enrollment status.</p>
+              </div>
+              <Switch
+                data-testid="profile-currently-enrolled-switch"
+                checked={currentlyEnrolled}
+                onCheckedChange={setCurrentlyEnrolled}
+              />
             </div>
-            <Switch checked={currentlyEnrolled} onCheckedChange={setCurrentlyEnrolled} />
-          </div>
+          )}
           <Button
-            onClick={() => upsertProfile.mutate({ school: school || undefined, program: program || undefined, graduationDate: graduationDate || undefined, currentlyEnrolled })}
+            data-testid="profile-save-education-btn"
+            onClick={() => upsertProfile.mutate({
+              school: school || undefined,
+              program: program || undefined,
+              graduationDate: graduationDate || undefined,
+              currentlyEnrolled: isCoopCA ? currentlyEnrolled : undefined,
+              highestEducationLevel: highestEducationLevel || undefined,
+            })}
             disabled={upsertProfile.isPending}
             size="sm"
           >

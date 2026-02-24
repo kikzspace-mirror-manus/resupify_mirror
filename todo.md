@@ -1620,3 +1620,12 @@
 - [x] Audit effectiveRegionCode usages: confirm no gating decisions use it for CA/US checks
 - [x] Confirm totalSteps already correct for GLOBAL (3 steps, not 4)
 - [x] Write tests: getTracksForCountry("GLOBAL") returns regionCode="GLOBAL", not "CA"; GLOBAL onboarding no CA copy; progress count correct
+
+## V2 — Profile Education Sync (Prompt B)
+- [x] Add highestEducationLevel state + init from profile
+- [x] Add Highest education level dropdown to Education card (7 options)
+- [x] Rename "Program" label → "Field of study"
+- [x] Apply isCoopCA guard: show Currently Enrolled + co-op note only for CA+COOP
+- [x] Wire highestEducationLevel to upsertProfile.mutate call
+- [x] Remove "Required for co-op eligibility" copy from non-COOP users
+- [x] Write tests: dropdown renders, Field of study label, isCoopCA guard variants
