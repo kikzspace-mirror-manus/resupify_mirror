@@ -1848,7 +1848,7 @@ ${buildToneSystemPrompt()}`
      */
     updateCountryPack: protectedProcedure
       .input(z.object({
-        countryPackId: z.enum(["GLOBAL", "VN", "PH", "US"]).nullable(),
+        countryPackId: z.enum(["GLOBAL", "CA", "VN", "PH", "US"]).nullable(),
       }))
       .mutation(async ({ ctx, input }) => {
         const prev = ctx.user.countryPackId ?? null;

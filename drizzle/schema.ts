@@ -15,8 +15,8 @@ export const users = mysqlTable("users", {
   earlyAccessGrantUsed: boolean("earlyAccessGrantUsed").default(false).notNull(),
   // ── V2 Phase 1A: Country Pack + Language Mode (flags OFF by default) ──────
   // countryPackId: which country pack the user has selected (null = inherit default)
-  // GLOBAL = universal fallback (Phase 1B.1); VN/PH/US = opt-in country packs
-  countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "VN", "PH", "US"]),
+  // GLOBAL = universal fallback (Phase 1B.1); CA/VN/PH/US = opt-in country packs
+  countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "CA", "VN", "PH", "US"]),
   // languageMode: output language preference (default "en" = V1 behavior unchanged)
   languageMode: mysqlEnum("languageMode", ["en", "vi", "bilingual"]).default("en").notNull(),
   // currentCountry: informational only — user's current country of residence
@@ -121,8 +121,8 @@ export const jobCards = mysqlTable("job_cards", {
   eligibilityPrecheckRulesJson: text("eligibilityPrecheckRulesJson"), // JSON array of { ruleId, title }
   eligibilityPrecheckUpdatedAt: timestamp("eligibilityPrecheckUpdatedAt"),
   // ── V2 Phase 1A: Country Pack override per job card (null = inherit user.countryPackId) ──
-  // GLOBAL = universal fallback (Phase 1B.1); VN/PH/US = opt-in country packs
-  countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "VN", "PH", "US"]),
+  // GLOBAL = universal fallback (Phase 1B.1); CA/VN/PH/US = opt-in country packs
+  countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "CA", "VN", "PH", "US"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

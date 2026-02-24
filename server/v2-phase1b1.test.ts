@@ -48,13 +48,14 @@ describe("V2 Phase 1B.1: GLOBAL pack registry", () => {
     expect(countryPackRegistry["US"].templateStyleKey).toBe("us_english");
   });
 
-  it("C3) All four packs are present in registry", () => {
+  it("C3) All five packs are present in registry (GLOBAL, CA, VN, PH, US)", () => {
     const keys = Object.keys(countryPackRegistry) as CountryPackId[];
     expect(keys).toContain("GLOBAL");
+    expect(keys).toContain("CA"); // added in Phase 1C-B
     expect(keys).toContain("VN");
     expect(keys).toContain("PH");
     expect(keys).toContain("US");
-    expect(keys.length).toBe(4);
+    expect(keys.length).toBe(5);
   });
 });
 

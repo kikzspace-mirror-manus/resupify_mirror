@@ -1424,3 +1424,12 @@
 - [x] Analytics: Fire EVT_COUNTRY_PACK_CHANGED, EVT_LANGUAGE_MODE_CHANGED, EVT_PROFILE_CURRENT_COUNTRY_SET (fire-and-forget, flag-gated)
 - [x] Tests: v2-phase1c-a.test.ts — 37 tests passing
 - [x] Full suite regression: 2173 tests pass, 0 TypeScript errors
+
+## V2 Phase 1C-B — Add Canada (CA) Country Pack
+- [x] shared/countryPacks.ts: Add "CA" to CountryPackId type, COUNTRY_PACK_IDS, and registry
+- [x] drizzle/schema.ts: Add "CA" to countryPackId enum on users and job_cards tables
+- [x] pnpm db:push: Apply migration (0029_complete_dark_phoenix.sql)
+- [x] Profile.tsx: Update dropdown order to Global, Canada, Vietnam, Philippines, USA
+- [x] Tests: v2-phase1c-b.test.ts — 26 tests passing
+- [x] Updated v2-phase1a.test.ts and v2-phase1b1.test.ts to reflect 5-pack registry
+- [x] Full suite regression: 2199 tests pass, 0 TypeScript errors

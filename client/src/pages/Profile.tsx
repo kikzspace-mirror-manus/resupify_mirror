@@ -173,6 +173,7 @@ export default function Profile() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="GLOBAL">Global (Default)</SelectItem>
+                  <SelectItem value="CA">Canada (CA)</SelectItem>
                   <SelectItem value="VN">Vietnam (VN)</SelectItem>
                   <SelectItem value="PH">Philippines (PH)</SelectItem>
                   <SelectItem value="US">United States (US)</SelectItem>
