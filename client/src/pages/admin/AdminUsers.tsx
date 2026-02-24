@@ -6,12 +6,31 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Shield, Coins, Ban, User, Briefcase, FlaskConical, ListTodo } from "lucide-react";
+import { Search, Shield, Coins, Ban, User, Briefcase, FlaskConical, ListTodo, Globe } from "lucide-react";
+
+const PACK_FILTER_OPTIONS = [
+  { value: "ALL", label: "All packs" },
+  { value: "GLOBAL", label: "GLOBAL" },
+  { value: "CA", label: "CA" },
+  { value: "VN", label: "VN" },
+  { value: "PH", label: "PH" },
+  { value: "US", label: "US" },
+];
+
+const PACK_BADGE_COLORS: Record<string, string> = {
+  CA: "text-red-700 border-red-300 bg-red-50",
+  VN: "text-yellow-700 border-yellow-300 bg-yellow-50",
+  PH: "text-blue-700 border-blue-300 bg-blue-50",
+  US: "text-indigo-700 border-indigo-300 bg-indigo-50",
+  GLOBAL: "text-gray-600 border-gray-300",
+};
 
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [showDisabledOnly, setShowDisabledOnly] = useState(false);
+  const [packFilter, setPackFilter] = useState<string>("ALL");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [grantDialog, setGrantDialog] = useState<{ userId: number; name: string } | null>(null);
   const [grantAmount, setGrantAmount] = useState("5");
@@ -36,6 +55,15 @@ export default function AdminUsers() {
     onError: (e) => toast.error(e.message),
   });
 
+  const filteredUsers = (usersData?.users ?? []).filter((u) => {
+    if (showDisabledOnly && !u.disabled) return false;
+    if (packFilter !== "ALL") {
+      const effectivePack = u.countryPackId ?? "GLOBAL";
+      if (effectivePack !== packFilter) return false;
+    }
+    return true;
+  });
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -44,7 +72,7 @@ export default function AdminUsers() {
           <p className="text-muted-foreground">Search users, view profiles, grant credits, manage access</p>
         </div>
 
-        {/* Search + filter */}
+        {/* Search + filters */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative max-w-md flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -55,6 +83,17 @@ export default function AdminUsers() {
               className="pl-10"
             />
           </div>
+          <Select value={packFilter} onValueChange={setPackFilter}>
+            <SelectTrigger className="w-40 shrink-0">
+              <Globe className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All packs" />
+            </SelectTrigger>
+            <SelectContent>
+              {PACK_FILTER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             size="sm"
             variant={showDisabledOnly ? "destructive" : "outline"}
@@ -69,7 +108,7 @@ export default function AdminUsers() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* User List */}
           <div className="lg:col-span-2 space-y-2">
-            <p className="text-sm text-muted-foreground">{usersData?.total ?? 0} users found</p>
+            <p className="text-sm text-muted-foreground">{filteredUsers.length} of {usersData?.total ?? 0} users</p>
             {isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -78,35 +117,49 @@ export default function AdminUsers() {
               </div>
             ) : (
               <div className="space-y-2">
-                {(usersData?.users ?? []).filter((u) => !showDisabledOnly || u.disabled).map((u) => (
-                  <Card
-                    key={u.id}
-                    className={`cursor-pointer transition-colors ${selectedUserId === u.id ? "border-orange-300 bg-orange-50/50" : "hover:bg-accent/50"}`}
-                    onClick={() => setSelectedUserId(u.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                            {(u.name ?? u.email ?? "?")[0]?.toUpperCase()}
+                {filteredUsers.map((u) => {
+                  const effectivePack = u.countryPackId ?? "GLOBAL";
+                  const packColor = PACK_BADGE_COLORS[effectivePack] ?? "text-gray-600 border-gray-300";
+                  return (
+                    <Card
+                      key={u.id}
+                      className={`cursor-pointer transition-colors ${selectedUserId === u.id ? "border-orange-300 bg-orange-50/50" : "hover:bg-accent/50"}`}
+                      onClick={() => setSelectedUserId(u.id)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                              {(u.name ?? u.email ?? "?")[0]?.toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{u.name ?? "Unnamed"}</p>
+                              <p className="text-xs text-muted-foreground">{u.email ?? "No email"}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-sm">{u.name ?? "Unnamed"}</p>
-                            <p className="text-xs text-muted-foreground">{u.email ?? "No email"}</p>
+                          <div className="flex items-center gap-2 flex-wrap justify-end">
+                            {u.isAdmin && <Badge variant="outline" className="text-orange-600 border-orange-300">Admin</Badge>}
+                            {u.disabled && <Badge variant="destructive">Disabled</Badge>}
+                            {/* Country Pack badge */}
+                            <Badge variant="outline" className={`text-xs font-mono ${packColor}`} data-testid="country-pack-badge">
+                              {effectivePack}
+                            </Badge>
+                            {/* Language Mode badge — only shown when non-default */}
+                            {u.languageMode && u.languageMode !== "en" && (
+                              <Badge variant="secondary" className="text-xs" data-testid="language-mode-badge">
+                                {u.languageMode}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(u.lastSignedIn).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {u.isAdmin && <Badge variant="outline" className="text-orange-600 border-orange-300">Admin</Badge>}
-                          {u.disabled && <Badge variant="destructive">Disabled</Badge>}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(u.lastSignedIn).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {usersData?.users.length === 0 && (
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {filteredUsers.length === 0 && (
                   <p className="text-center text-muted-foreground py-8">No users found</p>
                 )}
               </div>
@@ -125,6 +178,18 @@ export default function AdminUsers() {
                   <p className="text-sm text-muted-foreground">{userDetail.email}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* V2 Pack Info */}
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">Country Pack:</span>{" "}
+                      <span className="font-mono font-medium">{userDetail.countryPackId ?? "GLOBAL"}</span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Language Mode:</span>{" "}
+                      <span className="font-medium">{userDetail.languageMode ?? "en"}</span>
+                    </p>
+                  </div>
+
                   {/* Profile */}
                   {userDetail.profile && (
                     <div className="space-y-1 text-sm">

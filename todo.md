@@ -1321,3 +1321,10 @@
 - [x] Application Kit: inject packPromptPrefix into cover letter, outreach, resume rewrite prompts (flag-gated)
 - [x] Tests: v2-phase1c-c.test.ts — flag OFF no CA markers; flag ON+CA has CA prefix; job card override; unknown pack fallback
 - [x] Full suite regression: all tests pass, 0 TS errors
+
+## Admin — Country Pack + Language Mode Visibility
+- [x] server/routers/admin.ts: Ensure admin.listUsers returns countryPackId and languageMode
+- [x] client/src/pages/AdminOps.tsx: Add "Country Pack" and "Language Mode" columns to users table
+- [x] client/src/pages/AdminOps.tsx: Add pack filter dropdown (All / GLOBAL / CA / VN / PH / US)
+- [x] Tests: admin-country-pack-visibility.test.ts
+- [x] Full suite regression: all tests pass, 0 TS errors
