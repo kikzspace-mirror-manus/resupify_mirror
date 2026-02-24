@@ -1369,3 +1369,9 @@
 - [x] Create filter bar aligned to table width (Status, Event Type, Count)
 - [x] Verify filters/refresh work, no TS errors, no backend changes
 - [x] Full test suite passing (2104 tests), 0 TypeScript errors
+## Phase 12T: Admin Operational Events table alignment + column layout polish
+- [x] Audit AdminOpsEvents.tsx table layout and current column structure
+- [x] Apply fixed table layout and explicit column widths (Event ID 34%, Type 18%, Status 18%, User 12%, Time 18%)
+- [x] Fix vertical/horizontal alignment: center badges, right-align time, left-align ID/Type/User
+- [x] Verify filters, refresh work, no TS errors, no backend changes
+- [x] Full test suite passing (2104 tests), 0 TypeScript errors

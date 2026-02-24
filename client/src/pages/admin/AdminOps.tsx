@@ -236,37 +236,46 @@ export default function AdminOps() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm" data-testid="stripe-events-table">
+                <div className="overflow-hidden rounded-lg border">
+                  <table className="w-full text-sm" style={{ tableLayout: "fixed" }} data-testid="stripe-events-table">
+                    <colgroup>
+                      <col style={{ width: "34%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "18%" }} />
+                    </colgroup>
                     <thead>
                       <tr className="border-b bg-muted/40">
-                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Event ID</th>
-                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Type</th>
-                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
-                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">User</th>
-                        <th className="px-4 py-2 text-left font-medium text-muted-foreground">Timestamp</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Event ID</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Type</th>
+                        <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs">Status</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">User</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs">Timestamp</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {eventsPage.items.map((evt) => (
-                        <tr key={evt.eventId} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-4 py-2 font-mono text-xs text-muted-foreground truncate max-w-[180px]">
+                      {eventsPage.items.map((evt, idx) => (
+                        <tr key={evt.eventId} className={`border-b last:border-0 hover:bg-muted/20 ${idx % 2 === 0 ? "bg-white" : "bg-muted/5"}`}>
+                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground truncate overflow-hidden text-ellipsis whitespace-nowrap" title={evt.eventId}>
                             {evt.eventId}
                           </td>
-                          <td className="px-4 py-2 font-mono text-xs">
-                            {evt.eventType}
+                          <td className="px-3 py-2 font-mono text-xs text-left align-middle">
+                            <Badge variant="outline" className="text-xs">
+                              {evt.eventType}
+                            </Badge>
                           </td>
-                          <td className="px-4 py-2">
+                          <td className="px-3 py-2 text-center align-middle">
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[evt.status] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}
                             >
                               {evt.status}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-xs text-muted-foreground text-left align-middle">
                             {evt.userId != null ? `#${evt.userId}` : "—"}
                           </td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          <td className="px-3 py-2 text-xs text-muted-foreground text-right align-middle whitespace-nowrap">
                             {formatTs(evt.createdAt)}
                           </td>
                         </tr>
