@@ -262,7 +262,7 @@ export default function Onboarding() {
                 Where are you applying?
               </CardTitle>
               <CardDescription>
-                Choose your primary job market. This helps us show the right tracks and eligibility checks.
+                Choose your main job market so we can personalize the next steps.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -287,7 +287,6 @@ export default function Onboarding() {
                     <span className="text-4xl" role="img" aria-label={country.label}>{country.flag}</span>
                     <div className="text-center">
                       <div className="font-semibold">{country.label}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{country.sublabel}</div>
                     </div>
                   </Label>
                 ))}

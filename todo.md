@@ -1524,3 +1524,8 @@
 - [x] Add Country Pack row to user detail panel (badge, fallback GLOBAL)
 - [x] Add Language Mode row to user detail panel (badge, fallback en)
 - [x] Write tests: both fields render, null fallbacks work
+
+## V2 — Onboarding Step 0: Remove card descriptions + de-jargon helper copy
+- [x] Update helper text: "Choose your primary job market. This helps us show the right tracks and eligibility checks." → "Choose your main job market so we can personalize the next steps."
+- [x] Remove sublabel paragraph from each country card (CA/VN/PH/US) — keep flag + name only
+- [x] Write tests: assert old helper text absent, new helper text present, sublabel text absent, cards still render, selection still works
