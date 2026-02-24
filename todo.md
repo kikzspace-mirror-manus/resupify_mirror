@@ -1339,3 +1339,9 @@
 - [x] Update AdminLedger.tsx: show email > name > "User #id" fallback
 - [x] Write 12P acceptance tests (15 tests: 3 spec cases + 12 structural)
 - [x] Full test suite passing (2062 tests), 0 TypeScript errors
+## Phase 12Q: Admin Credit Ledger convert cards to compact table
+- [x] Audit AdminLedger.tsx card layout and check for existing Table component
+- [x] Replace card layout with compact table grid (Type, User, Delta, Balance, Timestamp columns)
+- [x] Add visual polish: row dividers, hover highlight, zebra rows
+- [x] Verify filters, sort, and data display work unchanged
+- [x] Full test suite passing (2062 tests), 0 TypeScript errors, no backend changes
