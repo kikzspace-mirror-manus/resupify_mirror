@@ -1,7 +1,18 @@
 import { COOKIE_NAME } from "@shared/const";
 import axios from "axios";
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
+// Lazy-load JSDOM and Readability to prevent slow imports during test initialization
+let JSDOM: any;
+let Readability: any;
+async function loadJSDOMTools() {
+  if (!JSDOM) {
+    const jsdomModule = await import("jsdom");
+    JSDOM = jsdomModule.JSDOM;
+  }
+  if (!Readability) {
+    const readabilityModule = await import("@mozilla/readability");
+    Readability = readabilityModule.Readability;
+  }
+}
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -649,6 +660,7 @@ export const appRouter = router({
       // ── Extraction pipeline ──────────────────────────────────────────────
       let extractedText = "";
       // Layer A: Mozilla Readability (best for article-style pages)
+      await loadJSDOMTools();
       try {
         const dom = new JSDOM(html, { url: input.url });
         const reader = new Readability(dom.window.document);
@@ -666,14 +678,15 @@ export const appRouter = router({
       // Layer B: Content-container-first fallback (board-agnostic)
       if (extractedText.length < MIN_TEXT_LENGTH) {
         try {
+          await loadJSDOMTools();
           const dom = new JSDOM(html, { url: input.url });
           const doc = dom.window.document;
           // Remove noise elements
           for (const tag of ["script", "style", "noscript", "svg", "iframe", "nav", "footer", "header"]) {
-            doc.querySelectorAll(tag).forEach((el) => el.remove());
+            doc.querySelectorAll(tag).forEach((el: Element) => el.remove());
           }
           // Remove common ad/tracker elements
-          doc.querySelectorAll('[class*="ad-"], [class*="ads-"], [id*="ad-"], [class*="cookie"], [class*="banner"]').forEach((el) => el.remove());
+          doc.querySelectorAll('[class*="ad-"], [class*="ads-"], [id*="ad-"], [class*="cookie"], [class*="banner"]').forEach((el: Element) => el.remove());
           // Prefer known content containers (ordered by specificity)
           const CONTENT_SELECTORS = [
             "main",

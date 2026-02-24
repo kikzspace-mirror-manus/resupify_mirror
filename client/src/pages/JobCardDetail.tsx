@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
+import { normalizeJobUrl } from "../../../shared/urlNormalize";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename, buildApplicationKitZipFilename } from "../../../shared/filename";
 import JSZip from "jszip";
@@ -77,6 +78,7 @@ import {
   Mail,
   Link2,
   UserCircle,
+  MonitorSmartphone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAIConcurrency } from "@/contexts/AIConcurrencyContext";
@@ -617,6 +619,22 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
   const [fetchUrl, setFetchUrl] = useState("");
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Browser Capture fallback
+  const [showBrowserCaptureFallback, setShowBrowserCaptureFallback] = useState(false);
+
+  // Listen for postMessage from /capture tab
+  useEffect(() => {
+    function handleCaptureMessage(e: MessageEvent) {
+      if (e.data?.type === "BROWSER_CAPTURE_RESULT" && typeof e.data.text === "string") {
+        setNewJdText(e.data.text);
+        setFetchError(null);
+        setShowBrowserCaptureFallback(false);
+        toast.success("JD captured from browser! Review and click Save Snapshot.");
+      }
+    }
+    window.addEventListener("message", handleCaptureMessage);
+    return () => window.removeEventListener("message", handleCaptureMessage);
+  }, []);
   // Patch 8K: Diff state
   const [diffOpen, setDiffOpen] = useState(false);
   const sortedSnaps = [...snapshots].sort((a, b) => a.version - b.version);
@@ -646,9 +664,9 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
     },
     onError: (err) => {
       setFetchError(err.message);
+      setShowBrowserCaptureFallback(true);
     },
   });
-
   const extractRequirements = trpc.jdSnapshots.extract.useMutation({
     onSuccess: (data) => {
       utils.jdSnapshots.requirements.invalidate({ jobCardId });
@@ -700,16 +718,36 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
             <Button
               size="sm"
               variant="outline"
-              onClick={() => fetchFromUrl.mutate({ url: fetchUrl.trim() })}
+              onClick={() => fetchFromUrl.mutate({ url: normalizeJobUrl(fetchUrl.trim()) })}
               disabled={fetchFromUrl.isPending || !fetchUrl.trim()}
             >
               {fetchFromUrl.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Fetching...</> : "Fetch from URL"}
             </Button>
           </div>
           {fetchError && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3 shrink-0" />{fetchError}
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 shrink-0" />{fetchError}
+              </p>
+              {showBrowserCaptureFallback && fetchUrl.trim() && (
+                <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit text-xs h-7 gap-1.5"
+                    onClick={() => {
+                      const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(fetchUrl.trim()))}&origin=${encodeURIComponent(window.location.origin)}`;
+                      window.open(captureUrl, "_blank");
+                    }}
+                  >
+                    <MonitorSmartphone className="h-3.5 w-3.5" />
+                    Try Browser Capture
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Some sites block server fetch. Browser Capture uses your open tab to extract the JD.</p>
+                </div>
+              )}
+            </div>
           )}
           {fetchedAt && !fetchError && (
             <p className="text-xs text-muted-foreground">Fetched at {fetchedAt} — review the text below, then click Save Snapshot.</p>

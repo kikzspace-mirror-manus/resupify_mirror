@@ -40,6 +40,7 @@ import AdminRefunds from "./pages/admin/AdminRefunds";
 import AdminBillingReceipts from "./pages/admin/AdminBillingReceipts";
 import AdminOps from "./pages/admin/AdminOps";
 import RefundPolicy from "./pages/RefundPolicy";
+import BrowserCapture from "./pages/BrowserCapture";
 import { useAuth } from "./_core/hooks/useAuth";
 import { useEffect } from "react";
 
@@ -154,6 +155,9 @@ function Router() {
         <Route path="/admin/refunds" component={AdminRefunds} />
         <Route path="/admin/billing-receipts" component={AdminBillingReceipts} />
         <Route path="/admin/ops" component={AdminOps} />
+
+        {/* Browser Capture helper — opened in new tab by fallback button */}
+        <Route path="/capture" component={BrowserCapture} />
 
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

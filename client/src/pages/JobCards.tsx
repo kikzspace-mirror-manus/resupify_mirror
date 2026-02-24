@@ -43,6 +43,7 @@ import {
   Archive,
   ArchiveRestore,
   Zap,
+  MonitorSmartphone,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -64,6 +65,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS } from "../../../shared/regionPacks";
+import { normalizeJobUrl } from "../../../shared/urlNormalize";
 import {
   DndContext,
   DragOverlay,
@@ -1063,6 +1065,23 @@ function CreateJobDialog({
   // Phase 9A: URL fetch state
   const [fetchJdError, setFetchJdError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Browser Capture fallback
+  const [showBrowserCaptureFallback, setShowBrowserCaptureFallback] = useState(false);
+
+  // Listen for postMessage from /capture tab
+  useEffect(() => {
+    function handleCaptureMessage(e: MessageEvent) {
+      if (e.data?.type === "BROWSER_CAPTURE_RESULT" && typeof e.data.text === "string") {
+        const text = e.data.text;
+        setJdText(text);
+        setFetchJdError(null);
+        setShowBrowserCaptureFallback(false);
+        toast.success("JD captured from browser! Review and click Create Job Card.");
+      }
+    }
+    window.addEventListener("message", handleCaptureMessage);
+    return () => window.removeEventListener("message", handleCaptureMessage);
+  }, []);
   // Phase 9B: auto-fill state
   const [autoFilling, setAutoFilling] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
@@ -1097,6 +1116,7 @@ function CreateJobDialog({
     },
     onError: (err) => {
       setFetchJdError(err.message);
+      setShowBrowserCaptureFallback(true);
     },
   });
   const createJob = trpc.jobCards.create.useMutation({
@@ -1192,7 +1212,7 @@ function CreateJobDialog({
                 variant="outline"
                 size="sm"
                 disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending}
-                onClick={() => fetchFromUrl.mutate({ url })}
+                onClick={() => fetchFromUrl.mutate({ url: normalizeJobUrl(url) })}
                 className="shrink-0"
               >
                 {fetchFromUrl.isPending ? (
@@ -1203,7 +1223,27 @@ function CreateJobDialog({
               </Button>
             </div>
             {fetchJdError && (
-              <p className="text-xs text-destructive">{fetchJdError}</p>
+              <div className="space-y-1">
+                <p className="text-xs text-destructive">{fetchJdError}</p>
+                {showBrowserCaptureFallback && url && (
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit text-xs h-7 gap-1.5"
+                      onClick={() => {
+                        const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(url))}&origin=${encodeURIComponent(window.location.origin)}`;
+                        window.open(captureUrl, "_blank");
+                      }}
+                    >
+                      <MonitorSmartphone className="h-3.5 w-3.5" />
+                      Try Browser Capture
+                    </Button>
+                    <p className="text-xs text-muted-foreground">Some sites block server fetch. Browser Capture uses your open tab to extract the JD.</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">

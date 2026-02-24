@@ -1294,3 +1294,12 @@
 - [x] Add GET /api/health route to Express server entry point (no auth, no DB)
 - [x] Write Phase 12F acceptance tests (HTTP 200, status=ok, ts is number)
 - [x] Full test suite passing, 0 TypeScript errors
+
+## Browser Capture Fallback for Fetch JD
+- [x] Review existing Fetch JD in CreateJobCard modal and JD Snapshot page
+- [x] Add URL normalization helper (strip utm_*, source, gh_src; preserve ashby_jid, gh_jid)
+- [x] Add /capture route: iframe-based DOM extraction + postMessage bridge + paste fallback
+- [x] Add "Try Browser Capture" fallback button to Create Job Card modal (shown only on fetch failure)
+- [x] Add "Try Browser Capture" fallback button to JD Snapshot page (shown only on fetch failure)
+- [x] Write tests: URL normalization + fallback UI rendering
+- [x] Full suite regression: all tests pass
