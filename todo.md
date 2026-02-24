@@ -1731,3 +1731,9 @@
 - [x] Update Profile.tsx school Input placeholder to use getEducationPlaceholders(userCountryPackId).schoolPlaceholder
 - [x] Verify field placeholder stays generic (already correct, just confirm)
 - [x] Write tests: each pack returns correct school placeholder
+
+## V2 — Onboarding Education Placeholder Single Source of Truth
+- [ ] Import getEducationPlaceholders from shared/educationPlaceholders in Onboarding.tsx
+- [ ] Replace inline schoolPlaceholder IIFE with getEducationPlaceholders(effectiveCountryPackId).schoolPlaceholder
+- [ ] Confirm field placeholder already uses generic string (no change needed)
+- [ ] Write tests: onboarding imports helper, no inline CA strings, US/VN/PH/GLOBAL values match

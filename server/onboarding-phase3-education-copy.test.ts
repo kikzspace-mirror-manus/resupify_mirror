@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
+import { getEducationPlaceholders } from "../shared/educationPlaceholders";
 import { resolve } from "path";
 
 const ONBOARDING_PATH = resolve(__dirname, "../client/src/pages/Onboarding.tsx");
@@ -46,64 +47,58 @@ describe("A — Education step helper copy updated", () => {
 // ── B: School placeholder is pack-aware ────────────────────────────────────
 
 describe("B — School placeholder is pack-aware", () => {
-  it("B1) CA placeholder 'e.g., University of Waterloo' is present in schoolPlaceholder logic", () => {
-    expect(content).toContain("e.g., University of Waterloo");
+  it("B1) CA placeholder 'e.g., University of Waterloo' is present via shared helper", () => {
+    // Placeholder strings now live in shared/educationPlaceholders.ts, not inline
+    expect(getEducationPlaceholders("CA").schoolPlaceholder).toBe("e.g., University of Waterloo");
   });
 
-  it("B2) US placeholder 'e.g., University of California, Berkeley' is present", () => {
-    expect(content).toContain("e.g., University of California, Berkeley");
+  it("B2) US placeholder 'e.g., University of California, Berkeley' is present via shared helper", () => {
+    expect(getEducationPlaceholders("US").schoolPlaceholder).toBe("e.g., University of California, Berkeley");
   });
 
-  it("B3) PH placeholder 'e.g., University of the Philippines' is present", () => {
-    expect(content).toContain("e.g., University of the Philippines");
+  it("B3) PH placeholder 'e.g., University of the Philippines' is present via shared helper", () => {
+    expect(getEducationPlaceholders("PH").schoolPlaceholder).toBe("e.g., University of the Philippines");
   });
 
-  it("B4) VN placeholder 'e.g., Vietnam National University' is present", () => {
-    expect(content).toContain("e.g., Vietnam National University");
+  it("B4) VN placeholder 'e.g., Vietnam National University' is present via shared helper", () => {
+    expect(getEducationPlaceholders("VN").schoolPlaceholder).toBe("e.g., Vietnam National University");
   });
 
-  it("B5) GLOBAL fallback placeholder 'e.g., Your university' is present", () => {
-    expect(content).toContain("e.g., Your university");
+  it("B5) GLOBAL fallback placeholder 'e.g., Your university' is present via shared helper", () => {
+    expect(getEducationPlaceholders("GLOBAL").schoolPlaceholder).toBe("e.g., Your university");
   });
 
   it("B6) schoolPlaceholder variable is defined and used in the Input", () => {
-    expect(content).toContain("const schoolPlaceholder");
+    // schoolPlaceholder is now destructured from getEducationPlaceholders(effectiveCountryPackId)
+    expect(content).toContain("schoolPlaceholder");
     expect(content).toContain("placeholder={schoolPlaceholder}");
   });
 
-  it("B7) schoolPlaceholder uses effectiveCountryPackId to branch", () => {
-    const placeholderBlock = content.slice(
-      content.indexOf("const schoolPlaceholder"),
-      content.indexOf("})();", content.indexOf("const schoolPlaceholder")) + 5
-    );
-    expect(placeholderBlock).toContain("effectiveCountryPackId");
-    expect(placeholderBlock).toContain('"US"');
-    expect(placeholderBlock).toContain('"PH"');
-    expect(placeholderBlock).toContain('"VN"');
-    expect(placeholderBlock).toContain('"CA"');
+  it("B7) schoolPlaceholder uses effectiveCountryPackId via shared helper", () => {
+    expect(content).toContain("getEducationPlaceholders(effectiveCountryPackId)");
   });
 
-  it("B8) schoolPlaceholder is an IIFE (immediately invoked)", () => {
-    expect(content).toContain("const schoolPlaceholder = (() => {");
+  it("B8) schoolPlaceholder comes from shared helper, not an inline IIFE", () => {
+    // The old IIFE pattern is replaced by the shared helper
+    expect(content).not.toContain("const schoolPlaceholder = (() => {");
+    expect(content).toContain("getEducationPlaceholders");
   });
 });
 
 // ── C: Program placeholder is generic ─────────────────────────────────────
 
 describe("C — Program placeholder is generic", () => {
-  it("C1) Program placeholder contains multiple disciplines", () => {
-    expect(content).toContain("e.g., Computer Science / Business / Marketing");
+  it("C1) Program placeholder comes from shared helper (eduFieldPlaceholder)", () => {
+    // The field placeholder is now supplied by getEducationPlaceholders via eduFieldPlaceholder
+    expect(content).toContain("eduFieldPlaceholder");
+    expect(content).toContain("placeholder={eduFieldPlaceholder}");
   });
 
-  it("C2) Old single-discipline program placeholder is NOT present", () => {
-    // The old placeholder was just "e.g., Computer Science"
-    // After the change it should be the multi-discipline version
-    // We check the program Input specifically (not the schoolPlaceholder block)
-    const programInputStart = content.indexOf('id="program"');
-    const programInputEnd = content.indexOf("/>", programInputStart);
-    const programInputBlock = content.slice(programInputStart, programInputEnd);
-    expect(programInputBlock).toContain("Computer Science / Business / Marketing");
-    expect(programInputBlock).not.toBe('placeholder="e.g., Computer Science"');
+  it("C2) Shared helper fieldPlaceholder contains multiple disciplines", () => {
+    // Verify the helper returns the expected generic multi-discipline string
+    expect(getEducationPlaceholders("CA").fieldPlaceholder).toContain("Computer Science");
+    expect(getEducationPlaceholders("US").fieldPlaceholder).toContain("Computer Science");
+    expect(getEducationPlaceholders("GLOBAL").fieldPlaceholder).toContain("Computer Science");
   });
 });
 
@@ -113,66 +108,30 @@ describe("D — schoolPlaceholder logic returns correct value per pack", () => {
   // Extract and evaluate the schoolPlaceholder logic by reading the source
   // We test the source structure rather than executing it (no DOM/React available)
 
-  it("D1) US branch returns Berkeley placeholder", () => {
-    const block = content.slice(
-      content.indexOf("const schoolPlaceholder"),
-      content.indexOf("})();", content.indexOf("const schoolPlaceholder")) + 5
-    );
-    // US check comes before CA check
-    const usIdx = block.indexOf('"US"');
-    const caIdx = block.indexOf('"CA"');
-    expect(usIdx).toBeGreaterThan(-1);
-    expect(caIdx).toBeGreaterThan(-1);
-    // US branch appears before CA branch
-    expect(usIdx).toBeLessThan(caIdx);
-    // Berkeley string appears after US check
-    const berkeleyIdx = block.indexOf("University of California, Berkeley");
-    expect(berkeleyIdx).toBeGreaterThan(usIdx);
+  it("D1) US branch returns Berkeley placeholder (via shared helper)", () => {
+    expect(getEducationPlaceholders("US").schoolPlaceholder).toContain("Berkeley");
   });
 
-  it("D2) PH branch returns Philippines placeholder", () => {
-    const block = content.slice(
-      content.indexOf("const schoolPlaceholder"),
-      content.indexOf("})();", content.indexOf("const schoolPlaceholder")) + 5
-    );
-    const phIdx = block.indexOf('"PH"');
-    const phPlaceholderIdx = block.indexOf("University of the Philippines");
-    expect(phIdx).toBeGreaterThan(-1);
-    expect(phPlaceholderIdx).toBeGreaterThan(phIdx);
+  it("D2) PH branch returns Philippines placeholder (via shared helper)", () => {
+    expect(getEducationPlaceholders("PH").schoolPlaceholder).toContain("Philippines");
   });
 
-  it("D3) VN branch returns Vietnam National University placeholder", () => {
-    const block = content.slice(
-      content.indexOf("const schoolPlaceholder"),
-      content.indexOf("})();", content.indexOf("const schoolPlaceholder")) + 5
-    );
-    const vnIdx = block.indexOf('"VN"');
-    const vnPlaceholderIdx = block.indexOf("Vietnam National University");
-    expect(vnIdx).toBeGreaterThan(-1);
-    expect(vnPlaceholderIdx).toBeGreaterThan(vnIdx);
+  it("D3) VN branch returns Vietnam National University placeholder (via shared helper)", () => {
+    expect(getEducationPlaceholders("VN").schoolPlaceholder).toContain("Vietnam");
   });
 
-  it("D4) GLOBAL fallback is the last return in the block", () => {
-    const block = content.slice(
-      content.indexOf("const schoolPlaceholder"),
-      content.indexOf("})();", content.indexOf("const schoolPlaceholder")) + 5
-    );
-    const globalIdx = block.indexOf("e.g., Your university");
-    const caIdx = block.indexOf('"CA"');
-    // GLOBAL fallback appears after all country checks
-    expect(globalIdx).toBeGreaterThan(caIdx);
+  it("D4) GLOBAL fallback returns 'Your university' (via shared helper)", () => {
+    // Verified via the shared helper import at the top of this file
+    // (D1-D3 use require() which fails in ESM; use the top-level import instead)
+    expect(getEducationPlaceholders("GLOBAL").schoolPlaceholder).toContain("Your university");
   });
 
-  it("D5) All 5 pack branches are present (US, PH, VN, CA, GLOBAL)", () => {
-    const block = content.slice(
-      content.indexOf("const schoolPlaceholder"),
-      content.indexOf("})();", content.indexOf("const schoolPlaceholder")) + 5
-    );
-    expect(block).toContain('"US"');
-    expect(block).toContain('"PH"');
-    expect(block).toContain('"VN"');
-    expect(block).toContain('"CA"');
-    expect(block).toContain("e.g., Your university");
+  it("D5) All 5 pack branches are present via shared helper (US, PH, VN, CA, GLOBAL)", () => {
+    expect(getEducationPlaceholders("US").schoolPlaceholder).toContain("Berkeley");
+    expect(getEducationPlaceholders("PH").schoolPlaceholder).toContain("Philippines");
+    expect(getEducationPlaceholders("VN").schoolPlaceholder).toContain("Vietnam");
+    expect(getEducationPlaceholders("CA").schoolPlaceholder).toContain("Waterloo");
+    expect(getEducationPlaceholders("GLOBAL").schoolPlaceholder).toContain("Your university");
   });
 });
 
@@ -211,8 +170,9 @@ describe("E — Regression: Education step structure unchanged", () => {
     expect(content).toContain("onChange={(e) => setProgram(e.target.value)}");
   });
 
-  it("E9) schoolPlaceholder is defined before it is used (no hoisting issue)", () => {
-    const defIdx = content.indexOf("const schoolPlaceholder");
+  it("E9) schoolPlaceholder is derived from shared helper and used in JSX", () => {
+    // schoolPlaceholder is now destructured from getEducationPlaceholders(effectiveCountryPackId)
+    const defIdx = content.indexOf("const { schoolPlaceholder");
     const useIdx = content.indexOf("placeholder={schoolPlaceholder}");
     expect(defIdx).toBeGreaterThan(-1);
     expect(useIdx).toBeGreaterThan(-1);

@@ -19,6 +19,7 @@ import { useLocation } from "wouter";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
 import { getTracksForCountry, resolveLocale, getTranslatedTrackStepCopy, type TrackCode, type SupportedLocale } from "@shared/trackOptions";
+import { getEducationPlaceholders } from "@shared/educationPlaceholders";
 
 // ─── Country options shown in Step 0 ─────────────────────────────────────────
 
@@ -147,14 +148,8 @@ export default function Onboarding() {
   // Step 2: Education
   const [school, setSchool] = useState("");
 
-  // Pack-aware school placeholder for the Education step
-  const schoolPlaceholder = (() => {
-    if (effectiveCountryPackId === "US") return "e.g., University of California, Berkeley";
-    if (effectiveCountryPackId === "PH") return "e.g., University of the Philippines";
-    if (effectiveCountryPackId === "VN") return "e.g., Vietnam National University";
-    if (effectiveCountryPackId === "CA") return "e.g., University of Waterloo";
-    return "e.g., Your university"; // GLOBAL fallback
-  })();
+  // Pack-aware school placeholder — single source of truth via shared helper
+  const { schoolPlaceholder, fieldPlaceholder: eduFieldPlaceholder } = getEducationPlaceholders(effectiveCountryPackId);
   const [program, setProgram] = useState("");
   const [highestEducationLevel, setHighestEducationLevel] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
@@ -532,7 +527,7 @@ export default function Onboarding() {
                 </Label>
                 <Input
                   id="program"
-                  placeholder="e.g., Computer Science / Business / Marketing"
+                  placeholder={eduFieldPlaceholder}
                   value={program}
                   onChange={(e) => setProgram(e.target.value)}
                 />

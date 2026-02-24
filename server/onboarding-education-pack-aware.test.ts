@@ -145,7 +145,8 @@ describe("E: Neutral copy always present", () => {
   });
 
   it("E4: program input is still present", () => {
-    expect(src).toContain('placeholder="e.g., Computer Science / Business / Marketing"');
+    // placeholder is now supplied via eduFieldPlaceholder from the shared helper
+    expect(src).toContain("placeholder={eduFieldPlaceholder}");
   });
 });
 
