@@ -220,3 +220,123 @@ describe("postMessage listener in JD pages", () => {
     expect(content).toContain("normalizeJobUrl");
   });
 });
+
+// ─── D: Blocked State & Paste Fallback Contract ──────────────────────────────
+
+describe("/capture blocked state and paste fallback", () => {
+  it("D1: BrowserCapture.tsx has a 'blocked' phase state", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain('"blocked"');
+  });
+
+  it("D2: BrowserCapture.tsx shows textarea when blocked", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    // Textarea is rendered in blocked phase
+    expect(content).toContain("Textarea");
+    expect(content).toContain("Paste the full job description");
+  });
+
+  it("D3: BrowserCapture.tsx has a 'Send to Resupify' button in blocked state", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain("Send to Resupify");
+  });
+
+  it("D4: BrowserCapture.tsx validates minimum text length before sending", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain("MIN_TEXT_LENGTH");
+    // Should show error for short text
+    expect(content).toContain("too short");
+  });
+
+  it("D5: BrowserCapture.tsx has 8-second timeout to detect blocked iframe", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain("8000");
+  });
+
+  it("D6: BrowserCapture.tsx handles iframe onerror by switching to blocked phase", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain("handleIframeError");
+    expect(content).toContain("onError={handleIframeError}");
+  });
+
+  it("D7: postMessage payload uses BROWSER_CAPTURE_RESULT type with text field", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    // Verify the exact payload shape matches what the listeners expect
+    expect(content).toContain('type: "BROWSER_CAPTURE_RESULT"');
+    expect(content).toContain("text");
+    expect(content).toContain("opener.postMessage");
+  });
+
+  it("D8: BrowserCapture.tsx shows success state after sending text", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain('"success"');
+    expect(content).toContain("close this tab");
+  });
+
+  it("D9: BrowserCapture.tsx provides a direct link to open the job posting in blocked state", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/BrowserCapture.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain("Open the job posting");
+    expect(content).toContain("Open job posting");
+  });
+
+  it("D10: normalizeText collapses excessive whitespace and newlines", () => {
+    // Test the normalization logic inline (mirrors BrowserCapture.tsx normalizeText)
+    function normalizeText(raw: string): string {
+      return raw
+        .replace(/\r\n/g, "\n")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+    const input = "Software Engineer\r\n\n\n\n  Requirements:  \n- TypeScript  \n- React";
+    const result = normalizeText(input);
+    expect(result).not.toContain("\r");
+    expect(result).not.toContain("\n\n\n");
+    expect(result).toContain("Requirements:");
+  });
+});

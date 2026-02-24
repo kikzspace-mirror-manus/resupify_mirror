@@ -1303,3 +1303,12 @@
 - [x] Add "Try Browser Capture" fallback button to JD Snapshot page (shown only on fetch failure)
 - [x] Write tests: URL normalization + fallback UI rendering
 - [x] Full suite regression: all tests pass
+
+## /capture Paste Fallback (iframe blocked)
+- [x] BrowserCapture.tsx: add 3 UI states (loading, extracted, blocked/fallback)
+- [x] BrowserCapture.tsx: detect iframe block via onerror + 8s timeout → show textarea fallback
+- [x] BrowserCapture.tsx: textarea labeled "Paste job description text" + "Send back to Resupify" button
+- [x] BrowserCapture.tsx: validate pasted text >= 100 chars; show error if too short
+- [x] BrowserCapture.tsx: postMessage same BROWSER_CAPTURE_RESULT format on send
+- [x] Tests: browser-capture.test.ts — blocked state shows textarea; postMessage payload format
+- [x] Full suite regression: all tests pass
