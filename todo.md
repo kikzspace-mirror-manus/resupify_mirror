@@ -1573,3 +1573,11 @@
 - [x] Verify all hooks (useState, useMemo, useRef, useEffect, useMutation, useQuery) run before any return null
 - [x] Add test asserting autoSkipFired ref and useEffect are declared before early returns in source
 - [x] Run full suite + 0 TS errors
+
+## V2 — Education step: pack-aware copy (no CA-only leak)
+- [x] Replace isStudentTrack (trackCode===COOP) with isCoopCA (countryPackId===CA && trackCode===COOP)
+- [x] Guard "Co-op employers verify enrollment status." behind isCoopCA
+- [x] Guard Currently Enrolled toggle behind isCoopCA
+- [x] Guard "Required for co-op eligibility" behind isCoopCA
+- [x] Make School/Program/GradDate labels always show (optional) for non-CA-COOP
+- [x] Write tests: CA+COOP shows co-op copy, CA+other hides it, VN/PH/US/GLOBAL hides it

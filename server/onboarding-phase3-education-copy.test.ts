@@ -21,7 +21,8 @@ const content = readFileSync(ONBOARDING_PATH, "utf-8");
 
 describe("A — Education step helper copy updated", () => {
   it("A1) New non-technical helper text is present", () => {
-    expect(content).toContain("Optional — helps tailor your recommendations.");
+    // Source file uses \\u2014 escape sequence for the em-dash
+    expect(content).toContain("Optional \\u2014 helps tailor your recommendations.");
   });
 
   it("A2) Old jargon-heavy helper text is NOT present", () => {

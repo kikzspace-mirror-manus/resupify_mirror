@@ -256,8 +256,10 @@ export default function Onboarding() {
     }
   };
 
-  // For CA/COOP track: show enrollment-related UI
-  const isStudentTrack = trackCode === "COOP";
+  // For CA+COOP track only: show enrollment-related UI and co-op specific copy.
+  // Non-CA packs (VN/PH/US/GLOBAL) must never show CA co-op messaging even if
+  // their track code happens to be COOP/INTERNSHIP.
+  const isCoopCA = selectedCountryPackId === "CA" && trackCode === "COOP";
   // For CA tracks: show work auth step
   const showWorkAuthStep = effectiveRegionCode === "CA" || effectiveRegionCode === "US";
 
@@ -453,15 +455,15 @@ export default function Onboarding() {
             <CardHeader>
               <CardTitle>Your education</CardTitle>
               <CardDescription>
-                {isStudentTrack
+                {isCoopCA
                   ? "Co-op employers verify enrollment status."
-                  : "Optional — helps tailor your recommendations."}
+                  : "Optional \u2014 helps tailor your recommendations."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="school">
-                  School / Institution{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  School / Institution{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="school"
@@ -473,7 +475,7 @@ export default function Onboarding() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="program">
-                  Program{!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  Program{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="program"
@@ -484,8 +486,8 @@ export default function Onboarding() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gradDate">
-                  {isStudentTrack ? "Expected Graduation" : "Graduation Date"}
-                  {!isStudentTrack && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  {isCoopCA ? "Expected Graduation" : "Graduation Date"}
+                  {!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="gradDate"
@@ -494,7 +496,7 @@ export default function Onboarding() {
                   onChange={(e) => setGraduationDate(e.target.value)}
                 />
               </div>
-              {isStudentTrack && (
+              {isCoopCA && (
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>
                     <Label>Currently Enrolled</Label>
