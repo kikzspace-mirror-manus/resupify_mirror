@@ -65,7 +65,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS } from "../../../shared/regionPacks";
-import { normalizeJobUrl } from "../../../shared/urlNormalize";
+import { normalizeJobUrl, isLikelyBlockedHost } from "../../../shared/urlNormalize";
 import {
   DndContext,
   DragOverlay,
@@ -1067,6 +1067,8 @@ function CreateJobDialog({
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   // Browser Capture fallback
   const [showBrowserCaptureFallback, setShowBrowserCaptureFallback] = useState(false);
+  // Proactive blocked-host detection
+  const [isBlockedHost, setIsBlockedHost] = useState(false);
 
   // Listen for postMessage from /capture tab
   useEffect(() => {
@@ -1195,13 +1197,16 @@ function CreateJobDialog({
                 placeholder="https://..."
                 value={url}
                 onChange={(e) => {
-                  setUrl(e.target.value);
+                  const val = e.target.value;
+                  setUrl(val);
                   setFetchJdError(null);
                   setFetchedAt(null);
+                  setIsBlockedHost(isLikelyBlockedHost(val));
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && isValidHttpsUrl(url)) {
                     e.preventDefault();
+                    if (isBlockedHost) return;
                     fetchFromUrl.mutate({ url });
                   }
                 }}
@@ -1211,9 +1216,10 @@ function CreateJobDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending}
+                disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending || isBlockedHost}
                 onClick={() => fetchFromUrl.mutate({ url: normalizeJobUrl(url) })}
                 className="shrink-0"
+                title={isBlockedHost ? "This host blocks server fetch — use Browser Capture instead" : undefined}
               >
                 {fetchFromUrl.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1222,6 +1228,25 @@ function CreateJobDialog({
                 )}
               </Button>
             </div>
+            {/* Proactive blocked-host hint — shown before any fetch attempt */}
+            {isBlockedHost && url && !fetchJdError && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 space-y-1.5">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-300">This site usually blocks automated fetch</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">Use Browser Capture to import the job description reliably.</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => {
+                    const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(url))}&origin=${encodeURIComponent(window.location.origin)}`;
+                    window.open(captureUrl, "_blank");
+                  }}
+                >
+                  <MonitorSmartphone className="h-3.5 w-3.5" />
+                  Browser Capture
+                </Button>
+              </div>
+            )}
             {fetchJdError && (
               <div className="space-y-1">
                 <p className="text-xs text-destructive">{fetchJdError}</p>

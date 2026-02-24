@@ -94,7 +94,9 @@ export function isLikelyBlockedHost(url: string): boolean {
       h.includes("linkedin.com") ||
       h.includes("indeed.com") ||
       h.includes("myworkdayjobs.com") ||
-      h.includes("workday.com")
+      h.includes("workday.com") ||
+      h.includes("greenhouse.io") ||
+      h.includes("lever.co")
     );
   } catch {
     return false;

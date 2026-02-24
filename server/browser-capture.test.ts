@@ -340,3 +340,82 @@ describe("/capture blocked state and paste fallback", () => {
     expect(result).toContain("Requirements:");
   });
 });
+
+// ─── E) Proactive Blocked-Host Hint ────────────────────────────────────────
+import { isLikelyBlockedHost } from "../shared/urlNormalize";
+
+describe("E) Proactive Blocked-Host Hint — isLikelyBlockedHost coverage", () => {
+  it("E1: LinkedIn job URLs are flagged as blocked", () => {
+    expect(isLikelyBlockedHost("https://www.linkedin.com/jobs/view/123456")).toBe(true);
+  });
+
+  it("E2: Indeed job URLs are flagged as blocked", () => {
+    expect(isLikelyBlockedHost("https://ca.indeed.com/viewjob?jk=abc123")).toBe(true);
+  });
+
+  it("E3: Workday URLs are flagged as blocked", () => {
+    expect(isLikelyBlockedHost("https://shopify.wd1.myworkdayjobs.com/en-US/Shopify/job/123")).toBe(true);
+  });
+
+  it("E4: BambooHR URLs are flagged as blocked", () => {
+    expect(isLikelyBlockedHost("https://company.bamboohr.com/jobs/view.php?id=1")).toBe(true);
+  });
+
+  it("E5: Greenhouse URLs are flagged as blocked", () => {
+    expect(isLikelyBlockedHost("https://boards.greenhouse.io/company/jobs/123")).toBe(true);
+  });
+
+  it("E6: Lever URLs are flagged as blocked", () => {
+    expect(isLikelyBlockedHost("https://jobs.lever.co/company/abc-123")).toBe(true);
+  });
+
+  it("E7: Ashby URLs are NOT flagged as blocked (not in list)", () => {
+    expect(isLikelyBlockedHost("https://jobs.ashbyhq.com/company/role")).toBe(false);
+  });
+
+  it("E8: Generic company career page is not flagged", () => {
+    expect(isLikelyBlockedHost("https://careers.shopify.com/jobs/123")).toBe(false);
+  });
+
+  it("E9: Empty string returns false", () => {
+    expect(isLikelyBlockedHost("")).toBe(false);
+  });
+
+  it("E10: Invalid URL returns false without throwing", () => {
+    expect(() => isLikelyBlockedHost("not-a-url")).not.toThrow();
+    expect(isLikelyBlockedHost("not-a-url")).toBe(false);
+  });
+
+  it("E11: JobCards.tsx shows proactive amber hint for blocked hosts", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(path.resolve("client/src/pages/JobCards.tsx"), "utf-8");
+    expect(content).toContain("isBlockedHost");
+    expect(content).toContain("This site usually blocks automated fetch");
+    expect(content).toContain("bg-amber-600");
+  });
+
+  it("E12: JobCardDetail.tsx shows proactive amber hint for blocked hosts", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(path.resolve("client/src/pages/JobCardDetail.tsx"), "utf-8");
+    expect(content).toContain("isBlockedHost");
+    expect(content).toContain("This site usually blocks automated fetch");
+    expect(content).toContain("bg-amber-600");
+  });
+
+  it("E13: Fetch JD button is disabled when isBlockedHost is true (JobCards)", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(path.resolve("client/src/pages/JobCards.tsx"), "utf-8");
+    expect(content).toContain("isBlockedHost}");
+    expect(content).toContain("disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending || isBlockedHost}");
+  });
+
+  it("E14: Fetch from URL button is disabled when isBlockedHost is true (JobCardDetail)", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(path.resolve("client/src/pages/JobCardDetail.tsx"), "utf-8");
+    expect(content).toContain("|| isBlockedHost}");
+  });
+});

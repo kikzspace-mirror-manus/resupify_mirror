@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
-import { normalizeJobUrl } from "../../../shared/urlNormalize";
+import { normalizeJobUrl, isLikelyBlockedHost } from "../../../shared/urlNormalize";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename, buildApplicationKitZipFilename } from "../../../shared/filename";
 import JSZip from "jszip";
@@ -618,6 +618,7 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
   // Patch 8I: URL fetch state
   const [fetchUrl, setFetchUrl] = useState("");
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isBlockedHost, setIsBlockedHost] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   // Browser Capture fallback
   const [showBrowserCaptureFallback, setShowBrowserCaptureFallback] = useState(false);
@@ -707,7 +708,7 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
               type="url"
               placeholder="Paste a job posting URL (Greenhouse, Lever, Ashby, Workday…)"
               value={fetchUrl}
-              onChange={(e) => { setFetchUrl(e.target.value); setFetchError(null); }}
+              onChange={(e) => { setFetchUrl(e.target.value); setFetchError(null); setIsBlockedHost(isLikelyBlockedHost(e.target.value)); }}
               className="text-sm flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && fetchUrl.trim() && !fetchFromUrl.isPending) {
@@ -719,11 +720,31 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
               size="sm"
               variant="outline"
               onClick={() => fetchFromUrl.mutate({ url: normalizeJobUrl(fetchUrl.trim()) })}
-              disabled={fetchFromUrl.isPending || !fetchUrl.trim()}
+              disabled={fetchFromUrl.isPending || !fetchUrl.trim() || isBlockedHost}
+              title={isBlockedHost ? "This host blocks server fetch — use Browser Capture instead" : undefined}
             >
               {fetchFromUrl.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Fetching...</> : "Fetch from URL"}
             </Button>
           </div>
+          {/* Proactive blocked-host hint */}
+          {isBlockedHost && fetchUrl.trim() && !fetchError && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 space-y-1.5">
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">This site usually blocks automated fetch</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">Use Browser Capture to import the job description reliably.</p>
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={() => {
+                  const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(fetchUrl.trim()))}&origin=${encodeURIComponent(window.location.origin)}`;
+                  window.open(captureUrl, "_blank");
+                }}
+              >
+                <MonitorSmartphone className="h-3.5 w-3.5" />
+                Browser Capture
+              </Button>
+            </div>
+          )}
           {fetchError && (
             <div className="space-y-1.5">
               <p className="text-xs text-destructive flex items-center gap-1">

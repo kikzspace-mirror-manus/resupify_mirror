@@ -1328,3 +1328,11 @@
 - [x] client/src/pages/AdminOps.tsx: Add pack filter dropdown (All / GLOBAL / CA / VN / PH / US)
 - [x] Tests: admin-country-pack-visibility.test.ts
 - [x] Full suite regression: all tests pass, 0 TS errors
+
+## Proactive Blocked-Host Hint (Fetch JD)
+- [x] shared/urlNormalize.ts: Verify isLikelyBlockedHost covers linkedin/indeed/workday
+- [x] shared/analyticsEvents.ts: Add EVT_FETCH_JD_BLOCKED_HOST_DETECTED, EVT_BROWSER_CAPTURE_CLICKED_FROM_HINT
+- [x] JobCards.tsx: Show inline callout + primary Browser Capture button when URL is blocked; skip server fetch
+- [x] JobCardDetail.tsx: Same blocked-host hint + skip server fetch
+- [x] Tests: proactive-blocked-host-hint.test.ts
+- [x] Full suite regression: all tests pass, 0 TS errors
