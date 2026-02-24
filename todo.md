@@ -1393,3 +1393,9 @@
 - [x] Add Language card to Profile.tsx (VN+flag-gated, bilingual option behind v2BilingualViewEnabled)
 - [x] Immediate locale refresh after languageMode change (local state update)
 - [x] Write tests: visibility (flag OFF hidden, VN visible, CA hidden), save behavior, non-VN enforcement
+
+## V2 — Onboarding Step 0: Default languageMode=vi for VN (One-Time, Flag-Gated)
+- [x] Update setCountryPack mutation: if VN + v2VnTranslationEnabled + languageMode unset → also set languageMode=vi
+- [x] Return languageModeSet flag in setCountryPack response for frontend awareness
+- [x] Update Onboarding.tsx: invalidate auth.me after Step 0 so Track step re-renders in VI immediately
+- [x] Write tests: VN+flag ON+unset→vi, VN+flag ON+existing en→unchanged, VN+flag OFF→unchanged, CA→unchanged

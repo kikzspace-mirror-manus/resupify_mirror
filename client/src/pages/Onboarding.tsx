@@ -124,6 +124,7 @@ export default function Onboarding() {
   const [workStatus, setWorkStatus] = useState<"citizen_pr" | "temporary_resident" | "unknown">("unknown");
   const [needsSponsorship, setNeedsSponsorship] = useState<"true" | "false" | "unknown">("unknown");
 
+  const utils = trpc.useUtils();
   const upsertProfile = trpc.profile.upsert.useMutation();
   const updateWorkStatus = trpc.profile.updateWorkStatus.useMutation();
   const skipOnboarding = trpc.profile.skip.useMutation();
@@ -140,10 +141,14 @@ export default function Onboarding() {
     }
   };
 
-  // Step 0 Continue: persist countryPackId, then advance to Step 1
+  // Step 0 Continue: persist countryPackId (and optionally set languageMode=vi for VN+unset),
+  // then invalidate auth.me so the Track step re-renders with the correct locale immediately.
   const handleCountryPackContinue = async () => {
     try {
       await setCountryPack.mutateAsync({ countryPackId: selectedCountryPackId });
+      // Invalidate auth.me so languageMode (potentially just set to "vi") is reflected
+      // in the locale computation for the Track step.
+      await utils.auth.me.invalidate();
       // Reset trackCode to the default for the newly selected country
       const { defaultTrack: newDefault } = getTracksForCountry(selectedCountryPackId, true);
       setTrackCode(newDefault);

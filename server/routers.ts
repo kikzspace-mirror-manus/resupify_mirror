@@ -182,12 +182,29 @@ export const appRouter = router({
      * Self-service: user sets their own countryPackId during onboarding Step 0.
      * Sticky rule: only updates when the user explicitly calls this mutation.
      * Accepts only the valid CountryPackId enum values.
+     *
+     * One-time VN default: if the user selects VN, v2VnTranslationEnabled is ON,
+     * and their languageMode is currently unset (null/undefined), also set languageMode="vi".
+     * This is a one-time default — never overrides an existing languageMode value.
      */
     setCountryPack: protectedProcedure.input(z.object({
       countryPackId: z.enum([...COUNTRY_PACK_IDS] as [string, ...string[]]),
     })).mutation(async ({ ctx, input }) => {
       await db.updateUserCountryPack(ctx.user.id, input.countryPackId);
-      return { success: true };
+
+      // One-time VN languageMode default
+      const { featureFlags } = await import("../shared/featureFlags");
+      const currentLanguageMode = (ctx.user as any).languageMode;
+      const languageModeSet =
+        input.countryPackId === "VN" &&
+        featureFlags.v2VnTranslationEnabled &&
+        (currentLanguageMode === null || currentLanguageMode === undefined || currentLanguageMode === "");
+
+      if (languageModeSet) {
+        await db.updateUserLanguageMode(ctx.user.id, "vi");
+      }
+
+      return { success: true, languageModeSet };
     }),
 
     /**

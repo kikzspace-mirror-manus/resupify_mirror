@@ -48,41 +48,44 @@ describe("profile.setCountryPack mutation", () => {
   it("T4: setCountryPack accepts CA", async () => {
     const { appRouter } = await import("./routers");
     const caller = appRouter.createCaller(makeCtx());
-    await expect(
-      caller.profile.setCountryPack({ countryPackId: "CA" })
-    ).resolves.toEqual({ success: true });
+    const result = await caller.profile.setCountryPack({ countryPackId: "CA" });
+    expect(result.success).toBe(true);
+    // languageModeSet is false for non-VN
+    expect(result.languageModeSet).toBe(false);
   });
 
   it("T5: setCountryPack accepts VN", async () => {
     const { appRouter } = await import("./routers");
+    // user has languageMode=en (already set) → languageModeSet should be false
     const caller = appRouter.createCaller(makeCtx());
-    await expect(
-      caller.profile.setCountryPack({ countryPackId: "VN" })
-    ).resolves.toEqual({ success: true });
+    const result = await caller.profile.setCountryPack({ countryPackId: "VN" });
+    expect(result.success).toBe(true);
+    // languageModeSet is false because languageMode is already "en"
+    expect(result.languageModeSet).toBe(false);
   });
 
   it("T6: setCountryPack accepts GLOBAL", async () => {
     const { appRouter } = await import("./routers");
     const caller = appRouter.createCaller(makeCtx());
-    await expect(
-      caller.profile.setCountryPack({ countryPackId: "GLOBAL" })
-    ).resolves.toEqual({ success: true });
+    const result = await caller.profile.setCountryPack({ countryPackId: "GLOBAL" });
+    expect(result.success).toBe(true);
+    expect(result.languageModeSet).toBe(false);
   });
 
   it("T7: setCountryPack accepts PH", async () => {
     const { appRouter } = await import("./routers");
     const caller = appRouter.createCaller(makeCtx());
-    await expect(
-      caller.profile.setCountryPack({ countryPackId: "PH" })
-    ).resolves.toEqual({ success: true });
+    const result = await caller.profile.setCountryPack({ countryPackId: "PH" });
+    expect(result.success).toBe(true);
+    expect(result.languageModeSet).toBe(false);
   });
 
   it("T8: setCountryPack accepts US", async () => {
     const { appRouter } = await import("./routers");
     const caller = appRouter.createCaller(makeCtx());
-    await expect(
-      caller.profile.setCountryPack({ countryPackId: "US" })
-    ).resolves.toEqual({ success: true });
+    const result = await caller.profile.setCountryPack({ countryPackId: "US" });
+    expect(result.success).toBe(true);
+    expect(result.languageModeSet).toBe(false);
   });
 
   it("T9: setCountryPack rejects invalid countryPackId", async () => {
