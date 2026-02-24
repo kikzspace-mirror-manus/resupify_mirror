@@ -146,6 +146,7 @@ export default function Onboarding() {
     return "e.g., Your university"; // GLOBAL fallback
   })();
   const [program, setProgram] = useState("");
+  const [highestEducationLevel, setHighestEducationLevel] = useState("");
   const [graduationDate, setGraduationDate] = useState("");
   const [currentlyEnrolled, setCurrentlyEnrolled] = useState(true);
 
@@ -241,6 +242,7 @@ export default function Onboarding() {
         program: program || undefined,
         graduationDate: graduationDate || undefined,
         currentlyEnrolled: trackCode === "COOP" ? currentlyEnrolled : undefined,
+        highestEducationLevel: highestEducationLevel || undefined,
         onboardingComplete: true,
       });
 
@@ -465,6 +467,27 @@ export default function Onboarding() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="highestEducationLevel">
+                  Highest education level <span className="text-muted-foreground ml-1 text-xs">(optional)</span>
+                </Label>
+                <select
+                  id="highestEducationLevel"
+                  data-testid="education-level-select"
+                  value={highestEducationLevel}
+                  onChange={(e) => setHighestEducationLevel(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">Select level...</option>
+                  <option value="high_school">High school</option>
+                  <option value="diploma_certificate">Diploma / Certificate</option>
+                  <option value="associate_degree">Associate degree</option>
+                  <option value="bachelors_degree">{"Bachelor's degree"}</option>
+                  <option value="masters_degree">{"Master's degree"}</option>
+                  <option value="doctorate">Doctorate (PhD)</option>
+                  <option value="other">Other / Prefer not to say</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="school">
                   School / Institution{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
@@ -478,7 +501,7 @@ export default function Onboarding() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="program">
-                  Program{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
+                  Field of study{!isCoopCA && <span className="text-muted-foreground ml-1 text-xs">(optional)</span>}
                 </Label>
                 <Input
                   id="program"

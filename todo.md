@@ -1602,3 +1602,14 @@
 - [x] Disabled market: show "Current: X (not currently offered)" text above dropdown
 - [x] Single pack: hide dropdown, show read-only display when enabledCountryPacks.length === 1
 - [x] Write tests: copy renames, eligibility checks absent, disabled banner, read-only single pack
+
+## V2 — Education step: highestEducationLevel dropdown + rename Program
+- [x] Add highestEducationLevel column to userProfiles table in drizzle/schema.ts
+- [x] Run pnpm db:push to migrate
+- [x] Add highestEducationLevel to profile.upsert z.object input schema in routers.ts
+- [x] Add highestEducationLevel to db.upsertProfile call path in server/db.ts
+- [x] Add useState for highestEducationLevel in Onboarding.tsx
+- [x] Add "Highest education level" dropdown (7 options) to Education step in Onboarding.tsx
+- [x] Rename "Program" label to "Field of study" in Onboarding.tsx
+- [x] Pass highestEducationLevel to handleComplete mutation call
+- [x] Write tests: dropdown renders, Field of study label, save mutation includes highestEducationLevel

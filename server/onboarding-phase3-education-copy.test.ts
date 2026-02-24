@@ -191,8 +191,8 @@ describe("E — Regression: Education step structure unchanged", () => {
     expect(content).toContain("School / Institution");
   });
 
-  it("E4) 'Program' label still present", () => {
-    expect(content).toContain("Program{!");
+  it("E4) 'Field of study' label present (renamed from Program)", () => {
+    expect(content).toContain("Field of study");
   });
 
   it("E5) 'Currently Enrolled' switch still present", () => {

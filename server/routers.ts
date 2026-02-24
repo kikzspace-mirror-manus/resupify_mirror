@@ -157,6 +157,7 @@ export const appRouter = router({
       program: z.string().max(MAX_LENGTHS.PROFILE_PROGRAM, { message: TOO_LONG_MSG }).optional(),
       graduationDate: z.string().max(MAX_LENGTHS.PROFILE_GRADUATION_DATE).optional(),
       currentlyEnrolled: z.boolean().optional(),
+      highestEducationLevel: z.string().max(64).optional(),
       onboardingComplete: z.boolean().optional(),
       phone: z.string().max(MAX_LENGTHS.PROFILE_PHONE, { message: TOO_LONG_MSG }).nullable().optional(),
       linkedinUrl: z.string().max(MAX_LENGTHS.PROFILE_LINKEDIN_URL, { message: TOO_LONG_MSG }).nullable().optional(),
