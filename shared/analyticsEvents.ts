@@ -44,6 +44,15 @@ export const EVT_PURCHASE_COMPLETED = "purchase_completed";
  */
 export const EVT_AI_RUN_COMPLETED = "ai_run_completed";
 
+// ─── V2 Rollout ──────────────────────────────────────────────────────────────
+/**
+ * User selected a country pack during Onboarding Step 0.
+ * props: { country_pack_id: "CA" | "VN", language_mode_set: boolean }
+ * language_mode_set = true when languageMode was defaulted to "vi" in this call.
+ * No PII. Fired server-side after DB commit, fire-and-forget.
+ */
+export const EVT_COUNTRY_PACK_SELECTED = "country_pack_selected";
+
 // ─── Moat ────────────────────────────────────────────────────────────────────
 /**
  * User applied a suggestion (bullet rewrite, cover letter edit, etc.).
@@ -70,6 +79,7 @@ export const ALL_EVENT_NAMES = [
   EVT_AI_RUN_COMPLETED,
   EVT_SUGGESTION_APPLIED,
   EVT_OUTCOME_REPORTED,
+  EVT_COUNTRY_PACK_SELECTED,
 ] as const;
 
 export type AnalyticsEventName = (typeof ALL_EVENT_NAMES)[number];

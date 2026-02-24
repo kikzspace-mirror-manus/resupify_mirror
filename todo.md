@@ -1399,3 +1399,8 @@
 - [x] Return languageModeSet flag in setCountryPack response for frontend awareness
 - [x] Update Onboarding.tsx: invalidate auth.me after Step 0 so Track step re-renders in VI immediately
 - [x] Write tests: VN+flag ON+unset→vi, VN+flag ON+existing en→unchanged, VN+flag OFF→unchanged, CA→unchanged
+
+## V2 — Onboarding Step 0: EVT_COUNTRY_PACK_SELECTED Analytics
+- [x] Add EVT_COUNTRY_PACK_SELECTED constant to analytics event constants file
+- [x] Fire event server-side in setCountryPack mutation (after DB commits, fire-and-forget, try/catch)
+- [x] Write tests: success fires once with correct props, failure no fire, analytics throw non-blocking

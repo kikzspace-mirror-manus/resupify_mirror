@@ -57,7 +57,7 @@ describe("routers.ts setCountryPack one-time VN languageMode default", () => {
 
   it("T6: setCountryPack returns languageModeSet in response", () => {
     const idx = content.indexOf("setCountryPack:");
-    const block = content.slice(idx, idx + 800);
+    const block = content.slice(idx, idx + 1500);
     expect(block).toContain("languageModeSet");
     expect(block).toContain("return { success: true, languageModeSet }");
   });

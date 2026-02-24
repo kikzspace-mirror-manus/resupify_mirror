@@ -39,7 +39,7 @@ import { COUNTRY_PACK_IDS } from "../shared/countryPacks";
 import { logAnalyticsEvent } from "./analytics";
 import {
   EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
-  EVT_OUTREACH_GENERATED, EVT_PAYWALL_VIEWED,
+  EVT_OUTREACH_GENERATED, EVT_PAYWALL_VIEWED, EVT_COUNTRY_PACK_SELECTED,
 } from "../shared/analyticsEvents";
 
 function addBusinessDays(date: Date, days: number): Date {
@@ -202,6 +202,16 @@ export const appRouter = router({
 
       if (languageModeSet) {
         await db.updateUserLanguageMode(ctx.user.id, "vi");
+      }
+
+      // Fire analytics event after all DB commits — fire-and-forget, never throws
+      try {
+        logAnalyticsEvent(EVT_COUNTRY_PACK_SELECTED, ctx.user.id, {
+          country_pack_id: input.countryPackId,
+          language_mode_set: languageModeSet,
+        });
+      } catch {
+        // Intentionally swallowed — analytics must never block onboarding
       }
 
       return { success: true, languageModeSet };
