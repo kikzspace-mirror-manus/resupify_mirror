@@ -710,6 +710,18 @@ ${buildToneSystemPrompt()}`
       return { enabled: true, data };
     }),
   }),
+  // --- Country Pack Adoption (V2 Growth Dashboard) ---
+  countryPackAdoption: router({
+    daily: adminProcedure.input(z.object({
+      rangeDays: z.union([z.literal(7), z.literal(14), z.literal(30)]).default(30),
+    })).query(async ({ input }) => {
+      if (!featureFlags.v2GrowthDashboardEnabled) {
+        return { enabled: false, data: null, totals: null };
+      }
+      const { data, totals } = await db.getCountryPackAdoption(input.rangeDays);
+      return { enabled: true, data, totals };
+    }),
+  }),
   // --- Early Access (Phase 10F-1) ---
   // Admin-only toggle to grant/revoke earlyAccessEnabled on a user.
   earlyAccess: router({

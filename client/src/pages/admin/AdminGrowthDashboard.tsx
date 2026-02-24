@@ -22,9 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from "recharts";
+import { Globe } from "lucide-react";
 
 // ─── Flag Status Box ──────────────────────────────────────────────────────────
 function FlagStatusBox({
@@ -109,10 +110,14 @@ export default function AdminGrowthDashboard() {
   const [timelineRange, setTimelineRange] = useState<7 | 14 | 30>(7);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("eventsTotal");
   const [healthOpen, setHealthOpen] = useState(false);
+  const [adoptionRange, setAdoptionRange] = useState<7 | 14 | 30>(30);
 
   const { data, isLoading, error, refetch } = trpc.admin.growth.kpis.useQuery();
   const { data: timelineData, isLoading: timelineLoading } = trpc.admin.timeline.daily.useQuery(
     { rangeDays: timelineRange },
+  );
+  const { data: adoptionData, isLoading: adoptionLoading } = trpc.admin.countryPackAdoption.daily.useQuery(
+    { rangeDays: adoptionRange },
   );
 
   // ── State 1: growth flag OFF ──────────────────────────────────────
@@ -323,6 +328,81 @@ export default function AdminGrowthDashboard() {
                       ))}
                     </LineChart>
                   </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ── Country Pack Adoption ─────────────────────────── */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-blue-500" />
+                    Country Pack Adoption
+                  </CardTitle>
+                  <div className="flex rounded-md border overflow-hidden text-xs">
+                    {([7, 14, 30] as const).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setAdoptionRange(r)}
+                        className={`px-3 py-1.5 font-medium transition-colors ${
+                          adoptionRange === r
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {r}d
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {adoptionLoading ? (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
+                ) : !analyticsEnabled ? (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                    Enable <code className="mx-1 bg-muted px-1 rounded text-xs">V2_ANALYTICS_ENABLED</code> to see adoption data.
+                  </div>
+                ) : !adoptionData?.data || adoptionData.data.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                    No pack selection events yet.
+                  </div>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={adoptionData.data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(v: string) => v.slice(5)}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Line type="monotone" dataKey="CA" name="CA" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="VN" name="VN" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="PH" name="PH" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        {adoptionData.totals && adoptionData.totals.OTHER > 0 && (
+                          <Line type="monotone" dataKey="OTHER" name="Other" stroke="#6b7280" strokeWidth={1.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                    {/* Totals row */}
+                    {adoptionData.totals && (
+                      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground border-t pt-3">
+                        <span className="font-medium text-foreground">Totals ({adoptionRange}d):</span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />CA: <strong className="text-foreground">{adoptionData.totals.CA.toLocaleString()}</strong></span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />VN: <strong className="text-foreground">{adoptionData.totals.VN.toLocaleString()}</strong></span>
+                        <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />PH: <strong className="text-foreground">{adoptionData.totals.PH.toLocaleString()}</strong></span>
+                        {adoptionData.totals.OTHER > 0 && (
+                          <span><span className="inline-block w-2 h-2 rounded-full bg-gray-500 mr-1" />Other: <strong className="text-foreground">{adoptionData.totals.OTHER.toLocaleString()}</strong></span>
+                        )}
+                        <span className="ml-auto">Total: <strong className="text-foreground">{adoptionData.totals.total.toLocaleString()}</strong></span>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

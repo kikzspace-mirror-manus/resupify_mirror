@@ -1439,3 +1439,9 @@
 - [x] Add CA_EXPERIENCED pack to shared/regionPacks.ts (maxPages 2, weights sum 1.0)
 - [x] Extend CA_TRACKS in shared/trackOptions.ts to 4 options (COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED)
 - [x] Write tests: weights sum 1.0, CA_COOP/CA_NEW_GRAD unchanged, 4-option CA dropdown
+
+## V2 — Admin Growth: Country Pack Adoption Chart
+- [x] Add getCountryPackAdoption(rangeDays) query to server/db.ts
+- [x] Add admin.countryPackAdoption.daily tRPC query to server/routers/admin.ts
+- [x] Add Country Pack Adoption card to AdminGrowthDashboard.tsx (line chart + totals row)
+- [x] Write tests: backend query shape, totals, empty state, regression
