@@ -1481,3 +1481,9 @@
 - [x] Audit setCountryPack success handler for immediate UI update
 - [x] Patch: added Country Pack selector card (GLOBAL/CA/VN/PH/US) with auth.me.invalidate() on save
 - [x] Write tests: 25 new tests in profile-country-pack-selector.test.ts
+
+## V2 — Admin Packs: Add US Filter Tab
+- [x] Add US to CountryFilter type in AdminPacks.tsx
+- [x] Add US filter button to the filter row
+- [x] Ensure US packs appear when US filter is selected
+- [x] Write tests: US filter shows 4 US packs, All filter includes US packs
