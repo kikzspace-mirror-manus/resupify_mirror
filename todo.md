@@ -1711,3 +1711,10 @@
 - [x] Update Profile.tsx useEffect profile load to use defaultTrackForPack fallback
 - [x] Write 31 new tests in global-career-stages.test.ts
 - [x] Update 9 stale test assertions across 6 existing test files
+
+## V2 — Onboarding: GLOBAL Normal Flow (No Track Skip)
+- [x] Audit Onboarding.tsx for GLOBAL skip-track logic (none found — already correct)
+- [x] Verify Track step uses hasTracksForCountry branch (GLOBAL now true)
+- [x] Verify handleCountryPackContinue calls setStep(1) unconditionally (no GLOBAL skip)
+- [x] Verify totalSteps = 3 for GLOBAL (no work auth step)
+- [x] Write tests: GLOBAL onboarding shows Track step with 4 options, no placeholder
