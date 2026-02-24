@@ -18,93 +18,18 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import type { CountryPackId } from "@shared/countryPacks";
+import { getTracksForCountry, type TrackCode } from "@shared/trackOptions";
 
-// ─── Track definitions ────────────────────────────────────────────────────────
+// ─── Icon map (client-only, not in shared module) ─────────────────────────────
 
-type TrackCode = "COOP" | "NEW_GRAD" | "INTERNSHIP" | "EARLY_CAREER" | "EXPERIENCED";
-
-interface TrackOption {
-  code: TrackCode;
-  regionCode: string;
-  label: string;
-  sublabel: string;
-  icon: React.ReactNode;
-}
-
-const CA_TRACKS: TrackOption[] = [
-  {
-    code: "COOP",
-    regionCode: "CA",
-    label: "Student / Co-op",
-    sublabel: "Currently enrolled",
-    icon: <GraduationCap className="h-8 w-8 text-primary" />,
-  },
-  {
-    code: "NEW_GRAD",
-    regionCode: "CA",
-    label: "Early-career / General",
-    sublabel: "New grad or career changer",
-    icon: <Briefcase className="h-8 w-8 text-primary" />,
-  },
-];
-
-const VN_TRACKS: TrackOption[] = [
-  {
-    code: "INTERNSHIP",
-    regionCode: "VN",
-    label: "Internship / Student",
-    sublabel: "Currently enrolled or seeking internship",
-    icon: <GraduationCap className="h-8 w-8 text-primary" />,
-  },
-  {
-    code: "NEW_GRAD",
-    regionCode: "VN",
-    label: "New Graduate",
-    sublabel: "Recently graduated",
-    icon: <Briefcase className="h-8 w-8 text-primary" />,
-  },
-  {
-    code: "EARLY_CAREER",
-    regionCode: "VN",
-    label: "Early Career",
-    sublabel: "1–5 years of experience",
-    icon: <Briefcase className="h-8 w-8 text-primary" />,
-  },
-  {
-    code: "EXPERIENCED",
-    regionCode: "VN",
-    label: "Experienced",
-    sublabel: "5+ years of experience",
-    icon: <Globe className="h-8 w-8 text-primary" />,
-  },
-];
-
-/**
- * Returns the list of available tracks and the default track code for a given
- * country pack, respecting the v2CountryPacksEnabled flag.
- *
- * When flag is OFF → always return CA tracks (V1 behavior unchanged).
- * When flag is ON  → filter by countryPackId:
- *   CA   → CA tracks, default COOP
- *   VN   → VN tracks, default NEW_GRAD
- *   other → empty (selector hidden with "Tracks coming soon" message)
- */
-function getTracksForCountry(
-  countryPackId: CountryPackId | null | undefined,
-  v2Enabled: boolean
-): { tracks: TrackOption[]; defaultTrack: TrackCode; hasTracksForCountry: boolean } {
-  if (!v2Enabled) {
-    return { tracks: CA_TRACKS, defaultTrack: "COOP", hasTracksForCountry: true };
+function TrackIcon({ code }: { code: TrackCode }) {
+  if (code === "COOP" || code === "INTERNSHIP") {
+    return <GraduationCap className="h-8 w-8 text-primary" />;
   }
-  const effectivePack = countryPackId ?? "GLOBAL";
-  if (effectivePack === "CA") {
-    return { tracks: CA_TRACKS, defaultTrack: "COOP", hasTracksForCountry: true };
+  if (code === "EXPERIENCED") {
+    return <Globe className="h-8 w-8 text-primary" />;
   }
-  if (effectivePack === "VN") {
-    return { tracks: VN_TRACKS, defaultTrack: "NEW_GRAD", hasTracksForCountry: true };
-  }
-  // GLOBAL / PH / US — no tracks yet
-  return { tracks: [], defaultTrack: "NEW_GRAD", hasTracksForCountry: false };
+  return <Briefcase className="h-8 w-8 text-primary" />;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -121,19 +46,11 @@ export default function Onboarding() {
   // Determine effective country pack from auth.me user record
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
 
-  // Compute available tracks based on country pack + flag
-  const { tracks, defaultTrack, hasTracksForCountry } = useMemo(
+  // Compute available tracks based on country pack + flag (shared helper)
+  const { tracks, defaultTrack, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
     () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled),
     [userCountryPackId, v2CountryPacksEnabled]
   );
-
-  // Effective regionCode for the selected country
-  const effectiveRegionCode = useMemo(() => {
-    if (!v2CountryPacksEnabled) return "CA";
-    const pack = userCountryPackId ?? "GLOBAL";
-    if (pack === "VN") return "VN";
-    return "CA";
-  }, [userCountryPackId, v2CountryPacksEnabled]);
 
   // Step 1: Track
   const [trackCode, setTrackCode] = useState<TrackCode>(defaultTrack);
@@ -246,7 +163,7 @@ export default function Onboarding() {
                       }`}
                     >
                       <RadioGroupItem value={track.code} id={`track-${track.code}`} className="sr-only" />
-                      {track.icon}
+                      <TrackIcon code={track.code} />
                       <div className={tracks.length <= 2 ? "text-center" : ""}>
                         <div className="font-semibold">{track.label}</div>
                         <div className="text-xs text-muted-foreground mt-1">{track.sublabel}</div>

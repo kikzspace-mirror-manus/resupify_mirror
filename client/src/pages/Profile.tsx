@@ -1,3 +1,4 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,13 +13,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ShieldCheck, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Loader2, ShieldCheck, User, Layers, Globe } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import type { CountryPackId } from "@shared/countryPacks";
+import { getTracksForCountry, type TrackCode } from "@shared/trackOptions";
 
 export default function Profile() {
   const utils = trpc.useUtils();
+  const { user } = useAuth();
   const { data: profile, isLoading } = trpc.profile.get.useQuery();
+
+  // Feature flags from server
+  const { data: flags } = trpc.system.featureFlags.useQuery();
+  const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
+
+  // Determine effective country pack from auth.me user record
+  const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
+
+  // Compute available tracks based on country pack + flag (shared helper)
+  const { tracks, hasTracksForCountry, regionCode: effectiveRegionCode } = useMemo(
+    () => getTracksForCountry(userCountryPackId, v2CountryPacksEnabled),
+    [userCountryPackId, v2CountryPacksEnabled]
+  );
+
+  // Track selector state — initialised from saved profile
+  const [trackCode, setTrackCode] = useState<TrackCode>("COOP");
+  const [trackDirty, setTrackDirty] = useState(false);
 
   // Education fields
   const [school, setSchool] = useState("");
@@ -39,6 +60,9 @@ export default function Profile() {
 
   useEffect(() => {
     if (profile) {
+      // Restore saved track code — fall back to first available track for the country
+      const savedTrack = (profile.trackCode as TrackCode) ?? "COOP";
+      setTrackCode(savedTrack);
       setSchool(profile.school ?? "");
       setProgram(profile.program ?? "");
       setGraduationDate(profile.graduationDate ?? "");
@@ -69,6 +93,15 @@ export default function Profile() {
     onError: (e) => toast.error(e.message),
   });
 
+  const saveTrack = trpc.profile.upsert.useMutation({
+    onSuccess: () => {
+      utils.profile.get.invalidate();
+      setTrackDirty(false);
+      toast.success("Track saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -77,14 +110,85 @@ export default function Profile() {
     );
   }
 
+  // Show work auth card only for CA users
+  const showWorkAuthCard = effectiveRegionCode === "CA";
+
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage your education details and work authorization status.
+          Manage your track, education details, and work authorization status.
         </p>
       </div>
+
+      {/* Track Card — country-aware, flag-gated */}
+      <Card data-testid="profile-track-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Layers className="h-4 w-4" />
+            Track
+          </CardTitle>
+          <CardDescription>
+            Your track determines which eligibility checks and resume tips apply to you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {hasTracksForCountry ? (
+            <>
+              <div className="space-y-2" data-testid="track-select-wrapper">
+                <Label htmlFor="track-select">Current Track</Label>
+                <Select
+                  value={trackCode}
+                  onValueChange={(v) => {
+                    setTrackCode(v as TrackCode);
+                    setTrackDirty(true);
+                  }}
+                >
+                  <SelectTrigger id="track-select" data-testid="track-select">
+                    <SelectValue placeholder="Select track" />
+                  </SelectTrigger>
+                  <SelectContent data-testid="track-select-content">
+                    {tracks.map((t) => (
+                      <SelectItem key={t.code} value={t.code} data-testid={`track-option-${t.code}`}>
+                        <span className="font-medium">{t.label}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">{t.sublabel}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                disabled={!trackDirty || saveTrack.isPending}
+                onClick={() =>
+                  saveTrack.mutate({
+                    regionCode: effectiveRegionCode,
+                    trackCode,
+                  })
+                }
+                data-testid="save-track-btn"
+              >
+                {saveTrack.isPending ? "Saving..." : "Save Track"}
+              </Button>
+            </>
+          ) : (
+            /* No tracks for this country yet */
+            <div
+              className="rounded-xl border-2 border-dashed border-border p-6 text-center"
+              data-testid="tracks-coming-soon"
+            >
+              <Globe className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="font-medium text-muted-foreground text-sm">
+                Tracks coming soon for this region.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                We'll use a general profile for now.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Education Card */}
       <Card>
@@ -145,106 +249,108 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* Work Authorization Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4" />
-            Work Authorization
-          </CardTitle>
-          <CardDescription>
-            Used to detect eligibility mismatches in job postings. This information stays private and is never shared.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <Label>Work Status</Label>
-            <Select value={workStatus} onValueChange={(v) => setWorkStatus(v as any)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select work status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="citizen_pr">Citizen / Permanent Resident</SelectItem>
-                <SelectItem value="temporary_resident">Temporary Resident</SelectItem>
-                <SelectItem value="unknown">Unknown / Prefer not to say</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {workStatus === "temporary_resident" && (
+      {/* Work Authorization Card — CA only */}
+      {showWorkAuthCard && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4" />
+              Work Authorization
+            </CardTitle>
+            <CardDescription>
+              Used to detect eligibility mismatches in job postings. This information stays private and is never shared.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label>Work Permit Type (optional)</Label>
-              <Select value={workStatusDetail || "none"} onValueChange={(v) => setWorkStatusDetail(v === "none" ? "" : v)}>
+              <Label>Work Status</Label>
+              <Select value={workStatus} onValueChange={(v) => setWorkStatus(v as any)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select permit type" />
+                  <SelectValue placeholder="Select work status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Not specified</SelectItem>
-                  <SelectItem value="open_work_permit">Open Work Permit</SelectItem>
-                  <SelectItem value="employer_specific_permit">Employer-Specific Permit</SelectItem>
-                  <SelectItem value="student_work_authorization">Student Work Authorization (e.g., co-op)</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="citizen_pr">Citizen / Permanent Resident</SelectItem>
+                  <SelectItem value="temporary_resident">Temporary Resident</SelectItem>
+                  <SelectItem value="unknown">Unknown / Prefer not to say</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label>Will you need employer sponsorship?</Label>
-            <Select value={needsSponsorship} onValueChange={(v) => setNeedsSponsorship(v as any)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="true">Yes, I will need sponsorship</SelectItem>
-                <SelectItem value="false">No, I do not need sponsorship</SelectItem>
-                <SelectItem value="unknown">Unknown / Not sure</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {workStatus === "temporary_resident" && (
+              <div className="space-y-2">
+                <Label>Work Permit Type (optional)</Label>
+                <Select value={workStatusDetail || "none"} onValueChange={(v) => setWorkStatusDetail(v === "none" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select permit type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not specified</SelectItem>
+                    <SelectItem value="open_work_permit">Open Work Permit</SelectItem>
+                    <SelectItem value="employer_specific_permit">Employer-Specific Permit</SelectItem>
+                    <SelectItem value="student_work_authorization">Student Work Authorization (e.g., co-op)</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="country">Country of Residence (optional)</Label>
-            <Input
-              id="country"
-              placeholder="e.g., Canada"
-              value={countryOfResidence}
-              maxLength={MAX_LENGTHS.PROFILE_COUNTRY}
-              onChange={(e) => setCountryOfResidence(e.target.value)}
-              className="w-64"
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <Label>Willing to Relocate</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Optional — helps with location requirement checks</p>
+            <div className="space-y-2">
+              <Label>Will you need employer sponsorship?</Label>
+              <Select value={needsSponsorship} onValueChange={(v) => setNeedsSponsorship(v as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Yes, I will need sponsorship</SelectItem>
+                  <SelectItem value="false">No, I do not need sponsorship</SelectItem>
+                  <SelectItem value="unknown">Unknown / Not sure</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Switch
-              checked={willingToRelocate ?? false}
-              onCheckedChange={(v) => setWillingToRelocate(v)}
-            />
-          </div>
 
-          <p className="text-xs text-muted-foreground bg-muted/50 rounded p-3">
-            <strong>Note:</strong> This information is used only to detect potential eligibility mismatches in job postings (e.g., "must be Citizen/PR", "no sponsorship"). It is framed as guidance, not legal advice. You can always change or clear these fields.
-          </p>
+            <div className="space-y-2">
+              <Label htmlFor="country">Country of Residence (optional)</Label>
+              <Input
+                id="country"
+                placeholder="e.g., Canada"
+                value={countryOfResidence}
+                maxLength={MAX_LENGTHS.PROFILE_COUNTRY}
+                onChange={(e) => setCountryOfResidence(e.target.value)}
+                className="w-64"
+              />
+            </div>
 
-          <Button
-            onClick={() => updateWorkStatus.mutate({
-              workStatus,
-              workStatusDetail: workStatusDetail ? (workStatusDetail as any) : null,
-              needsSponsorship,
-              countryOfResidence: countryOfResidence || null,
-              willingToRelocate,
-            })}
-            disabled={updateWorkStatus.isPending}
-            size="sm"
-          >
-            {updateWorkStatus.isPending ? "Saving..." : "Save Work Status"}
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <Label>Willing to Relocate</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Optional — helps with location requirement checks</p>
+              </div>
+              <Switch
+                checked={willingToRelocate ?? false}
+                onCheckedChange={(v) => setWillingToRelocate(v)}
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded p-3">
+              <strong>Note:</strong> This information is used only to detect potential eligibility mismatches in job postings (e.g., "must be Citizen/PR", "no sponsorship"). It is framed as guidance, not legal advice. You can always change or clear these fields.
+            </p>
+
+            <Button
+              onClick={() => updateWorkStatus.mutate({
+                workStatus,
+                workStatusDetail: workStatusDetail ? (workStatusDetail as any) : null,
+                needsSponsorship,
+                countryOfResidence: countryOfResidence || null,
+                willingToRelocate,
+              })}
+              disabled={updateWorkStatus.isPending}
+              size="sm"
+            >
+              {updateWorkStatus.isPending ? "Saving..." : "Save Work Status"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Contact Info */}
       <Card>

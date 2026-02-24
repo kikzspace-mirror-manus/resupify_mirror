@@ -1361,3 +1361,10 @@
 - [x] Update drizzle schema trackCode enum to accept VN track codes
 - [x] Run pnpm db:push to migrate schema
 - [x] Write tests: flag OFF shows CA tracks only, flag ON shows country-filtered tracks, VN/INTERNSHIP saves correctly
+
+## V2 — Profile: Country-aware Track Selector (Flag-Gated)
+- [x] Extract getTracksForCountry + TrackOption types into shared/trackOptions.ts
+- [x] Update Onboarding.tsx to import from shared/trackOptions.ts (remove local definition)
+- [x] Update Profile.tsx track selector to use getTracksForCountry (country-aware, flag-gated)
+- [x] Show "Tracks coming soon" for GLOBAL/PH/US in Profile
+- [x] Write tests: CA sees CA tracks, VN sees VN tracks, GLOBAL sees coming-soon, persist+reload

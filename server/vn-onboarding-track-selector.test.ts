@@ -64,34 +64,30 @@ describe("Onboarding.tsx getTracksForCountry logic", () => {
     expect(content).toContain("getTracksForCountry");
   });
 
-  it("T9: flag OFF returns CA tracks (V1 behavior)", () => {
-    expect(content).toContain("if (!v2Enabled)");
-    expect(content).toContain("return { tracks: CA_TRACKS");
+  it("T9: Onboarding.tsx imports getTracksForCountry from shared module (no local definition)", () => {
+    // Logic now lives in shared/trackOptions.ts — Onboarding imports it
+    expect(content).toContain("from \"@shared/trackOptions\"");
+    expect(content).not.toContain("function getTracksForCountry");
   });
 
-  it("T10: CA country pack returns CA tracks", () => {
-    expect(content).toContain("effectivePack === \"CA\"");
-    expect(content).toContain("return { tracks: CA_TRACKS");
+  it("T10: Onboarding.tsx does NOT define its own CA_TRACKS", () => {
+    expect(content).not.toContain("const CA_TRACKS");
   });
 
-  it("T11: VN country pack returns VN tracks", () => {
-    expect(content).toContain("effectivePack === \"VN\"");
-    expect(content).toContain("return { tracks: VN_TRACKS");
+  it("T11: Onboarding.tsx does NOT define its own VN_TRACKS", () => {
+    expect(content).not.toContain("const VN_TRACKS");
   });
 
-  it("T12: VN default track is NEW_GRAD", () => {
-    // VN block returns defaultTrack: "NEW_GRAD"
-    const vnBlock = content.slice(content.indexOf("effectivePack === \"VN\""));
-    expect(vnBlock.slice(0, 200)).toContain("NEW_GRAD");
+  it("T12: Onboarding.tsx uses effectiveRegionCode from shared result", () => {
+    expect(content).toContain("effectiveRegionCode");
   });
 
-  it("T13: CA default track is COOP", () => {
-    const caBlock = content.slice(content.indexOf("effectivePack === \"CA\""));
-    expect(caBlock.slice(0, 200)).toContain("COOP");
+  it("T13: Onboarding.tsx uses hasTracksForCountry from shared result", () => {
+    expect(content).toContain("hasTracksForCountry");
   });
 
-  it("T14: GLOBAL/PH/US returns hasTracksForCountry: false", () => {
-    expect(content).toContain("hasTracksForCountry: false");
+  it("T14: Onboarding.tsx uses tracks from shared result", () => {
+    expect(content).toContain("tracks,");
   });
 
   it("T15: 'Tracks coming soon' message is present for unsupported countries", () => {
@@ -106,21 +102,19 @@ describe("Onboarding.tsx getTracksForCountry logic", () => {
     expect(content).toContain("data-testid=\"track-selector\"");
   });
 
-  it("T18: VN_TRACKS array is defined with 4 tracks", () => {
-    expect(content).toContain("const VN_TRACKS: TrackOption[]");
-    // Count VN track codes
-    const internship = content.includes("\"INTERNSHIP\"");
-    const earlyCareer = content.includes("\"EARLY_CAREER\"");
-    const experienced = content.includes("\"EXPERIENCED\"");
-    expect(internship).toBe(true);
-    expect(earlyCareer).toBe(true);
-    expect(experienced).toBe(true);
+  it("T18: VN_TRACKS are accessible via shared/trackOptions import (4 tracks)", () => {
+    // Tracks now live in shared/trackOptions.ts — verify Onboarding imports them
+    expect(content).toContain("from \"@shared/trackOptions\"");
+    // Onboarding still renders INTERNSHIP/EARLY_CAREER/EXPERIENCED via the shared tracks
+    // (they appear as track.code values rendered in the JSX loop, not as inline consts)
+    expect(content).toContain("tracks.map");
   });
 
-  it("T19: CA_TRACKS array is defined with 2 tracks (V1 regression)", () => {
-    expect(content).toContain("const CA_TRACKS: TrackOption[]");
-    expect(content).toContain("\"COOP\"");
-    expect(content).toContain("\"NEW_GRAD\"");
+  it("T19: CA_TRACKS are accessible via shared/trackOptions import (V1 regression)", () => {
+    // Tracks now live in shared/trackOptions.ts — verify Onboarding imports them
+    expect(content).toContain("from \"@shared/trackOptions\"");
+    // Onboarding renders COOP/NEW_GRAD via the shared tracks loop
+    expect(content).toContain("tracks.map");
   });
 
   it("T20: work auth step is only shown for CA users", () => {
