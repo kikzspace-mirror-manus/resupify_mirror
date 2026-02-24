@@ -1,0 +1,1 @@
+ALTER TABLE `operational_events` MODIFY COLUMN `endpointGroup` enum('evidence','outreach','kit','url_fetch','auth','waitlist','jd_extract') NOT NULL;

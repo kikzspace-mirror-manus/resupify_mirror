@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   Clock,
   Package,
   ExternalLink,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ export default function Billing() {
 
   const { data: credits, isLoading } = trpc.credits.balance.useQuery();
   const { data: ledger } = trpc.credits.ledger.useQuery();
+  const { data: receipts } = trpc.credits.listReceipts.useQuery();
   const { data: packs } = trpc.stripe.packs.useQuery();
   const { data: testModeData } = trpc.stripe.isTestMode.useQuery();
   const isTestMode = testModeData?.isTestMode ?? false;
@@ -122,6 +124,15 @@ export default function Billing() {
             Test mode: use card <strong>4242 4242 4242 4242</strong> to simulate a purchase.
           </p>
         )}
+        <p className="text-xs text-muted-foreground mt-2 text-center">
+          Credits are non-transferable.{" "}
+          <Link
+            href="/refund-policy"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Refund policy
+          </Link>
+        </p>
       </div>
 
       {/* Transaction History */}
@@ -187,6 +198,71 @@ export default function Billing() {
         </CardContent>
       </Card>
 
+      {/* Purchase Receipts */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Purchase Receipts
+            </CardTitle>
+            {receipts && receipts.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {receipts.length} purchase{receipts.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {receipts && receipts.length > 0 ? (
+            <div className="space-y-2 overflow-y-auto pr-1" style={{ maxHeight: "320px" }}>
+              {receipts.map((r) => (
+                <div key={r.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-emerald-50 text-emerald-600">
+                    <Package className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium capitalize">{r.packId} Pack &mdash; +{r.creditsAdded} credits</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(r.createdAt).toLocaleString()}
+                      {r.amountCents != null && r.currency && (
+                        <span className="ml-2">
+                          {(r.amountCents / 100).toFixed(2)} {r.currency.toUpperCase()}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/billing/receipts/${r.id}`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View
+                    </Link>
+                    {r.stripeReceiptUrl && (
+                      <a
+                        href={r.stripeReceiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Receipt className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+              <p className="text-sm">No purchases yet.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       {/* Info */}
       <Card>
         <CardContent className="pt-6">

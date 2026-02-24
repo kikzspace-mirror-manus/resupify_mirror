@@ -13,11 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ENDPOINT_GROUPS, EVENT_TYPES, type EndpointGroup, type EventType } from "@/../../shared/operational-events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type EndpointGroup = "evidence" | "outreach" | "kit" | "url_fetch" | "auth";
-type EventType = "rate_limited" | "provider_error" | "validation_error" | "unknown";
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -26,6 +24,7 @@ const EVENT_TYPE_COLORS: Record<EventType, string> = {
   provider_error: "bg-red-100 text-red-800 border-red-200",
   validation_error: "bg-orange-100 text-orange-800 border-orange-200",
   unknown: "bg-gray-100 text-gray-700 border-gray-200",
+  waitlist_joined: "bg-emerald-100 text-emerald-800 border-emerald-200",
 };
 
 const ENDPOINT_COLORS: Record<EndpointGroup, string> = {
@@ -34,6 +33,8 @@ const ENDPOINT_COLORS: Record<EndpointGroup, string> = {
   kit: "bg-indigo-100 text-indigo-800 border-indigo-200",
   url_fetch: "bg-cyan-100 text-cyan-800 border-cyan-200",
   auth: "bg-rose-100 text-rose-800 border-rose-200",
+  waitlist: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  jd_extract: "bg-teal-100 text-teal-800 border-teal-200",
 };
 
 const STATUS_COLORS: Record<number, string> = {
@@ -103,6 +104,8 @@ export default function AdminOperationalEvents() {
                 <SelectItem value="kit">kit</SelectItem>
                 <SelectItem value="url_fetch">url_fetch</SelectItem>
                 <SelectItem value="auth">auth</SelectItem>
+                <SelectItem value="waitlist">waitlist</SelectItem>
+                <SelectItem value="jd_extract">jd_extract</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -122,6 +125,7 @@ export default function AdminOperationalEvents() {
                 <SelectItem value="provider_error">provider_error</SelectItem>
                 <SelectItem value="validation_error">validation_error</SelectItem>
                 <SelectItem value="unknown">unknown</SelectItem>
+                <SelectItem value="waitlist_joined">waitlist_joined</SelectItem>
               </SelectContent>
             </Select>
           </div>

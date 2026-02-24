@@ -1,5 +1,5 @@
 /**
- * Phase 10A-1 — In-memory rate limiter
+ * Phase 10A — In-memory rate limiter
  *
  * Supports per-user (authenticated) and per-IP limits.
  * Uses a TTL-based sliding window backed by a Map<key, number[]>.
@@ -12,6 +12,11 @@
  * Phase 10B-2B — Operational event logging
  * When a rate limit fires, a non-PII event is written to operational_events.
  * user_id_hash and ip_hash are first-16-chars of a SHA-256 hex digest.
+ *
+ * Phase 10A (updated):
+ * - Admin bypass: users with role="admin" skip all rate limits
+ * - Concurrency guard: max 1 active AI call per user (per endpoint group)
+ * - Corrected limits to match spec: AI 10/10min, URL fetch 10/hour
  */
 import { TRPCError } from "@trpc/server";
 import type { Request } from "express";
@@ -37,9 +42,13 @@ export interface RateLimitResult {
 /** Map<rateKey, timestamps[]> — timestamps are epoch ms */
 const store = new Map<string, number[]>();
 
+/** Map<concurrencyKey, activeCount> — tracks in-flight AI calls per user */
+const concurrencyStore = new Map<string, number>();
+
 /** Clear all rate limit buckets. Only intended for test environments. */
 export function _clearStoreForTests() {
   store.clear();
+  concurrencyStore.clear();
 }
 
 /**
@@ -107,6 +116,33 @@ export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitR
   return { allowed: true, retryAfterSeconds: 0 };
 }
 
+// ─── Concurrency guard ────────────────────────────────────────────────────────
+
+/**
+ * Check and increment the concurrency counter for a user+endpoint.
+ * Returns true if the call is allowed (counter incremented), false if at limit.
+ */
+export function acquireConcurrency(key: string, maxConcurrent: number): boolean {
+  if (_bypassForTests) return true;
+  const current = concurrencyStore.get(key) ?? 0;
+  if (current >= maxConcurrent) return false;
+  concurrencyStore.set(key, current + 1);
+  return true;
+}
+
+/**
+ * Decrement the concurrency counter for a user+endpoint.
+ * Always call this in a finally block after acquireConcurrency.
+ */
+export function releaseConcurrency(key: string): void {
+  const current = concurrencyStore.get(key) ?? 0;
+  if (current <= 1) {
+    concurrencyStore.delete(key);
+  } else {
+    concurrencyStore.set(key, current - 1);
+  }
+}
+
 // ─── IP extraction ────────────────────────────────────────────────────────────
 
 /**
@@ -150,16 +186,21 @@ export function throwRateLimited(retryAfterSeconds: number): never {
 // ─── Limit constants ──────────────────────────────────────────────────────────
 
 const TEN_MINUTES = 10 * 60 * 1000;
+const ONE_HOUR = 60 * 60 * 1000;
 
 export const LIMITS = {
-  /** Evidence / ATS run: 6 per user per 10 min */
-  EVIDENCE_USER: { limit: 6, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
+  /** Evidence / ATS run: 10 per user per 10 min (spec: 10/10min) */
+  EVIDENCE_USER: { limit: 10, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
   /** Outreach generate: 10 per user per 10 min */
   OUTREACH_USER: { limit: 10, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
-  /** Application Kit generate: 8 per user per 10 min */
-  KIT_USER: { limit: 8, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
-  /** JD URL fetch: 30 per IP per 10 min */
-  URL_FETCH_IP: { limit: 30, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
+  /** Application Kit generate: 10 per user per 10 min */
+  KIT_USER: { limit: 10, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
+  /** JD extract (LLM): 10 per user per 10 min */
+  JD_EXTRACT_USER: { limit: 10, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
+  /** JD URL fetch: 10 per user per hour (spec: 10/hour) */
+  URL_FETCH_USER: { limit: 10, windowMs: ONE_HOUR } satisfies RateLimitConfig,
+  /** JD URL fetch: 20 per IP per hour (slightly more permissive for shared IPs) */
+  URL_FETCH_IP: { limit: 20, windowMs: ONE_HOUR } satisfies RateLimitConfig,
   /** Auth endpoints: 20 per IP per 10 min */
   AUTH_IP: { limit: 20, windowMs: TEN_MINUTES } satisfies RateLimitConfig,
 } as const;
@@ -177,7 +218,7 @@ export function shortHash(value: string): string {
 
 // ─── Endpoint group mapping ───────────────────────────────────────────────────
 
-export type EndpointGroup = "evidence" | "outreach" | "kit" | "url_fetch" | "auth";
+export type EndpointGroup = "evidence" | "outreach" | "kit" | "jd_extract" | "url_fetch" | "auth";
 
 // ─── tRPC middleware factory ──────────────────────────────────────────────────
 
@@ -190,15 +231,26 @@ const t = initTRPC.context<TrpcContext>().create();
  * Build a tRPC middleware that enforces per-user AND per-IP limits.
  * Pass `null` for either config to skip that dimension.
  * When a limit fires, a non-PII operational event is logged asynchronously.
+ *
+ * Admin users (role="admin") bypass all rate limits.
+ *
+ * If maxConcurrent > 0, enforces a concurrency cap per user for this endpoint.
+ * The caller must ensure the concurrency slot is released after the call.
  */
 export function makeRateLimitMiddleware(
   userConfig: RateLimitConfig | null,
   ipConfig: RateLimitConfig | null,
   prefix: string,
-  endpointGroup: EndpointGroup
+  endpointGroup: EndpointGroup,
+  maxConcurrent = 0
 ) {
   return t.middleware(async ({ ctx, next }) => {
     const ip = getClientIp(ctx.req);
+
+    // Admin bypass: admins are never rate-limited
+    if (ctx.user?.role === "admin") {
+      return next();
+    }
 
     // Per-IP check (always runs when ipConfig provided)
     if (ipConfig) {
@@ -208,7 +260,6 @@ export function makeRateLimitMiddleware(
         if (typeof ctx.res?.setHeader === "function") {
           ctx.res.setHeader("Retry-After", String(ipResult.retryAfterSeconds));
         }
-        // Log non-PII event (fire-and-forget)
         void logRateLimitEvent({
           endpointGroup,
           retryAfterSeconds: ipResult.retryAfterSeconds,
@@ -227,7 +278,6 @@ export function makeRateLimitMiddleware(
         if (typeof ctx.res?.setHeader === "function") {
           ctx.res.setHeader("Retry-After", String(userResult.retryAfterSeconds));
         }
-        // Log non-PII event (fire-and-forget)
         void logRateLimitEvent({
           endpointGroup,
           retryAfterSeconds: userResult.retryAfterSeconds,
@@ -235,6 +285,20 @@ export function makeRateLimitMiddleware(
           ipHash: shortHash(ip),
         });
         throwRateLimited(userResult.retryAfterSeconds);
+      }
+    }
+
+    // Concurrency check (only when authenticated and maxConcurrent > 0)
+    if (maxConcurrent > 0 && ctx.user) {
+      const concKey = `${prefix}:concurrency:${ctx.user.id}`;
+      const acquired = acquireConcurrency(concKey, maxConcurrent);
+      if (!acquired) {
+        throwRateLimited(30); // suggest retry in 30s for concurrency limit
+      }
+      try {
+        return await next();
+      } finally {
+        releaseConcurrency(concKey);
       }
     }
 
@@ -274,32 +338,49 @@ async function logRateLimitEvent(args: LogRateLimitEventArgs): Promise<void> {
 
 // ─── Pre-built middleware instances ──────────────────────────────────────────
 
+/** Evidence/ATS scan: 10/10min per user, max 1 concurrent */
 export const evidenceRateLimit = makeRateLimitMiddleware(
   LIMITS.EVIDENCE_USER,
-  null, // no per-IP for LLM endpoints (user auth is sufficient)
+  null,
   "evidence",
-  "evidence"
+  "evidence",
+  1 // max 1 concurrent AI call per user
 );
 
+/** Outreach generate: 10/10min per user, max 1 concurrent */
 export const outreachRateLimit = makeRateLimitMiddleware(
   LIMITS.OUTREACH_USER,
   null,
   "outreach",
-  "outreach"
+  "outreach",
+  1
 );
 
+/** Application Kit generate: 10/10min per user, max 1 concurrent */
 export const kitRateLimit = makeRateLimitMiddleware(
   LIMITS.KIT_USER,
   null,
   "kit",
-  "kit"
+  "kit",
+  1
 );
 
+/** JD extract (LLM): 10/10min per user, max 1 concurrent */
+export const jdExtractRateLimit = makeRateLimitMiddleware(
+  LIMITS.JD_EXTRACT_USER,
+  null,
+  "jd_extract",
+  "jd_extract",
+  1
+);
+
+/** JD URL fetch: 10/hour per user + 20/hour per IP */
 export const urlFetchRateLimit = makeRateLimitMiddleware(
-  LIMITS.URL_FETCH_IP, // per-user (when auth'd)
-  LIMITS.URL_FETCH_IP, // per-IP (always)
+  LIMITS.URL_FETCH_USER,
+  LIMITS.URL_FETCH_IP,
   "urlfetch",
-  "url_fetch"
+  "url_fetch",
+  0 // no concurrency limit for URL fetch
 );
 
 // ─── Express middleware for auth endpoints ────────────────────────────────────

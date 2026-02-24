@@ -35,8 +35,10 @@ import {
   Zap,
   Shield,
   UserCircle,
+  AlertTriangle,
+  X,
 } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
@@ -48,7 +50,7 @@ const menuItems = [
   { icon: CalendarCheck, label: "Today", path: "/today" },
   { icon: Briefcase, label: "Job Cards", path: "/jobs" },
   { icon: FileText, label: "Resumes", path: "/resumes" },
-  { icon: Users, label: "Outreach", path: "/outreach" },
+  { icon: Users, label: "Contacts", path: "/outreach" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: CreditCard, label: "Billing", path: "/billing" },
   { icon: UserCircle, label: "Profile", path: "/profile" },
@@ -163,6 +165,28 @@ function DashboardLayoutContent({
 
   const { data: creditsData } = trpc.credits.balance.useQuery();
 
+  // Low-credit banner: show when balance < 2 and not dismissed in last 24h
+  const LOW_CREDIT_THRESHOLD = 2;
+  const LOW_CREDIT_DISMISS_KEY = "lowCreditBannerDismissed";
+
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    const ts = localStorage.getItem(LOW_CREDIT_DISMISS_KEY);
+    if (!ts) return false;
+    return Date.now() - parseInt(ts, 10) < 24 * 60 * 60 * 1000;
+  });
+
+  const handleDismissBanner = useCallback(() => {
+    localStorage.setItem(LOW_CREDIT_DISMISS_KEY, Date.now().toString());
+    setBannerDismissed(true);
+  }, []);
+
+  const showLowCreditBanner = useMemo(() => {
+    if (bannerDismissed) return false;
+    if (user?.role === "admin") return false;
+    if (!creditsData) return false;
+    return creditsData.balance < LOW_CREDIT_THRESHOLD;
+  }, [bannerDismissed, user?.role, creditsData]);
+
   useEffect(() => {
     if (isCollapsed) {
       setIsResizing(false);
@@ -258,6 +282,43 @@ function DashboardLayoutContent({
               })}
             </SidebarMenu>
           </SidebarContent>
+
+          {showLowCreditBanner && !isCollapsed && (
+            <div className="mx-2 mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400 leading-snug">
+                    Low credits. Top up to continue scanning.
+                  </p>
+                  <button
+                    onClick={() => setLocation("/billing")}
+                    className="mt-1.5 text-xs font-semibold text-amber-600 dark:text-amber-300 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 rounded"
+                    data-testid="low-credit-topup-btn"
+                  >
+                    Top up
+                  </button>
+                </div>
+                <button
+                  onClick={handleDismissBanner}
+                  className="shrink-0 text-amber-500/70 hover:text-amber-500 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 rounded"
+                  aria-label="Dismiss low credit warning"
+                  data-testid="low-credit-dismiss-btn"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+          {showLowCreditBanner && isCollapsed && (
+            <div className="flex justify-center mb-1">
+              <div
+                className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"
+                title="Low credits"
+                data-testid="low-credit-dot"
+              />
+            </div>
+          )}
 
           <SidebarFooter className="p-3">
             <DropdownMenu>

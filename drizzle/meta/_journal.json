@@ -106,6 +106,111 @@
       "when": 1771776663875,
       "tag": "0014_narrow_lockheed",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1771784960022,
+      "tag": "0015_material_ares",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1771786866630,
+      "tag": "0016_freezing_grim_reaper",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1771788148054,
+      "tag": "0017_wooden_landau",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1771789987252,
+      "tag": "0018_silky_zombie",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1771792114012,
+      "tag": "0019_aberrant_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1771792568908,
+      "tag": "0020_eager_proudstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1771824898606,
+      "tag": "0021_mushy_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1771855061187,
+      "tag": "0022_amazing_morg",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1771856542377,
+      "tag": "0023_hard_rockslide",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1771867478677,
+      "tag": "0024_green_polaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1771886051689,
+      "tag": "0025_sleepy_luke_cage",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1771886614599,
+      "tag": "0026_loud_oracle",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1771886820052,
+      "tag": "0027_solid_hannibal_king",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1771908651681,
+      "tag": "0028_tense_bill_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1771912545000,
+      "tag": "0029_eager_domino",
+      "breakpoints": true
     }
   ]
 }

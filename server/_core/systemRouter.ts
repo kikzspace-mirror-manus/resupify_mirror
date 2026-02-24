@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
+import { featureFlags } from "../../shared/featureFlags";
 
 export const systemRouter = router({
   health: publicProcedure
@@ -12,6 +13,12 @@ export const systemRouter = router({
     .query(() => ({
       ok: true,
     })),
+
+  featureFlags: publicProcedure.query(() => ({
+    v2CountryPacksEnabled: featureFlags.v2CountryPacksEnabled,
+    v2VnTranslationEnabled: featureFlags.v2VnTranslationEnabled,
+    v2BilingualViewEnabled: featureFlags.v2BilingualViewEnabled,
+  })),
 
   notifyOwner: adminProcedure
     .input(

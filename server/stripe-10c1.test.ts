@@ -6,7 +6,7 @@
  * B) stripe.packs returns the three credit packs with correct credits/prices
  * C) handleWebhookEvent credits user exactly once for checkout.session.completed
  * D) Duplicate event delivery (same stripeEventId) does NOT double-credit
- * E) Ledger entry is created with reason "Credit purchase — <packId> pack"
+ * E) Ledger entry is created with reason "Purchase: <packId>"
  * F) charge.refunded is recorded as manual_review, no credits added/removed
  * G) Unknown event type is recorded as skipped, no credits added/removed
  * H) stripeEventExists returns true after recordStripeEvent
@@ -25,11 +25,15 @@ const {
   mockStripeEventExists,
   mockRecordStripeEvent,
   mockAddCredits,
+  mockCreatePurchaseReceipt,
+  mockCreateRefundQueueItem,
 } = vi.hoisted(() => ({
   mockCreateCheckoutSession: vi.fn(),
   mockStripeEventExists: vi.fn(),
   mockRecordStripeEvent: vi.fn(),
   mockAddCredits: vi.fn(),
+  mockCreatePurchaseReceipt: vi.fn(),
+  mockCreateRefundQueueItem: vi.fn(),
 }));
 
 vi.mock("./stripe", async (importOriginal) => {
@@ -47,6 +51,8 @@ vi.mock("./db", async (importOriginal) => {
     stripeEventExists: mockStripeEventExists,
     recordStripeEvent: mockRecordStripeEvent,
     addCredits: mockAddCredits,
+    createPurchaseReceipt: mockCreatePurchaseReceipt,
+    createRefundQueueItem: mockCreateRefundQueueItem,
   };
 });
 
@@ -156,6 +162,8 @@ describe("Phase 10C-1: Stripe Checkout + Idempotent Webhook", () => {
     mockStripeEventExists.mockResolvedValue(false);
     mockRecordStripeEvent.mockResolvedValue(undefined);
     mockAddCredits.mockResolvedValue(undefined);
+    mockCreatePurchaseReceipt.mockResolvedValue(undefined);
+    mockCreateRefundQueueItem.mockResolvedValue(undefined);
   });
 
   // ── A) Checkout procedure returns URL with correct metadata ───────────────
@@ -198,7 +206,7 @@ describe("Phase 10C-1: Stripe Checkout + Idempotent Webhook", () => {
     expect(mockAddCredits).toHaveBeenCalledWith(
       42,
       15,
-      "Credit purchase — pro pack",
+      "Purchase: pro",
       "credit_purchase"
     );
     expect(mockRecordStripeEvent).toHaveBeenCalledWith(
@@ -234,7 +242,7 @@ describe("Phase 10C-1: Stripe Checkout + Idempotent Webhook", () => {
     expect(mockAddCredits).toHaveBeenCalledWith(
       42,
       5,
-      "Credit purchase — starter pack",
+      "Purchase: starter",
       "credit_purchase"
     );
   });

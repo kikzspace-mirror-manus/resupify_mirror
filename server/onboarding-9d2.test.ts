@@ -4,7 +4,7 @@
  * A) profile.skip mutation sets onboardingSkippedAt and returns success
  * B) profile.skip does not set onboardingComplete=true
  * C) profile.upsert with onboardingComplete=true still works (happy path)
- * D) Track label mapping: COOP → "Student / Co-op", NEW_GRAD → "Early-career / General"
+ * D) Track label mapping: COOP → "Student / Co-op", NEW_GRAD → "New Graduate"
  * E) Inline eligibility nudge logic: shown when JD has eligibility requirements AND profile is unknown
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -126,15 +126,15 @@ describe("Test D: ICP track label mapping", () => {
    */
   const TRACK_LABELS: Record<string, string> = {
     COOP: "Student / Co-op",
-    NEW_GRAD: "Early-career / General",
+    NEW_GRAD: "New Graduate",
   };
 
   it("D1) COOP track label is 'Student / Co-op'", () => {
     expect(TRACK_LABELS["COOP"]).toBe("Student / Co-op");
   });
 
-  it("D2) NEW_GRAD track label is 'Early-career / General'", () => {
-    expect(TRACK_LABELS["NEW_GRAD"]).toBe("Early-career / General");
+  it("D2) NEW_GRAD track label is 'New Graduate'", () => {
+    expect(TRACK_LABELS["NEW_GRAD"]).toBe("New Graduate");
   });
 
   it("D3) COOP is not labeled 'Co-op' (old label)", () => {

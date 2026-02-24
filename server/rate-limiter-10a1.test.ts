@@ -56,7 +56,7 @@ describe("Test A: Requests within limit are allowed", () => {
 
   it("A2) Requests up to the limit are all allowed", () => {
     const key = uniqueKey("a2");
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       expect(checkRateLimitForReal(key, LIMITS.EVIDENCE_USER).allowed).toBe(true);
     }
   });
@@ -72,8 +72,8 @@ describe("Test A: Requests within limit are allowed", () => {
 describe("Test B: Requests exceeding limit are blocked", () => {
   it("B1) Request at limit+1 is blocked", () => {
     const key = uniqueKey("b1");
-    // EVIDENCE_USER limit = 6; exhaust then check 7th
-    for (let i = 0; i < 6; i++) checkRateLimitForReal(key, LIMITS.EVIDENCE_USER);
+    // EVIDENCE_USER limit = 10; exhaust then check 11th
+    for (let i = 0; i < 10; i++) checkRateLimitForReal(key, LIMITS.EVIDENCE_USER);
     const result = checkRateLimitForReal(key, LIMITS.EVIDENCE_USER);
     expect(result.allowed).toBe(false);
   });
@@ -89,8 +89,8 @@ describe("Test B: Requests exceeding limit are blocked", () => {
 
   it("B3) retryAfterSeconds is a positive integer (ceiling)", () => {
     const key = uniqueKey("b3");
-    // KIT_USER limit = 8; exhaust then check 9th
-    for (let i = 0; i < 8; i++) checkRateLimitForReal(key, LIMITS.KIT_USER);
+    // KIT_USER limit = 10; exhaust then check 11th
+    for (let i = 0; i < 10; i++) checkRateLimitForReal(key, LIMITS.KIT_USER);
     const result = checkRateLimitForReal(key, LIMITS.KIT_USER);
     expect(Number.isInteger(result.retryAfterSeconds)).toBe(true);
     expect(result.retryAfterSeconds).toBeGreaterThan(0);
@@ -129,7 +129,7 @@ describe("Test D: Per-user and per-IP keys are independent buckets", () => {
     const ipKey = uniqueKey("ip:127.0.0.1");
 
     // Exhaust EVIDENCE_USER limit on userKey
-    for (let i = 0; i < 6; i++) checkRateLimitForReal(userKey, LIMITS.EVIDENCE_USER);
+    for (let i = 0; i < 10; i++) checkRateLimitForReal(userKey, LIMITS.EVIDENCE_USER);
     expect(checkRateLimitForReal(userKey, LIMITS.EVIDENCE_USER).allowed).toBe(false);
 
     // IP key is independent — still allowed
@@ -141,7 +141,7 @@ describe("Test D: Per-user and per-IP keys are independent buckets", () => {
     const userKey = `evidence:user:${base}`;
     const ipKey = `evidence:ip:${base}`;
 
-    for (let i = 0; i < 6; i++) checkRateLimitForReal(userKey, LIMITS.EVIDENCE_USER);
+    for (let i = 0; i < 10; i++) checkRateLimitForReal(userKey, LIMITS.EVIDENCE_USER);
     expect(checkRateLimitForReal(userKey, LIMITS.EVIDENCE_USER).allowed).toBe(false);
 
     // IP key still has capacity
@@ -183,8 +183,8 @@ describe("Test E: buildRateLimitBody returns correct 429 JSON shape", () => {
 describe("Test F: LIMITS constants match Phase 10A-1 spec", () => {
   const TEN_MINUTES = 10 * 60 * 1000;
 
-  it("F1) EVIDENCE_USER: 6 per 10 min", () => {
-    expect(LIMITS.EVIDENCE_USER.limit).toBe(6);
+  it("F1) EVIDENCE_USER: 10 per 10 min", () => {
+    expect(LIMITS.EVIDENCE_USER.limit).toBe(10);
     expect(LIMITS.EVIDENCE_USER.windowMs).toBe(TEN_MINUTES);
   });
 
@@ -193,14 +193,14 @@ describe("Test F: LIMITS constants match Phase 10A-1 spec", () => {
     expect(LIMITS.OUTREACH_USER.windowMs).toBe(TEN_MINUTES);
   });
 
-  it("F3) KIT_USER: 8 per 10 min", () => {
-    expect(LIMITS.KIT_USER.limit).toBe(8);
+  it("F3) KIT_USER: 10 per 10 min", () => {
+    expect(LIMITS.KIT_USER.limit).toBe(10);
     expect(LIMITS.KIT_USER.windowMs).toBe(TEN_MINUTES);
   });
 
-  it("F4) URL_FETCH_IP: 30 per 10 min", () => {
-    expect(LIMITS.URL_FETCH_IP.limit).toBe(30);
-    expect(LIMITS.URL_FETCH_IP.windowMs).toBe(TEN_MINUTES);
+  it("F4) URL_FETCH_IP: 20 per hour", () => {
+    expect(LIMITS.URL_FETCH_IP.limit).toBe(20);
+    expect(LIMITS.URL_FETCH_IP.windowMs).toBe(60 * 60 * 1000);
   });
 
   it("F5) AUTH_IP: 20 per 10 min", () => {

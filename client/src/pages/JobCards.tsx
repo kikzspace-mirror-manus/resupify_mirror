@@ -1,4 +1,6 @@
 import { trpc } from "@/lib/trpc";
+import { useAIConcurrency } from "@/contexts/AIConcurrencyContext";
+import BatchSprintResultsDrawer, { type BatchSprintResult } from "@/components/BatchSprintResultsDrawer";
 import { ProfileNudgeBanner, useProfileNudge } from "@/components/ProfileNudgeBanner";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +20,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -30,16 +33,39 @@ import {
   Briefcase,
   MapPin,
   Calendar,
+  Clock,
   ExternalLink,
   Search,
   Bell,
   ShieldAlert,
   Loader2,
+  MoreHorizontal,
+  Archive,
+  ArchiveRestore,
+  Zap,
+  MonitorSmartphone,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS } from "../../../shared/regionPacks";
+import { normalizeJobUrl, isLikelyBlockedHost } from "../../../shared/urlNormalize";
 import {
   DndContext,
   DragOverlay,
@@ -131,15 +157,79 @@ export default function JobCards() {
   const [filterStage, setFilterStage] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterSeason, setFilterSeason] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
   const [showCreate, setShowCreate] = useState(false);
 
   // ── Drag-and-drop state ──────────────────────────────────────────────
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
+
+  // ── Archive state ────────────────────────────────────────────────────
+  const [archiveConfirmId, setArchiveConfirmId] = useState<number | null>(null);
+
+  // ── Bulk selection state ───────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkArchiveConfirmOpen, setBulkArchiveConfirmOpen] = useState(false);
+  const [bulkArchiveProgress, setBulkArchiveProgress] = useState<{ current: number; total: number } | null>(null);
+
+   // ── Batch Sprint state ────────────────────────────────────────────
+  const [batchSprintResumeId, setBatchSprintResumeId] = useState<number | null>(null);
+  const [showBatchSprintDialog, setShowBatchSprintDialog] = useState(false);
+  // Phase 10E: Results drawer state
+  const [sprintResultsOpen, setSprintResultsOpen] = useState(false);
+  const [sprintResults, setSprintResults] = useState<BatchSprintResult[]>([]);
+  const [sprintResumeIdForRetry, setSprintResumeIdForRetry] = useState<number | null>(null);
+  const [isRetryingFailed, setIsRetryingFailed] = useState(false);
+  const { isBusy, isQueued, runAI, markDone, cancelQueued } = useAIConcurrency();
+
+  const archiveCard = trpc.jobCards.update.useMutation({
+    onMutate: async ({ id, stage }) => {
+      await utils.jobCards.list.cancel();
+      const previous = utils.jobCards.list.getData({});
+      utils.jobCards.list.setData({}, (old) =>
+        old ? old.map((j) => (j.id === id ? { ...j, stage: stage! } : j)) : old
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) utils.jobCards.list.setData({}, context.previous);
+      toast.error("Action failed. Try again.");
+    },
+    onSuccess: (_data, vars) => {
+      const isArchiving = vars.stage === "archived";
+      toast.success(isArchiving ? "Job card archived." : "Job card unarchived.");
+    },
+    onSettled: () => {
+      utils.jobCards.list.invalidate();
+    },
+  });
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
   const { data: jobs, isLoading } = trpc.jobCards.list.useQuery({});
+  const { data: resumes } = trpc.resumes.list.useQuery();
+
+  // ── Batch Sprint mutation ─────────────────────────────────────────────
+  const batchSprint = trpc.evidence.batchSprint.useMutation({
+    onSuccess: (data) => {
+      markDone();
+      const succeeded = data.results.filter((r) => r.runId !== null).length;
+      const failed = data.results.length - succeeded;
+      // Phase 10E: store results and auto-open drawer
+      setSprintResults(data.results as BatchSprintResult[]);
+      setSprintResultsOpen(true);
+      if (failed === 0) {
+        toast.success(`Batch Sprint complete! ${succeeded} job${succeeded !== 1 ? "s" : ""} scanned.`);
+      } else {
+        toast.warning(`Batch Sprint done: ${succeeded} succeeded, ${failed} failed.`);
+      }
+      utils.jobCards.list.invalidate();
+    },
+    onError: (err) => {
+      markDone();
+      toast.error(err.message ?? "Batch Sprint failed. Try again.");
+    },
+  });
 
   // Profile nudge banner (shared with Dashboard/Today)
   const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery();
@@ -190,7 +280,8 @@ export default function JobCards() {
 
   const filteredJobs = useMemo(() => {
     if (!jobs) return [];
-    return jobs.filter((job) => {
+    let filtered = jobs.filter((job) => {
+      if (filterStage === "all" && job.stage === "archived") return false;
       if (filterStage !== "all" && job.stage !== filterStage) return false;
       if (filterPriority !== "all" && job.priority !== filterPriority) return false;
       if (filterSeason !== "all" && job.season !== filterSeason) return false;
@@ -203,7 +294,23 @@ export default function JobCards() {
       }
       return true;
     });
-  }, [jobs, filterStage, filterPriority, filterSeason, search]);
+    if (sortBy === "newest") {
+      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === "oldest") {
+      filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    return filtered;
+  }, [jobs, filterStage, filterPriority, filterSeason, search, sortBy]);
+
+  // Prune selectedIds when filteredJobs changes to avoid phantom selections
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const visibleIdSet = new Set(filteredJobs.map((j) => j.id));
+    const pruned = new Set(Array.from(selectedIds).filter((id) => visibleIdSet.has(id)));
+    if (pruned.size !== selectedIds.size) {
+      setSelectedIds(pruned);
+    }
+  }, [filteredJobs]);
 
   const jobsByStage = useMemo(() => {
     const map: Record<string, typeof filteredJobs> = {};
@@ -213,6 +320,37 @@ export default function JobCards() {
     }
     return map;
   }, [filteredJobs]);
+
+  // Phase 10E: Retry failed jobs handler
+  const handleRetryFailed = (failedIds: number[], resumeId: number) => {
+    setIsRetryingFailed(true);
+    runAI(() =>
+      batchSprint.mutate(
+        { jobCardIds: failedIds, resumeId },
+        {
+          onSuccess: (data) => {
+            // Merge retry results into existing results
+            setSprintResults((prev) => {
+              const updated = [...prev];
+              for (const newResult of data.results) {
+                const idx = updated.findIndex((r) => r.jobCardId === newResult.jobCardId);
+                if (idx !== -1) {
+                  updated[idx] = newResult as BatchSprintResult;
+                } else {
+                  updated.push(newResult as BatchSprintResult);
+                }
+              }
+              return updated;
+            });
+            setIsRetryingFailed(false);
+          },
+          onError: () => {
+            setIsRetryingFailed(false);
+          },
+        }
+      )
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -272,11 +410,15 @@ export default function JobCards() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stages</SelectItem>
-            {STAGES.map((s) => (
+            {STAGES.filter((s) => s !== "archived").map((s) => (
               <SelectItem key={s} value={s}>
                 {STAGE_LABELS[s]}
               </SelectItem>
             ))}
+            <SelectSeparator />
+            <SelectItem value="archived">
+              {STAGE_LABELS["archived"]}
+            </SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterPriority} onValueChange={setFilterPriority}>
@@ -301,12 +443,135 @@ export default function JobCards() {
             <SelectItem value="summer">Summer</SelectItem>
             <SelectItem value="year_round">Year Round</SelectItem>
           </SelectContent>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest first</SelectItem>
+            <SelectItem value="oldest">Oldest first</SelectItem>
+          </SelectContent>
+        </Select>
         </Select>
       </div>
+
+      {/* Bulk action bar */}
+      {view === "list" && selectedIds.size > 0 && (
+        <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Phase 10D: Batch Sprint button */}
+              {selectedIds.size <= 10 && (
+                <Button
+                  data-testid="batch-sprint-btn"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+                  disabled={batchSprint.isPending || isBusy || bulkArchiveProgress !== null}
+                  onClick={() => {
+                    if (isQueued) {
+                      toast.info("Already queued — one Batch Sprint is waiting to run.");
+                      return;
+                    }
+                    if (!resumes || resumes.length === 0) {
+                      toast.error("Upload a resume first before running Batch Sprint.");
+                      return;
+                    }
+                    const resumeId = batchSprintResumeId ?? resumes[0]?.id;
+                    if (!resumeId) return;
+                    const ids = Array.from(selectedIds);
+                    setSprintResumeIdForRetry(resumeId); // Phase 10E: store for retry
+                    runAI(() => batchSprint.mutate({ jobCardIds: ids, resumeId }));
+                  }}
+                >
+                  {batchSprint.isPending ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Running…</>
+                  ) : (
+                    <><Zap className="h-3.5 w-3.5" /> Batch Sprint (5 credits)</>
+                  )}
+                </Button>
+              )}
+              {selectedIds.size > 10 && (
+                <span className="text-xs text-amber-600">Select up to 10 for Batch Sprint</span>
+              )}
+              <Button
+                size="sm"
+                onClick={() => setBulkArchiveConfirmOpen(true)}
+                disabled={bulkArchiveProgress !== null || Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived")}
+                title={Array.from(selectedIds).every(id => jobs?.find(j => j.id === id)?.stage === "archived") ? "All selected cards are already archived" : ""}
+              >
+                {bulkArchiveProgress ? `Archiving ${bulkArchiveProgress.current}/${bulkArchiveProgress.total}...` : "Archive selected"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedIds(new Set())}
+                disabled={bulkArchiveProgress !== null}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+          {/* Phase 10D: Queue waiting banner — same pattern as EvidenceTab */}
+          {isQueued && (
+            <div
+              data-testid="batch-sprint-queue-waiting"
+              className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              <Loader2 className="h-4 w-4 animate-spin shrink-0 text-amber-600" />
+              <span className="flex-1">Waiting for previous AI action to finish…</span>
+              <Button
+                data-testid="batch-sprint-queue-cancel-btn"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-amber-700 hover:bg-amber-100"
+                onClick={cancelQueued}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* List View */}
       {view === "list" && (
         <div className="space-y-2">
+          {/* Header checkbox row */}
+          {!isLoading && filteredJobs.length > 0 && (() => {
+            const visibleIds = filteredJobs.map((j) => j.id);
+            const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+            const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id)) && !allVisibleSelected;
+            return (
+              <div className="flex items-center gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
+                <input
+                  type="checkbox"
+                  ref={(el) => {
+                    if (el) el.indeterminate = someVisibleSelected;
+                  }}
+                  checked={allVisibleSelected}
+                  onChange={() => {
+                    if (allVisibleSelected) {
+                      // Deselect all visible
+                      const newSelected = new Set(selectedIds);
+                      visibleIds.forEach((id) => newSelected.delete(id));
+                      setSelectedIds(newSelected);
+                    } else {
+                      // Select all visible
+                      const newSelected = new Set(selectedIds);
+                      visibleIds.forEach((id) => newSelected.add(id));
+                      setSelectedIds(newSelected);
+                    }
+                  }}
+                  className="cursor-pointer shrink-0"
+                />
+                <span>Select all {filteredJobs.length}</span>
+              </div>
+            );
+          })()}
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
@@ -330,12 +595,29 @@ export default function JobCards() {
               </CardContent>
             </Card>
           ) : (
-            filteredJobs.map((job) => (
+            filteredJobs.map((job) => {
+              const isSelected = selectedIds.has(job.id);
+              return (
               <div
                 key={job.id}
-                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/30 transition-colors cursor-pointer"
-                onClick={() => setLocation(`/jobs/${job.id}`)}
+                className={`flex items-center gap-4 p-4 rounded-lg border transition-colors ${isSelected ? "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700" : "bg-card hover:bg-accent/30 cursor-pointer"}`}
+                onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-bulk-select]') && !isSelected) setLocation(`/jobs/${job.id}`); }}
               >
+                <div
+                  data-bulk-select
+                  className="flex items-center"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => { e.stopPropagation(); const newSelected = new Set(selectedIds); if (e.target.checked) { newSelected.add(job.id); } else { newSelected.delete(job.id); } setSelectedIds(newSelected); }}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="cursor-pointer shrink-0"
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{job.title}</p>
@@ -366,6 +648,12 @@ export default function JobCards() {
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {new Date(job.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    {job.createdAt && (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Created: {new Date(job.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     )}
                   </div>
@@ -399,12 +687,159 @@ export default function JobCards() {
                   <Badge className={`${stageColors[job.stage] ?? ""}`}>
                     {STAGE_LABELS[job.stage as keyof typeof STAGE_LABELS] ?? job.stage}
                   </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="More actions"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      {job.stage !== "archived" ? (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); setArchiveConfirmId(job.id); }}
+                          className="text-muted-foreground"
+                        >
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={(e) => { e.stopPropagation(); archiveCard.mutate({ id: job.id, stage: "bookmarked" as any }); }}
+                        >
+                          <ArchiveRestore className="h-4 w-4 mr-2" />
+                          Unarchive
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-            ))
+            );
+            })
           )}
         </div>
       )}
+
+      {/* Archive confirm dialog */}
+      <AlertDialog open={archiveConfirmId !== null} onOpenChange={(open) => { if (!open) setArchiveConfirmId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this job card?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The card will be moved to Archived. You can unarchive it at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (archiveConfirmId !== null) {
+                  archiveCard.mutate({ id: archiveConfirmId, stage: "archived" as any });
+                  setArchiveConfirmId(null);
+                }
+              }}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk archive confirm dialog */}
+      <AlertDialog open={bulkArchiveConfirmOpen} onOpenChange={setBulkArchiveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {selectedIds.size} job cards?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You can unarchive them later from the Archived stage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkArchiveProgress !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkArchiveProgress !== null}
+              onClick={async () => {
+                const toArchive = Array.from(selectedIds).filter(id => {
+                  const job = jobs?.find(j => j.id === id);
+                  return job && job.stage !== "archived";
+                });
+
+                if (toArchive.length === 0) {
+                  toast.success("No new cards to archive.");
+                  setSelectedIds(new Set());
+                  setBulkArchiveConfirmOpen(false);
+                  return;
+                }
+
+                setBulkArchiveProgress({ current: 0, total: toArchive.length });
+                let successCount = 0;
+                const failedIds = new Set<number>();
+
+                // Helper: archive a single item with a 15s timeout
+                const archiveOne = (id: number): Promise<void> =>
+                  new Promise<void>((resolve) => {
+                    const timer = setTimeout(() => {
+                      failedIds.add(id);
+                      setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                      resolve();
+                    }, 15000);
+                    archiveCard.mutate(
+                      { id, stage: "archived" as any },
+                      {
+                        onSuccess: () => {
+                          clearTimeout(timer);
+                          successCount++;
+                          setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                          resolve();
+                        },
+                        onError: () => {
+                          clearTimeout(timer);
+                          failedIds.add(id);
+                          setBulkArchiveProgress((p) => p ? { ...p, current: p.current + 1 } : null);
+                          resolve();
+                        },
+                      }
+                    );
+                  });
+
+                try {
+                  // Archive in chunks of 15 with Promise.allSettled per chunk
+                  const CHUNK_SIZE = 15;
+                  for (let i = 0; i < toArchive.length; i += CHUNK_SIZE) {
+                    const chunk = toArchive.slice(i, i + CHUNK_SIZE);
+                    await Promise.allSettled(chunk.map(archiveOne));
+                    // Small delay between chunks to avoid rate limits
+                    if (i + CHUNK_SIZE < toArchive.length) {
+                      await new Promise((r) => setTimeout(r, 200));
+                    }
+                  }
+
+                  if (failedIds.size > 0) {
+                    toast.error(`Archived ${successCount}/${toArchive.length}. Some failed.`);
+                    setSelectedIds(failedIds);
+                  } else {
+                    toast.success(`Archived ${successCount}/${toArchive.length} job cards`);
+                    setSelectedIds(new Set());
+                  }
+                } catch (err) {
+                  toast.error("An unexpected error occurred during archiving.");
+                } finally {
+                  setBulkArchiveProgress(null);
+                  setBulkArchiveConfirmOpen(false);
+                }
+              }}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Kanban View */}
       {view === "kanban" && (
@@ -421,6 +856,8 @@ export default function JobCards() {
                   stage={stage}
                   jobs={jobsByStage[stage] ?? []}
                   onCardClick={(id) => setLocation(`/jobs/${id}`)}
+                  onArchive={(id) => setArchiveConfirmId(id)}
+                  onUnarchive={(id) => archiveCard.mutate({ id, stage: "bookmarked" as any })}
                 />
               ))}
             </div>
@@ -438,19 +875,32 @@ export default function JobCards() {
           </DragOverlay>
         </DndContext>
       )}
+
+      {/* Phase 10E: Batch Sprint Results Drawer */}
+      <BatchSprintResultsDrawer
+        open={sprintResultsOpen}
+        onClose={() => setSprintResultsOpen(false)}
+        results={sprintResults}
+        onRetryFailed={handleRetryFailed}
+        resumeId={sprintResumeIdForRetry}
+        isRetrying={isRetryingFailed}
+      />
     </div>
   );
 }
-
-// ─── KanbanColumn ──────────────────────────────────────────────────────────
+// ─── KanbanColumnn ──────────────────────────────────────────────────────────
 function KanbanColumn({
   stage,
   jobs,
   onCardClick,
+  onArchive,
+  onUnarchive,
 }: {
   stage: string;
   jobs: Array<{ id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null }>;
   onCardClick: (id: number) => void;
+  onArchive: (id: number) => void;
+  onUnarchive: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
@@ -474,7 +924,14 @@ function KanbanColumn({
         }`}
       >
         {jobs.map((job) => (
-          <KanbanCard key={job.id} job={job} onCardClick={onCardClick} />
+          <KanbanCard
+            key={job.id}
+            job={job}
+            jobStage={stage}
+            onCardClick={onCardClick}
+            onArchive={onArchive}
+            onUnarchive={onUnarchive}
+          />
         ))}
       </div>
     </div>
@@ -484,10 +941,16 @@ function KanbanColumn({
 // ─── KanbanCard ─────────────────────────────────────────────────────────────
 function KanbanCard({
   job,
+  jobStage,
   onCardClick,
+  onArchive,
+  onUnarchive,
 }: {
   job: { id: number; title: string; company?: string | null; priority?: string | null; nextFollowupDueAt?: Date | null; eligibilityPrecheckStatus?: string | null };
+  jobStage: string;
   onCardClick: (id: number) => void;
+  onArchive: (id: number) => void;
+  onUnarchive: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: job.id,
@@ -507,7 +970,40 @@ function KanbanCard({
       }`}
       onClick={() => onCardClick(job.id)}
     >
-      <p className="text-sm font-medium truncate">{job.title}</p>
+      <div className="flex items-start justify-between gap-1">
+        <p className="text-sm font-medium truncate flex-1">{job.title}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 shrink-0 -mt-0.5 -mr-1"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {jobStage !== "archived" ? (
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onArchive(job.id); }}
+                className="text-muted-foreground"
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onUnarchive(job.id); }}
+              >
+                <ArchiveRestore className="h-4 w-4 mr-2" />
+                Unarchive
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <p className="text-xs text-muted-foreground mt-1 truncate">
         {job.company ?? "—"}
       </p>
@@ -569,6 +1065,25 @@ function CreateJobDialog({
   // Phase 9A: URL fetch state
   const [fetchJdError, setFetchJdError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Browser Capture fallback
+  const [showBrowserCaptureFallback, setShowBrowserCaptureFallback] = useState(false);
+  // Proactive blocked-host detection
+  const [isBlockedHost, setIsBlockedHost] = useState(false);
+
+  // Listen for postMessage from /capture tab
+  useEffect(() => {
+    function handleCaptureMessage(e: MessageEvent) {
+      if (e.data?.type === "BROWSER_CAPTURE_RESULT" && typeof e.data.text === "string") {
+        const text = e.data.text;
+        setJdText(text);
+        setFetchJdError(null);
+        setShowBrowserCaptureFallback(false);
+        toast.success("JD captured from browser! Review and click Create Job Card.");
+      }
+    }
+    window.addEventListener("message", handleCaptureMessage);
+    return () => window.removeEventListener("message", handleCaptureMessage);
+  }, []);
   // Phase 9B: auto-fill state
   const [autoFilling, setAutoFilling] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
@@ -603,6 +1118,7 @@ function CreateJobDialog({
     },
     onError: (err) => {
       setFetchJdError(err.message);
+      setShowBrowserCaptureFallback(true);
     },
   });
   const createJob = trpc.jobCards.create.useMutation({
@@ -673,6 +1189,88 @@ function CreateJobDialog({
               onChange={(e) => { setTitle(e.target.value); setAutoFilled(false); }}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="url">Job URL</Label>
+            <div className="flex gap-2">
+              <Input
+                id="url"
+                placeholder="https://..."
+                value={url}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setUrl(val);
+                  setFetchJdError(null);
+                  setFetchedAt(null);
+                  setIsBlockedHost(isLikelyBlockedHost(val));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && isValidHttpsUrl(url)) {
+                    e.preventDefault();
+                    if (isBlockedHost) return;
+                    fetchFromUrl.mutate({ url });
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending || isBlockedHost}
+                onClick={() => fetchFromUrl.mutate({ url: normalizeJobUrl(url) })}
+                className="shrink-0"
+                title={isBlockedHost ? "This host blocks server fetch — use Browser Capture instead" : undefined}
+              >
+                {fetchFromUrl.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Fetch JD"
+                )}
+              </Button>
+            </div>
+            {/* Proactive blocked-host hint — shown before any fetch attempt */}
+            {isBlockedHost && url && !fetchJdError && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 space-y-1.5">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-300">This site usually blocks automated fetch</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">Use Browser Capture to import the job description reliably.</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => {
+                    const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(url))}&origin=${encodeURIComponent(window.location.origin)}`;
+                    window.open(captureUrl, "_blank");
+                  }}
+                >
+                  <MonitorSmartphone className="h-3.5 w-3.5" />
+                  Browser Capture
+                </Button>
+              </div>
+            )}
+            {fetchJdError && (
+              <div className="space-y-1">
+                <p className="text-xs text-destructive">{fetchJdError}</p>
+                {showBrowserCaptureFallback && url && (
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit text-xs h-7 gap-1.5"
+                      onClick={() => {
+                        const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(url))}&origin=${encodeURIComponent(window.location.origin)}`;
+                        window.open(captureUrl, "_blank");
+                      }}
+                    >
+                      <MonitorSmartphone className="h-3.5 w-3.5" />
+                      Try Browser Capture
+                    </Button>
+                    <p className="text-xs text-muted-foreground">Some sites block server fetch. Browser Capture uses your open tab to extract the JD.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="company">Company</Label>
@@ -694,45 +1292,6 @@ function CreateJobDialog({
                 onChange={(e) => setLocation(e.target.value)}
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="url">Job URL</Label>
-            <div className="flex gap-2">
-              <Input
-                id="url"
-                placeholder="https://..."
-                value={url}
-                onChange={(e) => {
-                  setUrl(e.target.value);
-                  setFetchJdError(null);
-                  setFetchedAt(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && isValidHttpsUrl(url)) {
-                    e.preventDefault();
-                    fetchFromUrl.mutate({ url });
-                  }
-                }}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!isValidHttpsUrl(url) || fetchFromUrl.isPending}
-                onClick={() => fetchFromUrl.mutate({ url })}
-                className="shrink-0"
-              >
-                {fetchFromUrl.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Fetch JD"
-                )}
-              </Button>
-            </div>
-            {fetchJdError && (
-              <p className="text-xs text-destructive">{fetchJdError}</p>
-            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

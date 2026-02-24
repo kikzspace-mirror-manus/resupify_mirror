@@ -1,10 +1,22 @@
 import { COOKIE_NAME } from "@shared/const";
 import axios from "axios";
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
+// Lazy-load JSDOM and Readability to prevent slow imports during test initialization
+let JSDOM: any;
+let Readability: any;
+async function loadJSDOMTools() {
+  if (!JSDOM) {
+    const jsdomModule = await import("jsdom");
+    JSDOM = jsdomModule.JSDOM;
+  }
+  if (!Readability) {
+    const readabilityModule = await import("@mozilla/readability");
+    Readability = readabilityModule.Readability;
+  }
+}
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
@@ -16,10 +28,19 @@ import { buildToneSystemPrompt, sanitizeTone } from "../shared/toneGuardrails";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import { adminRouter } from "./routers/admin";
+import { resolvePackContextForGeneration } from "./v2PackContext";
 import { runEligibilityPrecheck } from "../shared/eligibilityPrecheck";
 import { createCheckoutSession, CREDIT_PACKS, type PackId } from "./stripe";
-import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit } from "./rateLimiter";
+import { evidenceRateLimit, outreachRateLimit, kitRateLimit, urlFetchRateLimit, jdExtractRateLimit, shortHash } from "./rateLimiter";
+import { checkIdempotency, markStarted, markSucceeded, markFailed, markCreditsCharged } from "./idempotency";
 import { MAX_LENGTHS, TOO_LONG_MSG } from "../shared/maxLengths";
+import { safeNormalizeJobUrl } from "../shared/urlNormalize";
+import { COUNTRY_PACK_IDS } from "../shared/countryPacks";
+import { logAnalyticsEvent } from "./analytics";
+import {
+  EVT_JOB_CARD_CREATED, EVT_QUICK_MATCH_RUN, EVT_COVER_LETTER_GENERATED,
+  EVT_OUTREACH_GENERATED, EVT_PAYWALL_VIEWED, EVT_COUNTRY_PACK_SELECTED,
+} from "../shared/analyticsEvents";
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date);
@@ -103,6 +124,7 @@ export const appRouter = router({
           userEmail: ctx.user.email,
           origin: input.origin,
         });
+        logAnalyticsEvent(EVT_PAYWALL_VIEWED, ctx.user.id, { pack_id: input.packId });
         return { url };
       }),
     packs: publicProcedure.query(() => CREDIT_PACKS),
@@ -130,7 +152,7 @@ export const appRouter = router({
     }),
     upsert: protectedProcedure.input(z.object({
       regionCode: z.string().max(MAX_LENGTHS.PROFILE_REGION_CODE).optional(),
-      trackCode: z.enum(["COOP", "NEW_GRAD"]).optional(),
+      trackCode: z.enum(["COOP", "NEW_GRAD", "INTERNSHIP", "EARLY_CAREER", "EXPERIENCED"]).optional(),
       school: z.string().max(MAX_LENGTHS.PROFILE_SCHOOL, { message: TOO_LONG_MSG }).optional(),
       program: z.string().max(MAX_LENGTHS.PROFILE_PROGRAM, { message: TOO_LONG_MSG }).optional(),
       graduationDate: z.string().max(MAX_LENGTHS.PROFILE_GRADUATION_DATE).optional(),
@@ -155,6 +177,58 @@ export const appRouter = router({
     })).mutation(async ({ ctx, input }) => {
       await db.upsertProfile(ctx.user.id, input as any);
       return { success: true };
+    }),
+    /**
+     * Self-service: user sets their own countryPackId during onboarding Step 0.
+     * Sticky rule: only updates when the user explicitly calls this mutation.
+     * Accepts only the valid CountryPackId enum values.
+     *
+     * One-time VN default: if the user selects VN, v2VnTranslationEnabled is ON,
+     * and their languageMode is currently unset (null/undefined), also set languageMode="vi".
+     * This is a one-time default — never overrides an existing languageMode value.
+     */
+    setCountryPack: protectedProcedure.input(z.object({
+      countryPackId: z.enum([...COUNTRY_PACK_IDS] as [string, ...string[]]),
+    })).mutation(async ({ ctx, input }) => {
+      await db.updateUserCountryPack(ctx.user.id, input.countryPackId);
+
+      // One-time VN languageMode default
+      const { featureFlags } = await import("../shared/featureFlags");
+      const currentLanguageMode = (ctx.user as any).languageMode;
+      const languageModeSet =
+        input.countryPackId === "VN" &&
+        featureFlags.v2VnTranslationEnabled &&
+        (currentLanguageMode === null || currentLanguageMode === undefined || currentLanguageMode === "");
+
+      if (languageModeSet) {
+        await db.updateUserLanguageMode(ctx.user.id, "vi");
+      }
+
+      // Fire analytics event after all DB commits — fire-and-forget, never throws
+      try {
+        logAnalyticsEvent(EVT_COUNTRY_PACK_SELECTED, ctx.user.id, {
+          country_pack_id: input.countryPackId,
+          language_mode_set: languageModeSet,
+        });
+      } catch {
+        // Intentionally swallowed — analytics must never block onboarding
+      }
+
+      return { success: true, languageModeSet };
+    }),
+
+    /**
+     * Self-service: user sets their own languageMode.
+     * Non-VN enforcement: if user.countryPackId !== "VN", force "en" regardless of input.
+     */
+    setLanguageMode: protectedProcedure.input(z.object({
+      languageMode: z.enum(["en", "vi", "bilingual"]),
+    })).mutation(async ({ ctx, input }) => {
+      const userCountryPackId = (ctx.user as any).countryPackId ?? "GLOBAL";
+      // Non-VN users are always forced to "en"
+      const effectiveMode = userCountryPackId === "VN" ? input.languageMode : "en";
+      await db.updateUserLanguageMode(ctx.user.id, effectiveMode);
+      return { success: true, effectiveMode };
     }),
   }),
 
@@ -181,6 +255,19 @@ export const appRouter = router({
       await db.addCredits(ctx.user.id, input.amount, `Purchased ${input.amount} credits`);
       return { success: true, newBalance: await db.getCreditsBalance(ctx.user.id) };
     }),
+    listReceipts: protectedProcedure.query(async ({ ctx }) => {
+      return db.listPurchaseReceipts(ctx.user.id);
+    }),
+    getReceipt: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const receipt = await db.getPurchaseReceiptById(input.id);
+        if (!receipt) throw new TRPCError({ code: "NOT_FOUND", message: "Receipt not found" });
+        if (receipt.userId !== ctx.user.id && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Receipt not found" });
+        }
+        return receipt;
+      }),
   }),
 
   // ─── Resumes ──────────────────────────────────────────────────────
@@ -259,6 +346,8 @@ export const appRouter = router({
       jdText: z.string().max(MAX_LENGTHS.JD_TEXT, { message: TOO_LONG_MSG }).optional(),
     })).mutation(async ({ ctx, input }) => {
       const { jdText, dueDate, ...cardData } = input;
+      // Normalize URL to strip tracking params before storing
+      if (cardData.url) cardData.url = safeNormalizeJobUrl(cardData.url);
       const id = await db.createJobCard({
         userId: ctx.user.id,
         ...cardData,
@@ -290,6 +379,7 @@ export const appRouter = router({
           // Pre-check failure must never block card creation
         }
       }
+      logAnalyticsEvent(EVT_JOB_CARD_CREATED, ctx.user.id);
       return { id };
     }),
     update: protectedProcedure.input(z.object({
@@ -309,6 +399,8 @@ export const appRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const { id, nextTouchAt, dueDate, ...rest } = input;
       const updateData: any = { ...rest };
+      // Normalize URL to strip tracking params before storing
+      if (updateData.url) updateData.url = safeNormalizeJobUrl(updateData.url);
       if (nextTouchAt !== undefined) updateData.nextTouchAt = nextTouchAt ? new Date(nextTouchAt) : null;
       if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
 
@@ -390,9 +482,17 @@ export const appRouter = router({
       return { id };
     }),
     // ─── Real LLM extraction (replaces stub) ──────────────────────────
-    extract: protectedProcedure.input(z.object({
+    extract: protectedProcedure.use(jdExtractRateLimit).input(z.object({
       jobCardId: z.number(),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "jdSnapshots.extract", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: This extraction is already running. Please wait.");
+      markStarted(ctx.user.id, "jdSnapshots.extract", input.actionId);
+      // ─────────────────────────────────────────────────────────────────
+      try {
       const MIN_JD_LENGTH = 200;
       const MAX_JD_LENGTH = 12000;
 
@@ -504,8 +604,7 @@ export const appRouter = router({
         }));
 
       await db.upsertRequirements(input.jobCardId, snapshot.id, requirements);
-
-      return {
+      const extractResult = {
         snapshotId: snapshot.id,
         structuredFields: {
           company_name: parsed.company_name,
@@ -516,8 +615,14 @@ export const appRouter = router({
         requirements,
         count: requirements.length,
       };
+      markSucceeded(ctx.user.id, "jdSnapshots.extract", input.actionId, extractResult, false);
+      return extractResult;
+      } catch (err: any) {
+        markFailed(ctx.user.id, "jdSnapshots.extract", input.actionId, String(err?.message ?? err));
+        throw err;
+      }
     }),
-    // ─── Get persisted requirements ───────────────────────────────────
+    // ─── Get persisted requirements ────────────────────────────────────
     requirements: protectedProcedure.input(z.object({
       jobCardId: z.number(),
     })).query(async ({ input }) => {
@@ -614,6 +719,7 @@ export const appRouter = router({
       // ── Extraction pipeline ──────────────────────────────────────────────
       let extractedText = "";
       // Layer A: Mozilla Readability (best for article-style pages)
+      await loadJSDOMTools();
       try {
         const dom = new JSDOM(html, { url: input.url });
         const reader = new Readability(dom.window.document);
@@ -631,14 +737,15 @@ export const appRouter = router({
       // Layer B: Content-container-first fallback (board-agnostic)
       if (extractedText.length < MIN_TEXT_LENGTH) {
         try {
+          await loadJSDOMTools();
           const dom = new JSDOM(html, { url: input.url });
           const doc = dom.window.document;
           // Remove noise elements
           for (const tag of ["script", "style", "noscript", "svg", "iframe", "nav", "footer", "header"]) {
-            doc.querySelectorAll(tag).forEach((el) => el.remove());
+            doc.querySelectorAll(tag).forEach((el: Element) => el.remove());
           }
           // Remove common ad/tracker elements
-          doc.querySelectorAll('[class*="ad-"], [class*="ads-"], [id*="ad-"], [class*="cookie"], [class*="banner"]').forEach((el) => el.remove());
+          doc.querySelectorAll('[class*="ad-"], [class*="ads-"], [id*="ad-"], [class*="cookie"], [class*="banner"]').forEach((el: Element) => el.remove());
           // Prefer known content containers (ordered by specificity)
           const CONTENT_SELECTORS = [
             "main",
@@ -778,7 +885,13 @@ export const appRouter = router({
     run: protectedProcedure.use(evidenceRateLimit).input(z.object({
       jobCardId: z.number(),
       resumeId: z.number(),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "evidence.run", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: This scan is already running. Please wait for it to complete.");
+      markStarted(ctx.user.id, "evidence.run", input.actionId);
       // ── 1. Credit gate (unchanged) ───────────────────────────────────
       const balance = await db.getCreditsBalance(ctx.user.id);
       if (balance < 1) {
@@ -804,8 +917,13 @@ export const appRouter = router({
       const regionCode = profile?.regionCode ?? "CA";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
-
-      // ── 4. Create evidence run row ───────────────────────────────────
+      // ── V2 Phase 1C-C: Resolve country pack context (flag-gated) ─────
+      const v2PackCtx = await resolvePackContextForGeneration({
+        userId: ctx.user.id,
+        jobCardId: input.jobCardId,
+        userLanguageMode: (ctx.user as any).languageMode ?? "en",
+      });
+      // ── 4. Create evidence run row ────────────────────────────────────
       const runId = await db.createEvidenceRun({
         jobCardId: input.jobCardId,
         userId: ctx.user.id,
@@ -820,6 +938,7 @@ export const appRouter = router({
       // ── 5. Spend credit (unchanged) ──────────────────────────────────
       const spent = await db.spendCredits(ctx.user.id, 1, "Evidence+ATS run", "evidence_run", runId);
       if (!spent) throw new Error("Failed to spend credit.");
+      markCreditsCharged(ctx.user.id, "evidence.run", input.actionId); // Phase 10C: credit charged once
 
       // ── 6. Build eligibility context for the LLM prompt ─────────────
       const missingEligibilityFields = pack.eligibilityChecks
@@ -855,6 +974,7 @@ export const appRouter = router({
             {
               role: "system",
               content: [
+                ...(v2PackCtx.packPromptPrefix ? [v2PackCtx.packPromptPrefix, ``] : []),
                 `You are an expert ATS resume analyzer for the ${pack.label} track.`,
                 `You will receive a numbered list of job requirements and a resume.`,
                 `For EACH requirement, produce one evidence item that maps the requirement to the resume.`,
@@ -1107,18 +1227,21 @@ export const appRouter = router({
           });
         }
 
-        return {
+        logAnalyticsEvent(EVT_QUICK_MATCH_RUN, ctx.user.id, { run_type: "evidence" });
+        const evidenceResult = {
           runId,
           score: overallScore,
           itemCount: evidenceItemsData.length,
           breakdown: scoreBreakdown,
         };
+        markSucceeded(ctx.user.id, "evidence.run", input.actionId, evidenceResult, true);
+        return evidenceResult;
       } catch (error: any) {
         await db.updateEvidenceRun(runId, { status: "failed" });
+        markFailed(ctx.user.id, "evidence.run", input.actionId, String(error?.message ?? error));
         throw new Error(`Evidence scan failed: ${error.message}`);
       }
     }),
-
     batchSprint: protectedProcedure.input(z.object({
       jobCardIds: z.array(z.number()).min(1).max(10),
       resumeId: z.number(),
@@ -1130,7 +1253,7 @@ export const appRouter = router({
       const spent = await db.spendCredits(ctx.user.id, 5, `Batch Sprint for ${input.jobCardIds.length} jobs`, "batch_sprint");
       if (!spent) throw new Error("Failed to spend credits.");
 
-      const results: { jobCardId: number; runId: number | null; error?: string }[] = [];
+      const results: { jobCardId: number; runId: number | null; error?: string; score?: number; topSuggestion?: string; title?: string; company?: string }[] = [];
       for (const jobCardId of input.jobCardIds) {
         try {
           const jdSnapshot = await db.getLatestJdSnapshot(jobCardId);
@@ -1172,9 +1295,26 @@ export const appRouter = router({
           });
           const parsed = JSON.parse(typeof llmResult.choices[0]?.message?.content === "string" ? llmResult.choices[0].message.content : "{}");
           await db.updateEvidenceRun(runId, { overallScore: parsed.overall_score ?? 0, summary: parsed.summary ?? "", status: "completed", completedAt: new Date() });
-          results.push({ jobCardId, runId });
+          // Phase 10E: enrich result with score + top suggestion (additive — existing clients ignore extra fields)
+          const jobCard = await db.getJobCardById(jobCardId, ctx.user.id);
+          results.push({
+            jobCardId,
+            runId,
+            score: parsed.overall_score ?? 0,
+            topSuggestion: (parsed.top_3_changes?.[0] as string | undefined) ?? parsed.summary ?? "",
+            title: jobCard?.title ?? "",
+            company: jobCard?.company ?? "",
+          });
         } catch (error: any) {
-          results.push({ jobCardId, runId: null, error: error.message });
+          // Phase 10E: include title/company even on failure for drawer display
+          let failTitle = "";
+          let failCompany = "";
+          try {
+            const jc = await db.getJobCardById(jobCardId, ctx.user.id);
+            failTitle = jc?.title ?? "";
+            failCompany = jc?.company ?? "";
+          } catch { /* ignore */ }
+          results.push({ jobCardId, runId: null, error: error.message, title: failTitle, company: failCompany });
         }
       }
       return { results };
@@ -1256,12 +1396,15 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── Contacts ─────────────────────────────────────────────────────
+  // --- Contacts ---
   contacts: router({
     list: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
     }).optional()).query(async ({ ctx, input }) => {
       return db.getContacts(ctx.user.id, input?.jobCardId);
+    }),
+    listWithUsage: protectedProcedure.query(async ({ ctx }) => {
+      return db.getContactsWithUsage(ctx.user.id);
     }),
     create: protectedProcedure.input(z.object({
       jobCardId: z.number().optional(),
@@ -1330,7 +1473,14 @@ export const appRouter = router({
     generatePack: protectedProcedure.use(outreachRateLimit).input(z.object({
       jobCardId: z.number(),
       contactId: z.number().optional(),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "outreach.generatePack", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: Outreach Pack is already being generated. Please wait.");
+      markStarted(ctx.user.id, "outreach.generatePack", input.actionId);
+      try {
       // Check credits
       const balance = await db.getCreditsBalance(ctx.user.id);
       if (balance < 1) throw new Error("Insufficient credits. Outreach Pack costs 1 credit.");
@@ -1421,7 +1571,7 @@ ${buildToneSystemPrompt()}`
       };
       const spent = await db.spendCredits(ctx.user.id, 1, "Outreach Pack generation", "outreach_pack");
       if (!spent) throw new Error("Failed to spend credit.");
-
+      markCreditsCharged(ctx.user.id, "outreach.generatePack", input.actionId); // Phase 10C
       const packId = await db.createOutreachPack({
         userId: ctx.user.id,
         jobCardId: input.jobCardId,
@@ -1431,11 +1581,17 @@ ${buildToneSystemPrompt()}`
         followUp2: parsed.follow_up_2,
       });
 
-      return { id: packId, ...parsed };
+      logAnalyticsEvent(EVT_OUTREACH_GENERATED, ctx.user.id);
+      const packResult = { id: packId, ...parsed };
+      markSucceeded(ctx.user.id, "outreach.generatePack", input.actionId, packResult, true);
+      return packResult;
+      } catch (err: any) {
+        markFailed(ctx.user.id, "outreach.generatePack", input.actionId, String(err?.message ?? err));
+        throw err;
+      }
     }),
   }),
-
-  // ─── Analytics ────────────────────────────────────────────────────
+  // ─── Analyticss ────────────────────────────────────────────────────
   analytics: router({
     stats: protectedProcedure.query(async ({ ctx }) => {
       const [jobStats, weeklyApps, taskCompletion] = await Promise.all([
@@ -1465,7 +1621,14 @@ ${buildToneSystemPrompt()}`
       resumeId: z.number(),
       evidenceRunId: z.number(),
       tone: z.enum(["Human", "Confident", "Warm", "Direct"]).default("Human"),
+      actionId: z.string().uuid().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // ── Phase 10C: Idempotency guard ─────────────────────────────────
+      const idem = checkIdempotency(ctx.user.id, "applicationKits.generate", input.actionId);
+      if (idem?.status === "succeeded") return idem.result as any;
+      if (idem?.status === "started") throw new Error("IDEMPOTENT_IN_PROGRESS: Application Kit is already being generated. Please wait.");
+      markStarted(ctx.user.id, "applicationKits.generate", input.actionId);
+      try {
       // ── Option A: verify a completed EvidenceRun exists (no extra credit charge) ──
       const evidenceRuns = await db.getEvidenceRuns(input.jobCardId);
       const validRun = evidenceRuns.find(
@@ -1503,8 +1666,13 @@ ${buildToneSystemPrompt()}`
       const regionCode = profile?.regionCode ?? "CA";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
-
-      // ── Prioritize missing/partial items for top changes ────────────
+      // ── V2 Phase 1C-C: Resolve country pack context (flag-gated) ─────
+      const v2PackCtx = await resolvePackContextForGeneration({
+        userId: ctx.user.id,
+        jobCardId: input.jobCardId,
+        userLanguageMode: (ctx.user as any).languageMode ?? "en",
+      });
+      // ── Prioritize missing/partial items for top changess ────────────
       const typeWeight: Record<string, number> = {
         eligibility: 4, tools: 3, responsibilities: 3, skills: 2, soft_skills: 1,
       };
@@ -1541,6 +1709,7 @@ ${buildToneSystemPrompt()}`
           {
             role: "system",
             content: [
+              ...(v2PackCtx.packPromptPrefix ? [v2PackCtx.packPromptPrefix, ``] : []),
               `You are an expert career coach for ${pack.label} job applications.`,
               `Tone instruction: ${toneInstructions[input.tone] ?? toneInstructions.Human}`,
               `RULES:`,
@@ -1633,14 +1802,20 @@ ${buildToneSystemPrompt()}`
         coverLetterText: parsed.cover_letter_text ?? "",
       });
 
-      return {
+       logAnalyticsEvent(EVT_COVER_LETTER_GENERATED, ctx.user.id);
+      const kitResult = {
         kitId,
         topChanges: parsed.top_changes ?? [],
         bulletRewrites: parsed.bullet_rewrites ?? [],
         coverLetterText: parsed.cover_letter_text ?? "",
       };
+      markSucceeded(ctx.user.id, "applicationKits.generate", input.actionId, kitResult, false);
+      return kitResult;
+      } catch (err: any) {
+        markFailed(ctx.user.id, "applicationKits.generate", input.actionId, String(err?.message ?? err));
+        throw err;
+      }
     }),
-
     // Create checklist tasks from the kit (no duplicates)
     createTasks: protectedProcedure.input(z.object({
       jobCardId: z.number(),
@@ -1682,6 +1857,26 @@ ${buildToneSystemPrompt()}`
   }),
 
   // ─── Personalization Sources ───────────────────────────────────────────────
+  // ─── Waitlist Event Logging ──────────────────────────────────────────────────
+  waitlist: router({
+    // Called by Waitlist.tsx when a logged-in gated user lands on /waitlist.
+    // Records a non-PII operational event (once per user per 24h).
+    joined: protectedProcedure.mutation(async ({ ctx }) => {
+      const userIdHash = shortHash(String(ctx.user.id));
+      const alreadyLogged = await db.waitlistEventRecentlyLogged(userIdHash);
+      if (!alreadyLogged) {
+        await db.logOperationalEvent({
+          requestId: nanoid(),
+          endpointGroup: "waitlist",
+          eventType: "waitlist_joined",
+          statusCode: 200,
+          userIdHash,
+        });
+      }
+      return { logged: !alreadyLogged };
+    }),
+  }),
+
   personalization: router({
     list: protectedProcedure.input(z.object({
       jobCardId: z.number(),

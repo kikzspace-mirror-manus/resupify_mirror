@@ -13,4 +13,6 @@ export const ENV = {
   LLM_PROVIDER: (process.env.LLM_PROVIDER ?? "manus") as "manus" | "openai",
   OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
   LLM_MODEL_OPENAI: process.env.LLM_MODEL_OPENAI ?? "gpt-4.1",
+  RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
+  FROM_EMAIL: process.env.FROM_EMAIL ?? "noreply@resupify.com",
 };

@@ -676,3 +676,766 @@
 ## Patch: Test Stability (Force LLM_PROVIDER=manus)
 - [x] Override LLM_PROVIDER=manus and clear OPENAI_API_KEY in vitest setup
 - [x] Tests: A-C (3 tests) — 881 tests pass total, 0 TypeScript errors
+
+## Phase 10F-1: Early Access Allowlist + Waitlist Screen
+- [ ] Add earlyAccessEnabled boolean column to users table (default false)
+- [ ] Run db:push migration
+- [ ] Expose earlyAccessEnabled in auth.me response
+- [ ] Add route guard in App.tsx (non-allowlisted → /waitlist, admin bypasses)
+- [ ] Create /waitlist page (minimal, no redesign)
+- [ ] Add admin.earlyAccess.setAccess adminProcedure (by userId or email)
+- [ ] Add admin.earlyAccess.listUsers adminProcedure (search by email)
+- [ ] Add minimal admin UI control in AdminLayout (search + toggle)
+- [ ] Write acceptance tests (default false, gating, bypass, admin toggle, non-admin blocked)
+
+## Phase 10F-1: Early Access Gating
+- [x] Add earlyAccessEnabled boolean column to users table (default false)
+- [x] Run db:push migration
+- [x] Create /waitlist page (Waitlist.tsx)
+- [x] Add EarlyAccessGuard to App.tsx (redirects non-allowlisted users to /waitlist)
+- [x] Admin bypass: role=admin always passes the guard
+- [x] Add admin.earlyAccess.lookupByEmail adminProcedure
+- [x] Add admin.earlyAccess.setAccess adminProcedure (grant/revoke)
+- [x] Add adminSetEarlyAccess + adminGetUserByEmail db helpers to server/db.ts
+- [x] Build /admin/early-access page (AdminEarlyAccess.tsx)
+- [x] Add Early Access nav item to AdminLayout
+- [x] Register /admin/early-access route in App.tsx
+- [x] Tests: A-K+J2 (12 tests) — 893 tests pass total, 0 TypeScript errors
+
+## Patch: Waitlist Auth States
+- [x] Update Waitlist.tsx: logged-out state (Sign in / Sign up, no account implication)
+- [x] Update Waitlist.tsx: logged-in gated state (keep current waitlist message + Sign out)
+- [x] Tests: A-F (6 tests) — 899 tests pass total, 0 TypeScript errors
+
+## Patch: Early Access Credit Grant
+- [x] Add earlyAccessGrantUsed boolean (default false) to users table
+- [x] Run db:push migration (0016_freezing_grim_reaper.sql)
+- [x] Wire one-time +10 credit grant into admin.earlyAccess.setAccess (false→true, earlyAccessGrantUsed=false only)
+- [x] Mark earlyAccessGrantUsed=true after grant
+- [x] Update AdminEarlyAccess.tsx: show "Access granted — 10 starter credits added." or "Access granted (credits already awarded previously)."
+- [x] Write acceptance tests (first grant, idempotent, revoke+re-grant, non-admin blocked)
+- [x] Tests: A-J (10 tests) — 909 tests pass total, 0 TypeScript errors
+
+## Patch: Waitlist Notify-Owner via Ops Event
+- [x] Add "waitlist" to endpointGroup enum in drizzle/schema.ts
+- [x] Add "waitlist_joined" to eventType enum in drizzle/schema.ts
+- [x] Run db:push migration (0017_wooden_landau.sql)
+- [x] Add 24h dedupe helper (waitlistEventRecentlyLogged) in server/db.ts
+- [x] Add waitlist.joined protectedProcedure in server/routers.ts
+- [x] Wire Waitlist.tsx: call mutation on logged-in gated branch (once, useEffect)
+- [x] Update admin ops events filter: added waitlist/waitlist_joined to AdminOperationalEvents.tsx and admin.ts router
+- [x] Write acceptance tests (A-J, 10 tests) — 919 tests pass total, 0 TypeScript errors
+
+## V2 Phase 1A: DB Fields + Feature Flags (Additive Only, No UI)
+- [x] Add countryPackId (enum VN/PH/US, nullable) to users table
+- [x] Add languageMode (enum en/vi/bilingual, default "en") to users table
+- [x] Add countryPackId (enum VN/PH/US, nullable) to job_cards table
+- [x] Add canonicalLanguage, canonicalText, localizedLanguage, localizedText, translationMeta to application_kits table
+- [x] Run db:push migration (0018_silky_zombie.sql)
+- [x] Add feature flag module (shared/featureFlags.ts): v2CountryPacksEnabled, v2VnTranslationEnabled, v2BilingualViewEnabled — all OFF by default
+- [x] Write acceptance tests (A-L, 12 tests) — 931 tests pass total, 0 TypeScript errors
+
+## V2 Phase 1B: Country Pack Resolution Helper + Pack Registry + Translation Utilities
+- [x] Create shared/countryPacks.ts: CountryPackId type, countryPackRegistry (VN/PH/US with language/style metadata)
+- [x] Add resolveCountryPack(userId, jobCardId?) helper to server/db.ts
+- [x] Create server/v2Translation.ts: shouldTranslateToVietnamese, translateEnToVi, prepareLocalizedFieldsForApplicationKit
+- [x] Write server/v2-phase1b.test.ts: 25 tests (A-U) — 956 tests pass total, 0 TypeScript errors
+
+## V2 Phase 1B.1: Add GLOBAL Country Pack + Set Default to GLOBAL
+- [x] Add "GLOBAL" to CountryPackId type, COUNTRY_PACK_IDS, and countryPackRegistry in shared/countryPacks.ts
+- [x] Set DEFAULT_COUNTRY_PACK_ID = "GLOBAL" in shared/countryPacks.ts
+- [x] Update v2-phase1b.test.ts: assert default resolves to GLOBAL, inheritance unchanged (H2, H4, H5 + updated C, E) — 958 tests pass, 0 TypeScript errors
+
+## V2 Phase 1A.1: Add GLOBAL to countryPackId DB Enums
+- [x] Update countryPackId enum in drizzle/schema.ts to include "GLOBAL" for users and job_cards
+- [x] Run db:push migration (0019_aberrant_longshot.sql)
+- [x] Add test: v2-phase1a1.test.ts (A-G, 8 tests); updated v2-phase1a.test.ts D and F — 966 tests pass, 0 TypeScript errors
+
+## V2 Phase 1B.2: Analytics Foundations + Growth KPI Dashboard
+- [x] Add analytics_events table to drizzle/schema.ts with indexes
+- [x] Add v2AnalyticsEnabled and v2GrowthDashboardEnabled flags to shared/featureFlags.ts
+- [x] Run db:push migration (0020_analytics_events.sql)
+- [x] Create shared/analyticsEvents.ts: canonical event name constants + FUNNEL_STEPS
+- [x] Create server/analytics.ts: logAnalyticsEvent (fire-and-forget, never blocks)
+- [x] Add KPI query helpers to server/db.ts (getWAU, getMAU, getNewUsers, getActivatedUsers7d, getFunnelCompletion7d, getP95AiLatency7d, getOutcomeCounts, getErrorCount7d)
+- [x] Instrument server-side flows: signup (oauth.ts), job_card_created, quick_match_run, cover_letter_generated, outreach_generated, paywall_viewed (stripe.createCheckoutSession), purchase_completed (stripeWebhook)
+- [x] Add admin.growth.kpis tRPC procedure to admin.ts router
+- [x] Create client/src/pages/admin/AdminGrowthDashboard.tsx (admin-only, flag-gated, N/A for missing metrics)
+- [x] Wire /admin/growth route in App.tsx and Growth nav item in AdminLayout.tsx
+- [x] Write server/v2-phase1b2.test.ts (A-P, 33 tests) — 991 tests pass total, 0 TypeScript errors
+
+## Patch: Growth Dashboard Flag Gating Fix + Flag Status Panel
+- [x] Audit shared/featureFlags.ts: env var names V2_GROWTH_DASHBOARD_ENABLED and V2_ANALYTICS_ENABLED confirmed correct, no typos
+- [x] Update admin.growth.kpis to return analyticsEnabled in both enabled and disabled states
+- [x] AdminGrowthDashboard.tsx: add FlagStatusBox component (shows ON/OFF for both flags)
+- [x] AdminGrowthDashboard.tsx: show analytics-off warning banner when growth=true but analytics=false
+- [x] AdminGrowthDashboard.tsx: 3 states (both-off, growth-on+analytics-off, both-on)
+- [x] Updated v2-phase1b2.test.ts test I: 4 sub-tests (both-false, growth-true+analytics-false, both-true, basic shape) — 993 tests pass, 0 TypeScript errors
+
+## Patch: Growth Dashboard — DB-Based New Users + Instrumentation Health Widget
+- [x] Replace getNewUsers(days) in server/db.ts: use users.createdAt (DB ground truth) instead of analytics_events
+- [x] Add getInstrumentationHealth24h() helper: events24h count, lastEventAt, topEvents24h (top 5 by name)
+- [x] Update admin.growth.kpis: use DB-based newUsers7d/30d; add instrumentationHealth to response
+- [x] Add Instrumentation Health card to AdminGrowthDashboard.tsx (3-column: events24h, last event, top events)
+- [x] Write tests Q (DB-based new users, 2 tests), R (activation rate 0-100 or null), S (instrumentation health, 4 tests)
+- [x] Fix v2-phase1a.test.ts test K: assert boolean type only (env-driven flags) — 1000 tests pass, 0 TypeScript errors
+
+## Patch: Growth Dashboard Layout Cleanup + Timeline View
+- [x] Add getDailyMetrics(rangeDays: 7|14|30) helper to server/db.ts (raw SQL to avoid MySQL ONLY_FULL_GROUP_BY)
+- [x] Add admin.timeline.daily tRPC procedure to admin.ts router
+- [x] Rewrite AdminGrowthDashboard.tsx: Row 1 (Audience+Activation), Row 2 (Quality+Monetization), Row 3 (Timeline chart with recharts), Row 4 (Funnel+Outcomes), collapsible Instrumentation Health
+- [x] recharts already available via pnpm workspace
+- [x] Write acceptance tests T (getDailyMetrics, 4 tests) and U (admin.timeline.daily, 4 tests) — 1008 tests pass, 0 TypeScript errors
+## Phase 9E0: Contact Edit UI (Inline/Dialog)
+- [x] Add Dialog import to JobCardDetail.tsx
+- [x] Add editingContact state + editForm state to OutreachTab
+- [x] Add updateContact trpc.contacts.update mutation with invalidate + toast
+- [x] Add Edit (Pencil) button to each contact row in contacts list
+- [x] Render EditContactDialog modal with pre-filled fields (name, role, email, linkedinUrl, notes)
+- [x] LinkedIn URL validation in edit form (blank ok; if present must start with https://)
+- [x] Email basic format validation in edit form (blank ok)
+- [x] Write acceptance tests A-D in server/contact-edit.test.ts
+- [x] Verify 1020 tests pass (12 new), 0 TypeScript errors
+## Phase 9E0.1: Application Kit Tone Clarity
+- [x] Show inline note after tone buttons when existingKit exists and tone !== existingKit.tone
+- [x] Note text: "Tone applies when you regenerate. Current kit tone: {existingKit.tone}."
+- [x] No note shown when no kit exists
+- [x] Write acceptance tests A-C in server/kit-tone-clarity.test.ts
+- [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E1: Create Job Card Modal — URL Fetch Above Company/Location
+- [x] Reorder fields: Title → URL+Fetch → Company+Location → Priority+Season → JD textarea
+- [x] Preserve Enter-on-URL-field triggers fetch
+- [x] Preserve auto-fill non-destructive behavior
+- [x] Write acceptance tests A-C in server/create-job-card-field-order.test.ts
+- [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E2: Outreach Pack — Move Regenerate + Copy All to Header
+- [x] Move "Copy all" button to Outreach Pack card header (top-right), keep visibility rule (only when pack exists)
+- [x] Move "Regenerate Pack (1 credit)" button to header next to Copy all
+- [x] Remove bottom Regenerate button from inside the pack content area
+- [x] Keep packError display near the header buttons
+- [x] Preserve loading/disabled states and all mutation logic
+- [x] Write acceptance tests A-D in server/outreach-pack-header-buttons.test.ts
+- [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E2.1: Outreach Pack Header — Regenerate Button Green
+- [x] Change Regenerate Pack header button from variant="outline" to variant="default" (primary green)
+- [x] Keep Copy all as variant="ghost" (secondary/neutral)
+- [x] Write structural test confirming variant in source
+- [x] Verify all tests pass, 0 TypeScript errors
+## Phase 9E3: Application Kit Header Polish (2-row layout)
+- [x] Row 1: Resume selector + Evidence Run selector (left), Download Kit + Regenerate Kit (right)
+- [x] Row 2: Tone pills on one line below Row 1
+- [x] Tone mismatch note: render as small helper text under tone pills (not a banner)
+- [x] Metadata line: "Generated ... · Tone: X · Included free" as muted small text below Row 2
+- [x] Increase whitespace between header card and first accordion section
+- [x] Write acceptance tests A-D (Phase 9E3)
+- [x] Verify all tests pass, 0 TypeScript errors (Phase 9E3)## Phase 9E4: Quick Archive Action (List + Board)
+- [ ] Add DropdownMenu import to JobCards.tsx (MoreHorizontal icon + DropdownMenu components)
+- [ ] Add archiveJobId state + archiveConfirmOpen state to JobCards component
+- [ ] Add archiveCard mutation (uses existing updateStage / jobCards.update) with optimistic update
+- [ ] Add "..." menu button to list view rows (Archive / Unarchive)
+- [ ] Add "..." menu button to KanbanCard tiles (Archive / Unarchive) - pass onArchive/onUnarchive props
+- [ ] Add lightweight Archive confirm AlertDialog (no confirm for Unarchive)
+- [ ] Pass stage field in KanbanCard job prop to determine Archive vs Unarchive
+- [x] Write acceptance tests A-F (27 tests: A1-A6, B1-B5, C1-C6, D1-D3, E1-E4, F1-F3)
+- [x] Verify all 1187 tests pass, 0 TypeScript errors
+
+## Phase 9E4.1: Job Cards Stage Filter — Add "Archived" Option
+- [x] Confirm STAGES already includes "archived" (it does — line 302 of regionPacks.ts)
+- [ ] Remove "archived" from STAGES.map loop in filter dropdown (to avoid duplicate with explicit item)
+- [ ] Add explicit "Archived" SelectItem with visual separator after the main stages
+- [ ] Verify filtering behavior: selecting Archived shows only archived cards in list + board
+- [x] Write acceptance tests A-D (22 tests)
+- [x] Verify all 1187 tests pass, 0 TypeScript errors
+
+## Phase 9E6: AdminOperationalEvents TS Fix (Admin-only Enum Mismatch)
+- [x] Create shared/operational-events.ts with endpointGroupSchema and eventTypeSchema Zod enums
+- [x] Update admin.ts to import and use Zod enum schemas
+- [x] Update AdminOperationalEvents.tsx to import types from shared constants
+- [x] Verify tsc --noEmit returns 0 errors
+- [x] Verify all 1117 tests pass, no regressions
+- [x] Note: LSP warning persists due to Zod type inference cache issue (known TypeScript LSP limitation), but code is correct and compiles cleanly
+
+## Phase 9E8: Job Cards — Sort by Created Date (Newest/Oldest)
+- [ ] Add sortBy state (default: "newest") to JobCards component
+- [ ] Add Sort dropdown in filter bar (Newest first / Oldest first)
+- [ ] Implement client-side sorting by createdAt (ascending/descending)
+- [ ] Apply sorting to list view rows
+- [ ] Apply sorting to Kanban columns (optional, or list view only)
+- [x] Write acceptance tests A-D (22 tests)
+- [x] Verify all 1187 tests pass, 0 TypeScript errors
+
+## Phase 9E8: Job Cards — Sort by Created Date (Newest/Oldest)
+- [x] Add sortBy state (default: "newest") to JobCards component
+- [x] Add Sort dropdown in filter bar (Newest first / Oldest first)
+- [x] Implement client-side sorting by createdAt (ascending/descending)
+- [x] Apply sorting to list view rows
+- [x] Write acceptance tests A-D (13 tests, all passing)
+- [x] Verify all 1130 tests pass, 0 TypeScript errors
+
+## Phase 9E9: Job Cards List — Show "Created" Date on Each Row
+- [x] Add created date display to each list row (format: "Created: Feb 23")
+- [x] Placement: subtle/muted, aligned with metadata (company/location/dueDate)
+- [x] Fallback: hide label if createdAt is null
+- [x] Write acceptance tests A-C (15 tests: A1-A3, B1-B4, C1-C5, D1-D3)
+- [x] Verify all 1145 tests pass, 0 TypeScript errors
+
+## Phase 9E7 (RE-DO): Job Cards List — Bulk Archive Selected
+- [ ] Add checkbox column to list view (left-most, before title)
+- [ ] Add header checkbox that selects/deselects all visible rows
+- [ ] Add selectedIds state to JobCards component
+- [ ] Implement bulk action bar (sticky, under filters) with "{N} selected", "Archive selected", "Clear"
+- [ ] Add confirm dialog for bulk archive with progress tracking
+- [ ] Implement archive logic: call jobCards.update sequentially (max 3 concurrent)
+- [ ] Show progress text: "Archiving X/Y…" during operation
+- [ ] Handle already-archived cards (skip silently)
+- [ ] Show toast on completion: "Archived {success}/{attempted}"
+- [ ] Keep failed items selected for retry
+- [ ] Write acceptance tests A-F (checkbox, header checkbox, archive, skip archived, failures, Kanban unaffected)
+- [x] Verify all 1187 tests pass, 0 TypeScript errors
+
+## Phase 9E7 (RE-DO): Job Cards List — Bulk Archive Selected (COMPLETED)
+- [x] Add checkbox column to list view (left-most, before title)
+- [x] Add selectedIds state to JobCards component
+- [x] Implement bulk action bar (sticky, under filters) with "{N} selected", "Archive selected", "Clear"
+- [x] Add confirm dialog for bulk archive with progress tracking
+- [x] Implement archive logic: call jobCards.update sequentially (max 3 concurrent)
+- [x] Show progress text: "Archiving X/Y…" during operation
+- [x] Handle already-archived cards (skip silently)
+- [x] Show toast on completion: "Archived {success}/{attempted}"
+- [x] Keep failed items selected for retry
+- [x] Write acceptance tests A-F (16 tests: A1-A3, B1-B3, C1-C3, D1-D2, E1-E2, F1-F3)
+- [x] Verify all 1161 tests pass, 0 TypeScript errors
+
+## Phase 9E7.1: Bulk Archive Fix (Header Select-All + Filter-Scoped Selection + Layout)
+- [x] Add header select-all checkbox with indeterminate state
+- [x] Implement filter-scoped selection (respects visible rows only)
+- [x] Fix archived row handling (skip silently, disable button when all selected are archived)
+- [x] Verify row layout (priority badge stays in title line, no regression)
+- [x] Update acceptance tests A-G (added 4 new tests: B3 indeterminate, D2-1/D2-2 layout, F1/F2 archived button)
+- [x] Verify all 1165 tests pass, 0 TypeScript errors
+
+## Phase 9E7.2: Bulk Archive Fix — Checkbox Click + Hide Archived By Default
+- [x] Fix checkbox click handling with data-bulk-select attribute
+- [x] Add stopPropagation on checkbox wrapper and checkbox element
+- [x] Add stopPropagation on mouseDown to prevent navigation capture
+- [x] Guard row onClick to check if click is within [data-bulk-select]
+- [x] Hide archived items by default in "All Stages" filter
+- [x] Show archived items only when Stage filter = "Archived"
+- [x] Update filtering logic to exclude archived when filterStage === "all"
+- [x] Verify bulk selection respects visible filtered rows
+- [x] Write acceptance tests A-D (11 tests: A1-A3, B1-B3, C1-C3, D1-D2)
+- [x] Verify all 1176 tests pass, 0 TypeScript errors
+
+## Phase 9E7.4: Fix Forever Archiving State + Restore Deselect All (COMPLETED)
+- [x] Fix forever archiving state with try/catch/finally
+- [x] Ensure setBulkArchiveProgress(null) in finally block
+- [x] Fix header checkbox to toggle select all / deselect all
+- [x] Implement allVisibleSelected logic for header checkbox
+- [x] Prune selectedIds after list changes to avoid phantom selections
+- [x] Write acceptance tests (11 tests: 1A-1B, 2A-2B, 3A-3D, 4A-4C)
+- [x] Verify all 1187 tests pass, 0 TypeScript errors
+
+## Phase 9E7.4 (v2): Fix 3-item cap + Forever Archiving + Deselect All
+- [x] Remove 3-item cap in bulk archive (archive ALL selected)
+- [x] Implement chunking (15 per chunk) with Promise.allSettled
+- [x] Add 200ms delay between chunks
+- [x] Verify try/catch/finally resets progress state
+- [x] Add 15s request timeout per item with clearTimeout on success/error
+- [x] Write acceptance tests (16 tests: 1A-1D, 2A-2B, 3A-3C, 4A-4D, 5A-5C)
+- [x] Verify all 1203 tests pass, 0 TypeScript errors
+
+## Phase 9E10: Contacts Page — Used in Job Cards + Created + Last/Next Touch
+- [x] Read existing schema (contacts, outreach_threads, job_cards tables)
+- [x] Create contacts.listWithUsage tRPC procedure (aggregated, no N+1)
+- [x] Return: contact fields, usedInCount, mostRecentJobCard, lastTouchAt, nextTouchAt, recentJobCards[]
+- [x] Default sort: most recent activity desc, fallback createdAt desc
+- [x] Update Contacts page UI: show Created date
+- [x] Show "Not used yet" for contacts with no threads
+- [x] Show "Used in: Company — Title (Stage)" for single usage
+- [x] Show "Used in: N job cards" + View popover for multiple usages
+- [x] Show Last touch / Next touch where available
+- [x] Write acceptance tests A-F (27 tests: A1-A6, B1-B5, C1-C6, D1-D3, E1-E4, F1-F3)
+- [x] Verify all 1230 tests pass, 0 TypeScript errors
+
+## Phase 9E10.1: Contacts Linking Fix — Real Usage Data + Clickable Navigation
+- [ ] Diagnose linking source of truth (contacts.jobCardId vs outreach_threads.contactId)
+- [ ] Fix getContactsWithUsage to query correct relationship
+- [ ] Fix frontend: single-job contact row navigates to /jobs/:id
+- [ ] Fix frontend: multi-job popover items navigate to /jobs/:id
+- [ ] Correct empty state: only show "Not used yet" when linkedJobCount === 0
+- [x] Write acceptance tests A-D (22 tests)
+- [ ] Verify all tests pass, 0 TypeScript errors
+
+## Phase 9E10.1: Contacts Linking Fix (COMPLETED)
+- [x] Diagnose why contacts show "Not used yet" (missing direct contacts.jobCardId link)
+- [x] Fix getContactsWithUsage to LEFT JOIN job_cards via contacts.jobCardId (direct link)
+- [x] Seed contactMap with direct link before processing threads
+- [x] Fix UsedInBadge navigation: use useLocation navigate() instead of Link
+- [x] Fix popover navigation: close popover then navigate on click
+- [x] Fix routers.ts UTF-8 box-drawing comment causing esbuild error
+- [x] Write acceptance tests A-D (18 tests) covering direct link, thread link, dedup, navigation
+- [x] All 1248 tests pass, 0 TypeScript errors
+
+## Phase 9E10.2: Outreach CRM Compact Table View (COMPLETED)
+- [x] Replace large cards with compact table on desktop (column headers + rows)
+- [x] Compact card layout for mobile (less padding)
+- [x] Column headers: Name, Role, Email, Links, Used in, Last touch, Next touch
+- [x] Row height ~44-52px, truncate long fields with ellipsis (Tooltip on hover)
+- [x] Keep existing search/sort behavior
+- [x] Write acceptance tests A-D (22 tests)
+- [x] All 1270 tests pass, 0 TypeScript errors
+
+## Phase 9E10.3: Outreach CRM Table Formatting + Status Column + Edit Action (COMPLETED)
+- [x] Fix table column widths (table-fixed + colgroup, minWidth 900px)
+- [x] Add Status column header and status pills under it
+- [x] Add Edit action per row (Pencil icon, stopPropagation)
+- [x] Edit Contact modal pre-fills all fields and saves via contacts.update
+- [x] Write acceptance tests A-E (23 tests)
+- [x] All 1293 tests pass, 0 TypeScript errors
+
+## Phase 9E10.4: Outreach CRM — Stage Column + Status as Flags (COMPLETED)
+- [x] Add Stage column header with job card stage pill
+- [x] Update Status column to show derived flags (Active/Archived/Rejected/Offered)
+- [x] Schema has no separate flags field; Status derived from stage
+- [x] Write acceptance tests A-E (27 tests)
+- [x] All 1320 tests pass, 0 TypeScript errors
+
+## Phase 9E10.5: Outreach CRM — Replace Status with Priority + Truncate Used in (IN PROGRESS)
+- [ ] Remove Status column (no "Active" pills)
+- [ ] Add Priority column (High/Medium/Low from linked job card)
+- [ ] Truncate "Used in" with ellipsis + tooltip
+- [ ] Add resizable "Used in" column with localStorage persistence
+- [ ] Write acceptance tests A-G
+- [x] All 1378 tests pass, 0 TypeScript errors
+
+## Phase 9E10.5: Outreach CRM — Priority Column + Truncate Used in + Resizable Column
+- [x] Remove Status column (derived "Active" pill)
+- [x] Add Priority column showing job priority (high/medium/low) from mostRecentJobCard
+- [x] Add priority to getContactsWithUsage backend query (directJobPriority + thread jobPriority)
+- [x] Truncate "Used in" cell with overflow-hidden + max-w-0 for proper table truncation
+- [x] Add resizable "Used in" column with drag handle (min 180px, max 520px)
+- [x] Persist column width to localStorage (key: outreach-used-in-width)
+- [x] Write acceptance tests A-G (29 tests)
+- [x] All 1349 tests pass, 0 TypeScript errors
+
+## Phase 9E11: Nav Label Cleanup — Rename "Outreach CRM" to "Contacts"
+- [x] Rename sidebar nav label from "Outreach" to "Contacts" (DashboardLayout.tsx)
+- [x] Rename page header h1 from "Outreach CRM" to "Contacts" (Outreach.tsx)
+- [x] Route /outreach unchanged
+- [x] Write acceptance tests A-D (12 tests)
+- [x] All 1361 tests pass, 0 TypeScript errors
+
+## Phase 9E12: Contact Delete Button
+- [x] Add Trash icon next to Pencil on each contact row (desktop table + mobile card)
+- [x] Confirm dialog: "Delete contact?" with warning
+- [x] Call contacts.delete(contactId) on confirm
+- [x] Invalidate listWithUsage after delete
+- [x] Write acceptance tests A-D (17 tests)
+- [x] All 1378 tests pass, 0 TypeScript errors
+
+## Phase 10A: Rate Limits + Abuse Protection
+- [ ] Create rate_limits table in schema (userId, endpoint, windowStart, callCount, activeCount)
+- [ ] Push DB migration (pnpm db:push)
+- [ ] Implement rateLimiter helper (sliding window, concurrency guard, admin bypass)
+- [ ] Apply to evidence.scan (AI, 10/10min, concurrency 1)
+- [ ] Apply to applicationKits.generate (AI, 10/10min, concurrency 1)
+- [ ] Apply to outreach.generatePack (AI, 10/10min, concurrency 1)
+- [ ] Apply to jdSnapshots.extract (AI, 10/10min, concurrency 1)
+- [ ] Apply to jdSnapshots.fetchFromUrl (network, 10/hour)
+- [ ] Return 429 with RATE_LIMITED code and retry-after seconds
+- [ ] Frontend: show friendly toast for 429, no scary overlay
+- [ ] Write acceptance tests A-E
+- [x] All 1815 tests pass (109 test files), 0 TypeScript errors
+
+## Phase 10A: Rate Limits + Abuse Protection
+- [x] Audit existing endpoints and rate limiter implementation
+- [x] Update rateLimiter.ts with admin bypass, concurrency guard, corrected limits (10/10min for all AI)
+- [x] Add jdExtractRateLimit middleware for jdSnapshots.extract
+- [x] Add jd_extract to EndpointGroup enum in schema and shared types
+- [x] Apply jdExtractRateLimit to jdSnapshots.extract procedure
+- [x] Suppress TOO_MANY_REQUESTS errors from frontend console.error overlay
+- [x] Write Phase 10A acceptance tests (rate-limits.test.ts)
+- [x] Update old rate-limiter-10a1.test.ts to match new spec-compliant limits
+- [x] All 1401 tests pass, 0 TypeScript errors
+
+## Phase 10B: Concurrency Queue UI (Waiting Spinner + Cancel + No Double-Charge)
+- [x] Create AIConcurrencyContext with busy flag, queue slot, and run helper
+- [x] Integrate context into Evidence+ATS panel scan button
+- [x] Add "Waiting for previous scan..." spinner with Cancel button
+- [x] Auto-run queued action after current completes
+- [x] Prevent double-charge: queue holds at most 1 pending request
+- [x] Friendly inline error when server returns concurrency/rate-limit error
+- [x] Write acceptance tests A-F
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 10C: Idempotency + No Double-Charge + Clean Errors (Server-Side)
+- [x] Create server/idempotency.ts with in-memory store (userId+endpoint+actionId → status/result/creditsCharged)
+- [x] Integrate idempotency guard into evidence.run (action_id input, check before run, store result)
+- [x] Integrate idempotency guard into applicationKits.generate
+- [x] Integrate idempotency guard into outreach.generatePack
+- [x] Integrate idempotency guard into jdSnapshots.extract
+- [x] Add action_id (optional UUID) to all 4 frontend mutation call sites
+- [x] Write acceptance tests A-E (idempotency-10c.test.ts)
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 10D: Batch Sprint Concurrency — Shared AI Busy Lock + Queue (Frontend Only)
+- [x] Add Batch Sprint button + resume selector to bulk action bar in JobCards.tsx
+- [x] Integrate batchSprint.mutate with runAI() from AIConcurrencyContext
+- [x] Show queue/waiting banner in bulk action bar when Batch Sprint is queued
+- [x] Show "Already queued" toast when user clicks again while queued
+- [x] Handle markDone in batchSprint onSuccess/onError
+- [x] Write acceptance tests A-F (batch-sprint-concurrency-10d.test.ts)
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 10E: Batch Sprint Results Drawer
+- [x] Enrich batchSprint return with score, topSuggestion per result (additive)
+- [x] Build BatchSprintResultsDrawer component (Sheet, right-side)
+- [x] Auto-open drawer on sprint completion
+- [x] Per-job rows: company+title, score, top suggestion, status, Open link
+- [x] Default sort: lowest score first
+- [x] Filter toggle: All / Failed only
+- [x] Retry failed button with credit cost label
+- [x] Retry failed uses runAI() + fresh actionIds
+- [x] Write acceptance tests A-F
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 10F: Export Batch Sprint Results to CSV
+- [x] Add csvEscape utility function with proper comma/quote/newline handling
+- [x] Add buildSprintCsv function (8 columns: company, title, score, top_suggestion, status, stage, priority, job_card_url)
+- [x] Add Download CSV button to drawer header (always visible, disabled when 0 rows)
+- [x] Export respects current filter (All vs Failed-only)
+- [x] Filename: batch-sprint-results-YYYY-MM-DD-HHMM.csv
+- [x] Toast "CSV downloaded" after trigger
+- [x] Write acceptance tests A-E
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 10G.1: Fix Copy to Clipboard (Robust Fallbacks + Toast)
+- [x] Async handleCopyCsv with try/catch
+- [x] Path 1: navigator.clipboard.writeText + toast "Copied to clipboard"
+- [x] Path 2: textarea + execCommand('copy') fallback + toast
+- [x] Path 3: manual-copy modal with prefilled textarea + Select All helper
+- [x] Copy button disabled when displayResults.length === 0
+- [x] Single source of truth: buildSprintCsv used for both Copy and Download
+- [x] Write acceptance tests (clipboard API, fallback modal, non-empty csvText)
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 11A: Stripe Credits Purchase (Checkout + Webhook, No Credit Logic Changes)
+- [x] Verify credit pack constants (server-owned, never trust client)
+- [x] Verify create-checkout-session endpoint (tRPC stripe.createCheckoutSession)
+- [x] Verify webhook handler at /api/stripe/webhook with signature verification
+- [x] Update ledger description to "Purchase: {pack_id}" per spec
+- [x] Verify idempotency: same checkout.session.id never credits twice
+- [x] Write Phase 11A acceptance tests
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 11B: Low-Credit Warning Banner
+- [x] Add LowCreditBanner component to DashboardLayout (credits < 2 threshold)
+- [x] Amber banner with "Low credits. Top up to continue scanning." text
+- [x] "Top up" CTA navigates to /billing
+- [x] 24-hour localStorage dismiss
+- [x] Admin users (role === "admin") do not see banner
+- [x] Write Phase 11B acceptance tests
+- [x] All tests pass, 0 TypeScript errors
+
+## Phase 11C.1: Billing Receipts + Invoices
+- [x] Add purchaseReceipts table to drizzle/schema.ts
+- [x] Run pnpm db:push to migrate
+- [x] Add createPurchaseReceipt and listPurchaseReceipts helpers to server/db.ts
+- [x] Update stripeWebhook.ts to write receipt after credits granted
+- [x] Add billing.listReceipts tRPC procedure to routers.ts
+- [x] Add Receipts section to /billing page
+- [x] Add Invoices section to /billing page (reuses receipt data)
+- [x] Write Phase 11C.1 acceptance tests (37 tests)
+- [x] All tests pass (1694), 0 TypeScript errors
+
+## Phase 11D: Refund Handling (Admin-only Credit Reversal + Audit Log)
+- [ ] Add refundQueue table to drizzle/schema.ts
+- [ ] Run pnpm db:push to migrate
+- [ ] Add refundQueue DB helpers (createRefundQueueItem, listRefundQueueItems, processRefundQueueItem, ignoreRefundQueueItem)
+- [ ] Update stripeWebhook.ts to record charge.refunded into refundQueue
+- [ ] Add admin tRPC endpoints: refunds.list, refunds.process, refunds.ignore
+- [ ] Add /admin/refunds page with table and Review modal
+- [ ] Review modal: Debit Credits action (with confirmation) and Ignore action (with reason)
+- [ ] Idempotency: same stripe_refund_id cannot create multiple debits
+- [ ] Write Phase 11D acceptance tests
+- [x] All 1815 tests pass (109 test files), 0 TypeScript errors
+
+## Phase 11D: Refund Handling (Admin-only Credit Reversal + Audit Log)
+
+- [x] refund_queue table in drizzle/schema.ts with userId, stripeChargeId, stripeRefundId (unique), stripeCheckoutSessionId, amountRefunded, currency, packId, creditsToReverse, status (pending/processed/ignored), adminUserId, ignoreReason, ledgerEntryId, processedAt, createdAt
+- [x] Migration 0023 applied (refund_queue table)
+- [x] DB helpers: createRefundQueueItem, listRefundQueueItems, processRefundQueueItem, ignoreRefundQueueItem, refundQueueItemExists
+- [x] createRefundQueueItem silently ignores ER_DUP_ENTRY (idempotency on stripeRefundId)
+- [x] processRefundQueueItem creates negative ledger entry (balance may go negative), sets ledgerEntryId on queue item
+- [x] ignoreRefundQueueItem requires non-empty reason, sets status to ignored
+- [x] Webhook: charge.refunded case creates pending refund queue item + records manual_review in stripe_events
+- [x] Admin tRPC: admin.refunds.list (with optional status filter)
+- [x] Admin tRPC: admin.refunds.process (debit credits + logAdminAction)
+- [x] Admin tRPC: admin.refunds.ignore (ignore with reason + logAdminAction)
+- [x] AdminRefunds.tsx page: table with status filter, Review modal with debit/ignore flows, confirmation step, empty state
+- [x] AdminLayout: Refunds nav item with RotateCcw icon
+- [x] App.tsx: /admin/refunds route
+- [x] 61 acceptance tests in server/refund-queue-11d.test.ts
+- [x] All 1755 tests pass (107 test files)
+
+## Phase 11E: Refund Policy Link + Policy Page
+
+- [x] Billing page: "Refund policy" link added under credit packs section (Link to /refund-policy)
+- [x] Billing page: imports Link from wouter
+- [x] RefundPolicy.tsx page created at /refund-policy
+- [x] Policy content: 7-day window for unused credits, used credits not refundable, billing error courtesy adjustment, chargeback reversal + negative balance warning, how to request (support email)
+- [x] Policy includes "Last updated" date and support@resupify.com mailto link
+- [x] App.tsx: /refund-policy route added (public, outside EarlyAccessGuard gated prefixes)
+- [x] 27 acceptance tests in server/refund-policy-11e.test.ts
+- [x] Fixed stripe-10c1.test.ts: added mockCreateRefundQueueItem to hoisted mocks
+- [x] All 1782 tests pass (108 test files), 0 TypeScript errors
+
+## Phase 11F: Purchase Confirmation Email (Resend)
+
+- [x] Install resend npm package
+- [x] Schema: add emailSentAt and emailError columns to purchase_receipts table
+- [x] Run pnpm db:push to apply migration
+- [x] Add DB helpers: markReceiptEmailSent, markReceiptEmailError
+- [x] Create server/email.ts with sendPurchaseConfirmationEmail helper (Resend)
+- [x] Update stripeWebhook.ts: call email helper after createPurchaseReceipt with idempotency guard
+- [x] 33 acceptance tests in server/purchase-email-11f.test.ts
+- [x] All 1815 tests pass (109 test files), 0 TypeScript errors
+
+## PATCH: Stripe Webhook Raw Body Fix
+- [ ] Audit Express middleware order in server/index.ts
+- [ ] Register /api/stripe/webhook with express.raw() BEFORE global express.json()
+- [ ] Verify stripe.webhooks.constructEvent receives raw Buffer
+- [ ] Write acceptance test with signed payload fixture (returns 200)
+- [ ] All tests pass, 0 TypeScript errors
+
+## PATCH: Stripe Webhook Raw Body Fix
+- [x] Audit Express middleware order in server/_core/index.ts
+- [x] Change express.raw({ type: "application/json" }) to express.raw({ type: () => true }) to accept all Content-Type variants (including charset=utf-8)
+- [x] Update webhook to read STRIPE_WEBHOOK_SECRET lazily from process.env (not cached ENV object)
+- [x] Write 10 acceptance tests with real Stripe-signed payload fixtures (all return 200)
+- [x] All 1825 tests pass, 0 TypeScript errors
+
+## PATCH: Receipt Detail Page + Clickable Rows (Phase 11G)
+- [x] getPurchaseReceiptById DB helper added to server/db.ts
+- [x] credits.getReceipt tRPC procedure with access control (user owns receipt or admin)
+- [x] Billing page: "No receipt" replaced with "View" link to /billing/receipts/:id
+- [x] Billing page: Stripe receipt external link preserved when stripeReceiptUrl present
+- [x] ReceiptDetail page created at client/src/pages/ReceiptDetail.tsx
+- [x] Receipt detail shows: pack name, credits added, amount/currency, purchase date, receipt ID, session reference
+- [x] Receipt detail shows current credit balance
+- [x] Receipt detail shows Stripe receipt link only when stripeReceiptUrl present
+- [x] Receipt detail has Back to Billing and Refund policy links
+- [x] /billing/receipts/:id route registered in App.tsx with DashboardRoute wrapper
+- [x] 34 acceptance tests in server/receipt-detail-11g.test.ts — all pass
+- [x] 1859 total tests passing, 0 TypeScript errors
+
+## PATCH: Admin Retry Purchase Email (Phase 11H)
+- [ ] admin.billing.retryReceiptEmail mutation added to admin router
+- [ ] Mutation loads receipt + user, guards emailSentAt idempotency
+- [ ] Mutation returns status: sent | already_sent | failed
+- [ ] Admin Billing Receipts UI: Retry email button when emailSentAt is null
+- [ ] Toast feedback for all three status outcomes
+- [ ] Acceptance tests in server/admin-retry-email-11h.test.ts
+- [ ] 0 TypeScript errors
+
+## Phase 11H: Admin Retry Purchase Confirmation Email
+- [x] Add adminListPurchaseReceipts DB helper with userId/emailSentAt filters
+- [x] Add getPurchaseReceiptById DB helper
+- [x] Add admin.billing.listReceipts tRPC procedure (admin-only)
+- [x] Add admin.billing.retryReceiptEmail tRPC mutation (admin-only, idempotent)
+- [x] Create AdminBillingReceipts page at /admin/billing-receipts
+- [x] Add Billing Receipts nav item to AdminLayout
+- [x] Register route in App.tsx
+- [x] Write 24 acceptance tests (H1-H20 + I1-I4)
+- [x] Full test suite: 1883 tests passing, 0 TypeScript errors
+
+## Phase 11I: Admin Billing Receipts Search
+- [x] Update adminListPurchaseReceipts DB helper to accept query + emailStatus params with server-side filtering
+- [x] Update admin.billing.listReceipts tRPC procedure to pass query + emailStatus to DB helper
+- [x] Update AdminBillingReceipts UI: add search input (debounced), wire to tRPC query
+- [x] Write 12 acceptance tests (I1-I12)
+- [x] Full test suite: 1895 tests passing, 0 TypeScript errors
+
+## Phase 11I (spec-alignment): Admin Billing Receipts Search Refinement
+- [x] DB helper: digit-only query → WHERE userId = q OR id = q (OR, not AND)
+- [x] DB helper: "#NNN" query → WHERE id = NNN (strip # prefix)
+- [x] DB helper: "@"-containing query → JOIN users WHERE email LIKE %q%
+- [x] DB helper: other input → no filter (return empty or all, per spec "do nothing / show No matches")
+- [x] tRPC procedure: pass refined query to DB helper unchanged
+- [x] UI: update placeholder to "Search by email, user ID, or receipt ID…"
+- [x] UI: "No receipts match your search." empty state when search active
+- [x] Tests: digit query matches userId OR receiptId
+- [x] Tests: "#NNN" matches receipt by ID
+- [x] Tests: "@" query matches email LIKE
+- [x] Tests: combined query + emailSentAt filter
+- [x] Tests: non-admin cannot access listReceipts
+- [x] Full test suite: 1901 tests passing, 0 TypeScript errors
+
+## Phase 12E.1: Admin Ops Status Visibility
+- [x] Add getOpsStatus DB helper (reads ops_status table, returns null if no row)
+- [x] Add admin.ops.getStatus tRPC procedure (admin-only, returns ops status)
+- [x] Add /admin/ops page with Stripe Webhooks card (last success, last failure, last event)
+- [x] Wire /admin/ops to admin sidebar navigation
+- [x] Write Phase 12E.1 acceptance tests (admin access, non-admin guard, null state)
+- [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12E.2: Wire ops_status on Webhook Success
+- [x] Add upsertOpsStatus call after successful checkout.session.completed processing in stripeWebhook.ts
+- [x] Write Phase 12E.2 acceptance tests confirming ops_status is updated on success
+- [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12E.3: Webhook Failure Tracking (ops_status on error)
+- [x] Add upsertOpsStatus({ lastStripeWebhookFailureAt }) in the webhook catch block
+- [x] Wrap the ops write in try/catch so it never crashes the process
+- [x] Write Phase 12E.3 acceptance tests (E3_1-E3_8)
+- [x] Full test suite passing, 0 TypeScript errors
+
+## Phase 12F: Public Health Check Endpoint
+- [x] Add GET /api/health route to Express server entry point (no auth, no DB)
+- [x] Write Phase 12F acceptance tests (HTTP 200, status=ok, ts is number)
+- [x] Full test suite passing, 0 TypeScript errors
+
+## Browser Capture Fallback for Fetch JD
+- [x] Review existing Fetch JD in CreateJobCard modal and JD Snapshot page
+- [x] Add URL normalization helper (strip utm_*, source, gh_src; preserve ashby_jid, gh_jid)
+- [x] Add /capture route: iframe-based DOM extraction + postMessage bridge + paste fallback
+- [x] Add "Try Browser Capture" fallback button to Create Job Card modal (shown only on fetch failure)
+- [x] Add "Try Browser Capture" fallback button to JD Snapshot page (shown only on fetch failure)
+- [x] Write tests: URL normalization + fallback UI rendering
+- [x] Full suite regression: all tests pass
+
+## /capture Paste Fallback (iframe blocked)
+- [x] BrowserCapture.tsx: add 3 UI states (loading, extracted, blocked/fallback)
+- [x] BrowserCapture.tsx: detect iframe block via onerror + 8s timeout → show textarea fallback
+- [x] BrowserCapture.tsx: textarea labeled "Paste job description text" + "Send back to Resupify" button
+- [x] BrowserCapture.tsx: validate pasted text >= 100 chars; show error if too short
+- [x] BrowserCapture.tsx: postMessage same BROWSER_CAPTURE_RESULT format on send
+- [x] Tests: browser-capture.test.ts — blocked state shows textarea; postMessage payload format
+- [x] Full suite regression: all tests pass
+
+## V2 Phase 1C-C — Pack-Aware Generation Wiring
+- [x] server/v2PackContext.ts: resolvePackContextForGeneration({ userId, jobCardId?, overrideCountryPackId? }) helper
+- [x] server/v2PackContext.ts: flag OFF → always return GLOBAL; unknown pack → fallback GLOBAL
+- [x] server/v2PackContext.ts: returns { countryPackId, countryPack, templateStyleKey, languageMode, packPromptPrefix }
+- [x] Evidence Scan: inject packPromptPrefix into LLM prompt (flag-gated, CA-first)
+- [x] Application Kit: inject packPromptPrefix into cover letter, outreach, resume rewrite prompts (flag-gated)
+- [x] Tests: v2-phase1c-c.test.ts — flag OFF no CA markers; flag ON+CA has CA prefix; job card override; unknown pack fallback
+- [x] Full suite regression: all tests pass, 0 TS errors
+
+## Admin — Country Pack + Language Mode Visibility
+- [x] server/routers/admin.ts: Ensure admin.listUsers returns countryPackId and languageMode
+- [x] client/src/pages/AdminOps.tsx: Add "Country Pack" and "Language Mode" columns to users table
+- [x] client/src/pages/AdminOps.tsx: Add pack filter dropdown (All / GLOBAL / CA / VN / PH / US)
+- [x] Tests: admin-country-pack-visibility.test.ts
+- [x] Full suite regression: all tests pass, 0 TS errors
+
+## Proactive Blocked-Host Hint (Fetch JD)
+- [x] shared/urlNormalize.ts: Verify isLikelyBlockedHost covers linkedin/indeed/workday
+- [x] shared/analyticsEvents.ts: Add EVT_FETCH_JD_BLOCKED_HOST_DETECTED, EVT_BROWSER_CAPTURE_CLICKED_FROM_HINT
+- [x] JobCards.tsx: Show inline callout + primary Browser Capture button when URL is blocked; skip server fetch
+- [x] JobCardDetail.tsx: Same blocked-host hint + skip server fetch
+- [x] Tests: proactive-blocked-host-hint.test.ts
+- [x] Full suite regression: all tests pass, 0 TS errors
+
+## Patch: URL Normalization on Job Card Save
+- [x] Add safeNormalizeJobUrl() wrapper to shared/urlNormalize.ts
+- [x] Wire safeNormalizeJobUrl into jobCards.create mutation (normalize input.url before storing)
+- [x] Wire safeNormalizeJobUrl into jobCards.update mutation (normalize input.url before storing)
+- [x] Add unit tests for normalizeJobUrl/safeNormalizeJobUrl (strips utm_*/gclid/fbclid, removes fragments, lowercases hostname, preserves ATS params, handles invalid URL)
+- [x] Add integration tests (create with tracking URL → stored normalized; update with tracking URL → stored normalized)
+
+## V2 — VN Track PackSet (Config + UI)
+- [x] Add VN/INTERNSHIP track to shared/regionPacks.ts
+- [x] Add VN/NEW_GRAD track to shared/regionPacks.ts
+- [x] Add VN/EARLY_CAREER track to shared/regionPacks.ts
+- [x] Add VN/EXPERIENCED track to shared/regionPacks.ts
+- [x] Add country filter (All/CA/VN) to AdminPacks.tsx Region Packs UI
+- [x] Add getAvailablePacksWithRegion() helper or extend getAvailablePacks() to expose regionCode
+- [x] Write config validation tests for VN tracks
+- [x] Write UI filter tests for AdminPacks.tsx
+
+## V2 — Onboarding Track Selector: VN Tracks (Flag-Gated)
+- [x] Add system.featureFlags tRPC query to expose v2CountryPacksEnabled to frontend
+- [x] Update Onboarding.tsx: country-aware track selector (CA→CA tracks, VN→VN tracks, other→hide/default)
+- [x] Update trackCode zod enum in profile.upsert to accept VN track codes
+- [x] Update drizzle schema trackCode enum to accept VN track codes
+- [x] Run pnpm db:push to migrate schema
+- [x] Write tests: flag OFF shows CA tracks only, flag ON shows country-filtered tracks, VN/INTERNSHIP saves correctly
+
+## V2 — Profile: Country-aware Track Selector (Flag-Gated)
+- [x] Extract getTracksForCountry + TrackOption types into shared/trackOptions.ts
+- [x] Update Onboarding.tsx to import from shared/trackOptions.ts (remove local definition)
+- [x] Update Profile.tsx track selector to use getTracksForCountry (country-aware, flag-gated)
+- [x] Show "Tracks coming soon" for GLOBAL/PH/US in Profile
+- [x] Write tests: CA sees CA tracks, VN sees VN tracks, GLOBAL sees coming-soon, persist+reload
+
+## V2 — Onboarding Step 0: Country Pack Self-Selection (Flag-Gated)
+- [x] Verify/add user.updateCountryPack tRPC mutation (protected, own record only, enum validation)
+- [x] Add Step 0 UI to Onboarding.tsx: CA/VN radio cards, preselect existing countryPackId, sticky
+- [x] Persist countryPackId on Continue (call mutation before advancing to Track step)
+- [x] Track step reads selectedCountryPackId (local state) not just auth.me to reflect immediate change
+- [x] Flag OFF: no Step 0, onboarding unchanged
+- [x] Write tests: flag OFF no step 0, flag ON CA/VN saves correctly, sticky preselect, regression
+
+## V2 — VN Track Label Translation (Flag-Gated)
+- [x] Add VN translations (vi labels/sublabels) for all 4 VN tracks in shared/trackOptions.ts
+- [x] Add resolveLocale(countryPackId, languageMode, v2VnTranslationEnabled) helper
+- [x] Update getTracksForCountry to accept locale and return translated strings
+- [x] Wire locale resolution into Onboarding.tsx track step
+- [x] Wire locale resolution into Profile.tsx track card
+- [x] Translate track step header/helper in Onboarding.tsx when VN+flag ON
+- [x] Write tests: flag OFF=EN, flag ON+VN=VI, flag ON+CA=EN, all 4 tracks covered
+
+## V2 — Profile: Language Mode Toggle (VN Only, Flag-Gated)
+- [x] Check if languageMode column exists in users table (drizzle schema)
+- [x] Add db.updateUserLanguageMode helper to db.ts
+- [x] Add profile.setLanguageMode tRPC mutation (non-VN enforcement: force en)
+- [x] Add Language card to Profile.tsx (VN+flag-gated, bilingual option behind v2BilingualViewEnabled)
+- [x] Immediate locale refresh after languageMode change (local state update)
+- [x] Write tests: visibility (flag OFF hidden, VN visible, CA hidden), save behavior, non-VN enforcement
+
+## V2 — Onboarding Step 0: Default languageMode=vi for VN (One-Time, Flag-Gated)
+- [x] Update setCountryPack mutation: if VN + v2VnTranslationEnabled + languageMode unset → also set languageMode=vi
+- [x] Return languageModeSet flag in setCountryPack response for frontend awareness
+- [x] Update Onboarding.tsx: invalidate auth.me after Step 0 so Track step re-renders in VI immediately
+- [x] Write tests: VN+flag ON+unset→vi, VN+flag ON+existing en→unchanged, VN+flag OFF→unchanged, CA→unchanged
+
+## V2 — Onboarding Step 0: EVT_COUNTRY_PACK_SELECTED Analytics
+- [x] Add EVT_COUNTRY_PACK_SELECTED constant to analytics event constants file
+- [x] Fire event server-side in setCountryPack mutation (after DB commits, fire-and-forget, try/catch)
+- [x] Write tests: success fires once with correct props, failure no fire, analytics throw non-blocking
+
+## V2 — PH Tracks (Config + Track Options, English-only)
+- [x] Add PH/INTERNSHIP, PH/NEW_GRAD, PH/EARLY_CAREER, PH/EXPERIENCED to shared/regionPacks.ts
+- [x] Add PH_TRACKS to shared/trackOptions.ts (English-only labels/sublabels)
+- [x] Update getTracksForCountry() to return PH_TRACKS when countryPackId="PH" (ignore locale)
+- [x] Write tests: weights sum to 1.0, CA/VN counts unchanged, PH locale-invariant
+
+## V2 — Onboarding Step 0: PH Option
+- [x] Add PH radio card to Onboarding.tsx Step 0 (alongside CA/VN)
+- [x] Ensure PH Continue calls setCountryPack("PH") and invalidates auth.me
+- [x] Verify PH does not trigger languageMode=vi (server already enforces en for non-VN)
+- [x] Write tests: flag ON shows PH, PH persists, languageModeSet=false, flag OFF unchanged
+
+## Admin — /admin/packs: PH Country Filter
+- [x] Add PH to AdminPacks.tsx country filter (All/CA/VN/PH)
+- [x] Add PH badge color to per-country color map
+- [x] Write/update tests: PH filter shows only PH packs, All shows CA+VN+PH
+
+## Patch — Profile: countryPackId gating (tracks + work auth) + debug line
+- [x] Fix Profile.tsx: derive countryPackId from me.countryPackId only (no fallback to residence)
+- [x] Fix Profile.tsx: track options use getTracksForCountry(countryPackId, locale) always
+- [x] Fix Profile.tsx: Work Authorization card only renders when countryPackId === "CA"
+- [x] Add DEV-only debug line (import.meta.env.DEV guard)
+- [x] Write tests: VN/PH/CA track options, CA-only work auth, debug line gating
+
+## V2 — CA Track Label Fix: NEW_GRAD → "New Graduate"
+- [x] Update CA_TRACKS NEW_GRAD label to "New Graduate" and sublabel to "0–2 years experience"
+- [x] Update affected tests asserting old label "Early-career / General"
+- [x] Regression: full suite green, 0 TS errors
+
+## V2 — CA: Add CA_EARLY_CAREER + CA_EXPERIENCED packs
+- [x] Add CA_EARLY_CAREER pack to shared/regionPacks.ts (weights sum 1.0, no eligibility checks)
+- [x] Add CA_EXPERIENCED pack to shared/regionPacks.ts (maxPages 2, weights sum 1.0)
+- [x] Extend CA_TRACKS in shared/trackOptions.ts to 4 options (COOP, NEW_GRAD, EARLY_CAREER, EXPERIENCED)
+- [x] Write tests: weights sum 1.0, CA_COOP/CA_NEW_GRAD unchanged, 4-option CA dropdown

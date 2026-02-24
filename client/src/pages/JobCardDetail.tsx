@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { MAX_LENGTHS } from "../../../shared/maxLengths";
+import { normalizeJobUrl, isLikelyBlockedHost } from "../../../shared/urlNormalize";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { buildCoverLetterFilename, buildResumePatchFilename, buildTopChangesFilename, buildApplicationKitZipFilename } from "../../../shared/filename";
 import JSZip from "jszip";
@@ -17,6 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -70,8 +78,10 @@ import {
   Mail,
   Link2,
   UserCircle,
+  MonitorSmartphone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAIConcurrency } from "@/contexts/AIConcurrencyContext";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABELS, EVIDENCE_GROUP_LABELS } from "../../../shared/regionPacks";
@@ -608,13 +618,32 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
   // Patch 8I: URL fetch state
   const [fetchUrl, setFetchUrl] = useState("");
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isBlockedHost, setIsBlockedHost] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  // Browser Capture fallback
+  const [showBrowserCaptureFallback, setShowBrowserCaptureFallback] = useState(false);
+
+  // Listen for postMessage from /capture tab
+  useEffect(() => {
+    function handleCaptureMessage(e: MessageEvent) {
+      if (e.data?.type === "BROWSER_CAPTURE_RESULT" && typeof e.data.text === "string") {
+        setNewJdText(e.data.text);
+        setFetchError(null);
+        setShowBrowserCaptureFallback(false);
+        toast.success("JD captured from browser! Review and click Save Snapshot.");
+      }
+    }
+    window.addEventListener("message", handleCaptureMessage);
+    return () => window.removeEventListener("message", handleCaptureMessage);
+  }, []);
   // Patch 8K: Diff state
   const [diffOpen, setDiffOpen] = useState(false);
   const sortedSnaps = [...snapshots].sort((a, b) => a.version - b.version);
   const [fromVersion, setFromVersion] = useState<number | null>(null);
   const [toVersion, setToVersion] = useState<number | null>(null);
   const utils = trpc.useUtils();
+  // Phase 10B: AI concurrency queue
+  const { isBusy, runAI, markDone } = useAIConcurrency();
 
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
 
@@ -636,9 +665,9 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
     },
     onError: (err) => {
       setFetchError(err.message);
+      setShowBrowserCaptureFallback(true);
     },
   });
-
   const extractRequirements = trpc.jdSnapshots.extract.useMutation({
     onSuccess: (data) => {
       utils.jdSnapshots.requirements.invalidate({ jobCardId });
@@ -646,9 +675,11 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
       utils.jobCards.list.invalidate();
       setExtractError(null);
       toast.success(`Extracted ${data.count} requirements`);
+      markDone();
     },
     onError: (err) => {
       setExtractError(err.message);
+      markDone();
     },
   });
 
@@ -677,7 +708,7 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
               type="url"
               placeholder="Paste a job posting URL (Greenhouse, Lever, Ashby, Workday…)"
               value={fetchUrl}
-              onChange={(e) => { setFetchUrl(e.target.value); setFetchError(null); }}
+              onChange={(e) => { setFetchUrl(e.target.value); setFetchError(null); setIsBlockedHost(isLikelyBlockedHost(e.target.value)); }}
               className="text-sm flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && fetchUrl.trim() && !fetchFromUrl.isPending) {
@@ -688,16 +719,56 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
             <Button
               size="sm"
               variant="outline"
-              onClick={() => fetchFromUrl.mutate({ url: fetchUrl.trim() })}
-              disabled={fetchFromUrl.isPending || !fetchUrl.trim()}
+              onClick={() => fetchFromUrl.mutate({ url: normalizeJobUrl(fetchUrl.trim()) })}
+              disabled={fetchFromUrl.isPending || !fetchUrl.trim() || isBlockedHost}
+              title={isBlockedHost ? "This host blocks server fetch — use Browser Capture instead" : undefined}
             >
               {fetchFromUrl.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Fetching...</> : "Fetch from URL"}
             </Button>
           </div>
+          {/* Proactive blocked-host hint */}
+          {isBlockedHost && fetchUrl.trim() && !fetchError && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 space-y-1.5">
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">This site usually blocks automated fetch</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">Use Browser Capture to import the job description reliably.</p>
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={() => {
+                  const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(fetchUrl.trim()))}&origin=${encodeURIComponent(window.location.origin)}`;
+                  window.open(captureUrl, "_blank");
+                }}
+              >
+                <MonitorSmartphone className="h-3.5 w-3.5" />
+                Browser Capture
+              </Button>
+            </div>
+          )}
           {fetchError && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3 shrink-0" />{fetchError}
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 shrink-0" />{fetchError}
+              </p>
+              {showBrowserCaptureFallback && fetchUrl.trim() && (
+                <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit text-xs h-7 gap-1.5"
+                    onClick={() => {
+                      const captureUrl = `/capture?url=${encodeURIComponent(normalizeJobUrl(fetchUrl.trim()))}&origin=${encodeURIComponent(window.location.origin)}`;
+                      window.open(captureUrl, "_blank");
+                    }}
+                  >
+                    <MonitorSmartphone className="h-3.5 w-3.5" />
+                    Try Browser Capture
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Some sites block server fetch. Browser Capture uses your open tab to extract the JD.</p>
+                </div>
+              )}
+            </div>
           )}
           {fetchedAt && !fetchError && (
             <p className="text-xs text-muted-foreground">Fetched at {fetchedAt} — review the text below, then click Save Snapshot.</p>
@@ -723,9 +794,9 @@ function JdSnapshotTab({ jobCardId, snapshots }: { jobCardId: number; snapshots:
                 size="sm"
                 onClick={() => {
                   setExtractError(null);
-                  extractRequirements.mutate({ jobCardId });
+                  runAI(() => extractRequirements.mutate({ jobCardId, actionId: crypto.randomUUID() }));
                 }}
-                disabled={extractRequirements.isPending}
+                disabled={extractRequirements.isPending || isBusy}
               >
                 {extractRequirements.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Extracting...</>
@@ -937,17 +1008,18 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
   const toggleCategory = (group: string) => setOpenCategories((prev) => ({ ...prev, [group]: !prev[group] }));
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
-
+  // Phase 10B: AI concurrency queue
+  const { isBusy, isQueued, runAI, markDone, cancelQueued } = useAIConcurrency();
   // Check if requirements have been extracted for this job card
   const { data: requirements } = trpc.jdSnapshots.requirements.useQuery({ jobCardId });
   const hasRequirements = (requirements?.length ?? 0) > 0;
-
   const runEvidence = trpc.evidence.run.useMutation({
     onSuccess: (data) => {
       utils.evidence.runs.invalidate({ jobCardId });
       utils.credits.balance.invalidate();
       utils.tasks.list.invalidate();
       toast.success(`Evidence scan complete! Score: ${data.score}/100 (${data.itemCount} items)`);
+      markDone();
     },
     onError: (error) => {
       if (error.data?.code === "TOO_MANY_REQUESTS") {
@@ -960,9 +1032,9 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
       } else {
         toast.error(error.message);
       }
+      markDone();
     },
   });
-
   const { data: evidenceItems } = trpc.evidence.items.useQuery(
     { evidenceRunId: selectedRunId! },
     { enabled: !!selectedRunId }
@@ -1030,10 +1102,11 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
               </Select>
             </div>
             <Button
+              data-testid="run-scan-btn"
               onClick={() => {
                 if (!selectedResumeId) { toast.error("Select a resume first"); return; }
                 if (!hasRequirements) { toast.error("Extract requirements first from the JD Snapshot tab."); return; }
-                runEvidence.mutate({ jobCardId, resumeId: selectedResumeId });
+                runAI(() => runEvidence.mutate({ jobCardId, resumeId: selectedResumeId!, actionId: crypto.randomUUID() }));
               }}
               disabled={runEvidence.isPending || !selectedResumeId}
             >
@@ -1044,7 +1117,26 @@ function EvidenceTab({ jobCardId, runs, resumes }: { jobCardId: number; runs: an
               )}
             </Button>
           </div>
-          {hasRequirements && (
+          {/* Phase 10B: Queue waiting UI */}
+          {isQueued && (
+            <div
+              data-testid="ai-queue-waiting"
+              className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              <Loader2 className="h-4 w-4 animate-spin shrink-0 text-amber-600" />
+              <span className="flex-1">Waiting for previous scan to finish…</span>
+              <Button
+                data-testid="ai-queue-cancel-btn"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-amber-700 hover:bg-amber-100"
+                onClick={cancelQueued}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+          {hasRequirements && !isQueued && (
             <p className="text-xs text-muted-foreground mt-2">
               Costs 1 credit. Analyzes {requirements?.length} extracted requirements against your resume.
             </p>
@@ -1314,6 +1406,8 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
 }) {
   const utils = trpc.useUtils();
   const { user } = useAuth();
+  // Phase 10B: AI concurrency queue
+  const { isBusy, runAI, markDone } = useAIConcurrency();
   const completedRuns = evidenceRuns.filter((r) => r.status === "completed");
   const [selectedResumeId, setSelectedResumeId] = useState<number | null>(resumes[0]?.id ?? null);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(completedRuns[0]?.id ?? null);
@@ -1331,7 +1425,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
     { enabled: !!selectedResumeId && !!selectedRunId }
   );
   const generateKit = trpc.applicationKits.generate.useMutation({
-    onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); },
+    onSuccess: () => { refetchKit(); toast.success("Application Kit generated!"); markDone(); },
     onError: (error) => {
       if (error.data?.code === "TOO_MANY_REQUESTS") {
         const match = error.message.match(/(\d+)s/);
@@ -1345,6 +1439,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
       } else {
         toast.error(error.message);
       }
+      markDone();
     },
   });
   const createTasks = trpc.applicationKits.createTasks.useMutation({
@@ -1398,63 +1493,43 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
             <Package className="h-4 w-4" />Application Kit
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Resume</Label>
-              <Select value={selectedResumeId?.toString() ?? ""} onValueChange={(v) => setSelectedResumeId(Number(v))}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Choose resume..." /></SelectTrigger>
-                <SelectContent>
-                  {resumes.map((r) => (<SelectItem key={r.id} value={r.id.toString()}>{r.title}</SelectItem>))}
-                </SelectContent>
-              </Select>
+        <CardContent className="space-y-3 pt-3">
+          {/* Row 1: Selectors (left) + Actions (right) */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap items-end gap-3 flex-1 min-w-0">
+              <div className="space-y-1 min-w-[140px] flex-1">
+                <Label className="text-xs text-muted-foreground">Resume</Label>
+                <Select value={selectedResumeId?.toString() ?? ""} onValueChange={(v) => setSelectedResumeId(Number(v))}>
+                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Choose resume..." /></SelectTrigger>
+                  <SelectContent>
+                    {resumes.map((r) => (<SelectItem key={r.id} value={r.id.toString()}>{r.title}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1 min-w-[160px] flex-1">
+                <Label className="text-xs text-muted-foreground">Evidence Run</Label>
+                <Select value={selectedRunId?.toString() ?? ""} onValueChange={(v) => setSelectedRunId(Number(v))}>
+                  <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Choose run..." /></SelectTrigger>
+                  <SelectContent>
+                    {completedRuns.map((r) => {
+                      const d = new Date(r.createdAt);
+                      const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                      const company = job?.company ?? "";
+                      const title = job?.title ?? "";
+                      const label = [company, title].filter(Boolean).join(" — ");
+                      return (
+                        <SelectItem key={r.id} value={r.id.toString()}>
+                          <span title={`Run #${r.id}`}>
+                            {label ? `${label} (${r.overallScore}%) · ${mmmd}` : `${r.overallScore}% · ${mmmd}`}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Evidence Run</Label>
-              <Select value={selectedRunId?.toString() ?? ""} onValueChange={(v) => setSelectedRunId(Number(v))}>
-                <SelectTrigger className="text-xs"><SelectValue placeholder="Choose run..." /></SelectTrigger>
-                <SelectContent>
-                  {completedRuns.map((r) => {
-                    const d = new Date(r.createdAt);
-                    const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                    const company = job?.company ?? "";
-                    const title = job?.title ?? "";
-                    const label = [company, title].filter(Boolean).join(" — ");
-                    return (
-                      <SelectItem key={r.id} value={r.id.toString()}>
-                        <span title={`Run #${r.id}`}>
-                          {label ? `${label} (${r.overallScore}%) · ${mmmd}` : `${r.overallScore}% · ${mmmd}`}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Tone</Label>
-            <div className="flex gap-2 flex-wrap">
-              {TONES.map((t) => (
-                <button key={t} onClick={() => setTone(t)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${tone === t ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}`}>
-                  {t} <span className="ml-1 text-[10px] opacity-70">— {TONE_DESCRIPTIONS[t]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              {selectedRun && (() => {
-                const d = new Date(selectedRun.createdAt);
-                const mmmd = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                const company = job?.company ?? "";
-                const title = job?.title ?? "";
-                const lbl = [company, title].filter(Boolean).join(" — ");
-                const friendly = lbl ? `${lbl} (${selectedRun.overallScore}%) · ${mmmd}` : `${selectedRun.overallScore}% · ${mmmd}`;
-                return <span title={`Run #${selectedRun.id}`}>{friendly}</span>;
-              })()}
-            </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {existingKit && (coverLetterText || bulletRewrites.length > 0 || topChanges.length > 0) && (
                 <Button
                   variant="outline"
@@ -1473,18 +1548,16 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       : "N/A";
                     const userName = user?.name ?? "User";
                     const companyName = job?.company ?? "Company";
-
                     // Cover letter
                     if (coverLetterText) {
                       const filename = buildCoverLetterFilename(userName, companyName);
                       zip.file(filename, coverLetterText + "\n");
                     }
-
                     // Resume patch (bullet rewrites)
                     if (bulletRewrites.length > 0) {
                       const filename = buildResumePatchFilename(userName, companyName);
                       const lines: string[] = [
-                        `Job: ${job?.title ?? ""} \u2014 ${companyName}`,
+                        `Job: ${job?.title ?? ""} — ${companyName}`,
                         `Date: ${dateStr}`,
                         `Resume: ${resumeName}`,
                         `Evidence run: ${runDate}`,
@@ -1511,12 +1584,11 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       }
                       zip.file(filename, lines.join("\n") + "\n");
                     }
-
                     // Top changes
                     if (topChanges.length > 0) {
                       const filename = buildTopChangesFilename(userName, companyName);
                       const lines: string[] = [
-                        `Job: ${job?.title ?? ""} \u2014 ${companyName}`,
+                        `Job: ${job?.title ?? ""} — ${companyName}`,
                         `Date: ${dateStr}`,
                         `Resume: ${resumeName}`,
                         `Evidence run: ${runDate}`,
@@ -1537,7 +1609,6 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       lines.push("[ ] Submit application");
                       zip.file(filename, lines.join("\n") + "\n");
                     }
-
                     const zipFilename = buildApplicationKitZipFilename(userName, companyName);
                     const blob = await zip.generateAsync({ type: "blob" });
                     const url = URL.createObjectURL(blob);
@@ -1567,7 +1638,7 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                       disabled={generateKit.isPending}
                       onClick={() => {
                         setShowConfirmDialog(false);
-                        generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone });
+                        runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone, actionId: crypto.randomUUID() }));
                       }}
                     >
                       {generateKit.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Replacing...</> : "Replace kit"}
@@ -1576,15 +1647,14 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
                 </AlertDialogContent>
               </AlertDialog>
               <Button
+                size="sm"
                 onClick={() => {
                   if (!selectedResumeId) { toast.error("Select a resume first."); return; }
                   if (!selectedRunId) { toast.error("Select an evidence run first."); return; }
                   if (existingKit) {
-                    // Kit already exists — show confirmation guard
                     setShowConfirmDialog(true);
                   } else {
-                    // First-time generation — run immediately
-                    generateKit.mutate({ jobCardId, resumeId: selectedResumeId, evidenceRunId: selectedRunId, tone });
+                    runAI(() => generateKit.mutate({ jobCardId, resumeId: selectedResumeId!, evidenceRunId: selectedRunId!, tone, actionId: crypto.randomUUID() }));
                   }
                 }}
                 disabled={generateKit.isPending || !hasRequirements || noRun}
@@ -1593,8 +1663,25 @@ function ApplicationKitTab({ jobCardId, job, resumes, evidenceRuns }: {
               </Button>
             </div>
           </div>
+          {/* Row 2: Tone pills */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tone</Label>
+            <div className="flex gap-2 flex-wrap">
+              {TONES.map((t) => (
+                <button key={t} onClick={() => setTone(t)} className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${tone === t ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-accent"}`}>
+                  {t} <span className="ml-1 text-[10px] opacity-70">— {TONE_DESCRIPTIONS[t]}</span>
+                </button>
+              ))}
+            </div>
+            {existingKit && tone !== existingKit.tone && (
+              <p className="text-xs text-amber-600 flex items-center gap-1 mt-0.5" data-testid="tone-mismatch-note">
+                <span className="opacity-70">⚠</span> Tone applies when you regenerate. Current kit tone: <strong>{existingKit.tone}</strong>.
+              </p>
+            )}
+          </div>
+          {/* Metadata line */}
           {existingKit && (
-            <p className="text-xs text-muted-foreground">Generated {new Date(existingKit.createdAt).toLocaleString()} • Tone: {existingKit.tone} • Included free with Evidence Scan</p>
+            <p className="text-xs text-muted-foreground/70 pt-0.5">Generated {new Date(existingKit.createdAt).toLocaleString()} · Tone: {existingKit.tone} · Included free with Evidence Scan</p>
           )}
         </CardContent>
       </Card>
@@ -2013,16 +2100,158 @@ function CopyBlock({ label, content }: { label: string; content: string }) {
 }
 
 // ─── Outreach Tab ────────────────────────────────────────────────────
+// ─── Edit Contact Dialog ─────────────────────────────────────────────────────
+type EditContactForm = {
+  name: string;
+  role: string;
+  email: string;
+  linkedinUrl: string;
+  notes: string;
+  linkedinUrlError: string | null;
+  emailError: string | null;
+};
+
+function EditContactDialog({
+  contact,
+  onClose,
+  onSaved,
+}: {
+  contact: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<EditContactForm>({
+    name: contact.name ?? "",
+    role: contact.contactRole ?? "",
+    email: contact.email ?? "",
+    linkedinUrl: contact.linkedinUrl ?? "",
+    notes: contact.notes ?? "",
+    linkedinUrlError: null,
+    emailError: null,
+  });
+
+  const updateContact = trpc.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success("Contact updated");
+      onSaved();
+      onClose();
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to update contact");
+    },
+  });
+
+  const handleLinkedInChange = (val: string) => {
+    const err = val && !val.startsWith("https://") ? "LinkedIn URL must start with https://" : null;
+    setForm((f) => ({ ...f, linkedinUrl: val, linkedinUrlError: err }));
+  };
+
+  const handleEmailChange = (val: string) => {
+    const err = val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) ? "Enter a valid email address" : null;
+    setForm((f) => ({ ...f, email: val, emailError: err }));
+  };
+
+  const canSave = form.name.trim().length > 0 && !form.linkedinUrlError && !form.emailError && !updateContact.isPending;
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit contact</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1">
+            <Label className="text-xs">Name *</Label>
+            <Input
+              value={form.name}
+              maxLength={MAX_LENGTHS.CONTACT_NAME}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Full name"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Role</Label>
+            <Input
+              value={form.role}
+              maxLength={MAX_LENGTHS.CONTACT_ROLE}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              placeholder="e.g. Recruiter, Hiring Manager"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Email</Label>
+            <Input
+              value={form.email}
+              maxLength={MAX_LENGTHS.CONTACT_EMAIL}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              placeholder="recruiter@company.com"
+              className={form.emailError ? "border-destructive" : ""}
+            />
+            {form.emailError && <p className="text-xs text-destructive">{form.emailError}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">LinkedIn URL</Label>
+            <Input
+              value={form.linkedinUrl}
+              maxLength={MAX_LENGTHS.CONTACT_LINKEDIN_URL}
+              onChange={(e) => handleLinkedInChange(e.target.value)}
+              placeholder="https://linkedin.com/in/…"
+              className={form.linkedinUrlError ? "border-destructive" : ""}
+            />
+            {form.linkedinUrlError && <p className="text-xs text-destructive">{form.linkedinUrlError}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Notes</Label>
+            <Textarea
+              value={form.notes}
+              maxLength={MAX_LENGTHS.CONTACT_NOTES}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="Optional notes about this contact"
+              rows={3}
+              className="resize-none text-sm"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={updateContact.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (!canSave) return;
+              updateContact.mutate({
+                id: contact.id,
+                name: form.name.trim(),
+                role: form.role.trim() || undefined,
+                email: form.email.trim() || undefined,
+                linkedinUrl: form.linkedinUrl.trim() || undefined,
+                notes: form.notes.trim() || undefined,
+              });
+            }}
+            disabled={!canSave}
+          >
+            {updateContact.isPending ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Saving…</> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCardId: number; contacts: any[]; outreachPack: any; onSwitchTab?: (tab: string) => void }) {
   const utils = trpc.useUtils();
+  // Phase 10B: AI concurrency queue
+  const { isBusy, runAI, markDone } = useAIConcurrency();
   const [packError, setPackError] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | undefined>(undefined);
+  const [editingContact, setEditingContact] = useState<any | null>(null);
   const generatePack = trpc.outreach.generatePack.useMutation({
     onSuccess: () => {
       setPackError(null);
       utils.outreach.pack.invalidate({ jobCardId });
       utils.credits.balance.invalidate();
       toast.success("Outreach Pack generated!");
+      markDone();
     },
     onError: (error) => {
       if (error.data?.code === "TOO_MANY_REQUESTS") {
@@ -2038,6 +2267,7 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           : "Couldn't generate the outreach pack. Try again.";
         setPackError(msg);
       }
+      markDone();
     },
   });
 
@@ -2100,27 +2330,45 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold">Outreach Pack</CardTitle>
             {outreachPack && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  const text = buildOutreachCopyAllText({
-                    recruiter_email: outreachPack.recruiterEmail,
-                    linkedin_dm: outreachPack.linkedinDm,
-                    follow_up_1: outreachPack.followUp1,
-                    follow_up_2: outreachPack.followUp2,
-                  });
-                  navigator.clipboard.writeText(text)
-                    .then(() => toast.success("Copied all messages"))
-                    .catch(() => toast.error("Could not copy. Please try again."));
-                }}
-              >
-                <CopyCheck className="h-3.5 w-3.5" />
-                Copy all
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    const text = buildOutreachCopyAllText({
+                      recruiter_email: outreachPack.recruiterEmail,
+                      linkedin_dm: outreachPack.linkedinDm,
+                      follow_up_1: outreachPack.followUp1,
+                      follow_up_2: outreachPack.followUp2,
+                    });
+                    navigator.clipboard.writeText(text)
+                      .then(() => toast.success("Copied all messages"))
+                      .catch(() => toast.error("Could not copy. Please try again."));
+                  }}
+                >
+                  <CopyCheck className="h-3.5 w-3.5" />
+                  Copy all
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId, actionId: crypto.randomUUID() })); }}
+                  disabled={generatePack.isPending || isBusy}
+                >
+                  {generatePack.isPending ? (
+                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Regenerating...</>
+                  ) : (
+                    "Regenerate Pack (1 credit)"
+                  )}
+                </Button>
+              </div>
             )}
           </div>
+          {packError && outreachPack && (
+            <p className="text-xs text-destructive mt-1">{packError}</p>
+          )}
         </CardHeader>
         <CardContent>
           {/* Selected contact summary chip */}
@@ -2133,31 +2381,15 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
               <CopyBlock label="LinkedIn DM" content={outreachPack.linkedinDm} />
               <CopyBlock label="Follow-up #1" content={outreachPack.followUp1} />
               <CopyBlock label="Follow-up #2" content={outreachPack.followUp2} />
-              <div className="pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
-                  disabled={generatePack.isPending}
-                >
-                  {generatePack.isPending ? (
-                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Regenerating...</>
-                  ) : (
-                    "Regenerate Pack (1 credit)"
-                  )}
-                </Button>
-                {packError && (
-                  <p className="text-xs text-destructive mt-2">{packError}</p>
-                )}
-              </div>
+
             </div>
           ) : (
             <div className="text-center py-4">
               <p className="text-sm text-muted-foreground mb-1">No outreach pack yet.</p>
               <p className="text-xs text-muted-foreground mb-3">Creates: recruiter email + LinkedIn DM + 2 follow-ups</p>
               <Button
-                onClick={() => { setPackError(null); generatePack.mutate({ jobCardId, contactId: selectedContactId }); }}
-                disabled={generatePack.isPending}
+                onClick={() => { setPackError(null); runAI(() => generatePack.mutate({ jobCardId, contactId: selectedContactId, actionId: crypto.randomUUID() })); }}
+                disabled={generatePack.isPending || isBusy}
               >
                 {generatePack.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Generating...</>
@@ -2179,17 +2411,39 @@ function OutreachTab({ jobCardId, contacts, outreachPack, onSwitchTab }: { jobCa
           <CardTitle className="text-sm font-semibold">Contacts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {editingContact && (
+            <EditContactDialog
+              contact={editingContact}
+              onClose={() => setEditingContact(null)}
+              onSaved={() => utils.contacts.list.invalidate({ jobCardId })}
+            />
+          )}
           {contacts.map((contact) => (
-            <div key={contact.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === contact.id ? "border-primary bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => setSelectedContactId(selectedContactId === contact.id ? undefined : contact.id)}>
+            <div
+              key={contact.id}
+              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === contact.id ? "border-primary bg-primary/5" : "hover:bg-muted/30"}`}
+              onClick={() => setSelectedContactId(selectedContactId === contact.id ? undefined : contact.id)}
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{contact.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {contact.contactRole ?? ""} {contact.email ? `· ${contact.email}` : ""}
                 </p>
               </div>
-              {selectedContactId === contact.id && (
-                <span className="text-xs text-primary font-medium">Selected for outreach</span>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {selectedContactId === contact.id && (
+                  <span className="text-xs text-primary font-medium mr-1">Selected</span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  title="Edit contact"
+                  onClick={(e) => { e.stopPropagation(); setEditingContact(contact); }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           ))}
           <div className="space-y-2">

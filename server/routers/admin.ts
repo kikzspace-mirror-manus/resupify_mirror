@@ -2,10 +2,13 @@ import { adminProcedure, router } from "../_core/trpc";
 import { ENV } from "../_core/env";
 import { z } from "zod";
 import * as db from "../db";
+import { featureFlags } from "../../shared/featureFlags";
 import { invokeLLM } from "../_core/llm";
 import { getRegionPack, getAvailablePacks } from "../../shared/regionPacks";
 import { computeSalutation, fixSalutation, buildPersonalizationBlock, stripPersonalizationFromFollowUp, buildContactEmailBlock, fixContactEmail, buildLinkedInBlock, fixLinkedInUrl } from "../../shared/outreachHelpers";
 import { buildToneSystemPrompt, sanitizeTone } from "../../shared/toneGuardrails";
+import { endpointGroupSchema, eventTypeSchema } from "../../shared/operational-events";
+import { sendPurchaseConfirmationEmail } from "../email";
 
 export const adminRouter = router({
   // ─── Dashboard KPIs ──────────────────────────────────────────────
@@ -643,8 +646,8 @@ ${buildToneSystemPrompt()}`
   // No payload, no names, no emails — only hashes + enum fields.
   operationalEvents: router({
     list: adminProcedure.input(z.object({
-      endpointGroup: z.enum(["evidence", "outreach", "kit", "url_fetch", "auth"]).optional(),
-      eventType: z.enum(["rate_limited", "provider_error", "validation_error", "unknown"]).optional(),
+      endpointGroup: endpointGroupSchema.optional(),
+      eventType: eventTypeSchema.optional(),
       limit: z.number().min(1).max(500).optional().default(100),
       offset: z.number().min(0).optional().default(0),
     }).optional()).query(async ({ input }) => {
@@ -654,6 +657,211 @@ ${buildToneSystemPrompt()}`
         limit: input?.limit ?? 100,
         offset: input?.offset ?? 0,
       });
+    }),
+  }),
+  // ─── Growth Dashboard (V2 Phase 1B.2) ──────────────────────────
+  growth: router({
+    kpis: adminProcedure.query(async () => {
+      const analyticsEnabled = featureFlags.v2AnalyticsEnabled;
+      if (!featureFlags.v2GrowthDashboardEnabled) {
+        return { enabled: false, analyticsEnabled, data: null };
+      }
+      const [wau, mau, newUsers7d, newUsers30d, activatedUsers7d, funnel7d, p95Latency7d, outcomes, errorCount7d, instrumentationHealth] = await Promise.all([
+        db.getWAU(),
+        db.getMAU(),
+        db.getNewUsers(7),   // DB ground truth (users.createdAt)
+        db.getNewUsers(30),  // DB ground truth (users.createdAt)
+        db.getActivatedUsers7d(),
+        db.getFunnelCompletion7d(),
+        db.getP95AiLatency7d(),
+        db.getOutcomeCounts(),
+        db.getErrorCount7d(),
+        db.getInstrumentationHealth24h(),
+      ]);
+      return {
+        enabled: true,
+        analyticsEnabled,
+        data: {
+          wau,
+          mau,
+          newUsers7d,
+          newUsers30d,
+          activatedUsers7d,
+          // null = N/A (avoid divide-by-zero when no new users)
+          activationRate7d: newUsers7d > 0 ? Math.round((activatedUsers7d / newUsers7d) * 100) : null,
+          funnel7d,
+          p95LatencyMs7d: p95Latency7d,
+          outcomes,
+          errorCount7d,
+          instrumentationHealth,
+        },
+      };
+    }),
+  }),
+  // --- Growth Timeline ---
+  timeline: router({
+    daily: adminProcedure.input(z.object({
+      rangeDays: z.union([z.literal(7), z.literal(14), z.literal(30)]).default(7),
+    })).query(async ({ input }) => {
+      if (!featureFlags.v2GrowthDashboardEnabled) {
+        return { enabled: false, data: null };
+      }
+      const data = await db.getDailyMetrics(input.rangeDays);
+      return { enabled: true, data };
+    }),
+  }),
+  // --- Early Access (Phase 10F-1) ---
+  // Admin-only toggle to grant/revoke earlyAccessEnabled on a user.
+  earlyAccess: router({
+    lookupByEmail: adminProcedure.input(z.object({
+      email: z.string().email().max(320),
+    })).query(async ({ input }) => {
+      return db.adminGetUserByEmail(input.email);
+    }),
+    setAccess: adminProcedure.input(z.object({
+      userId: z.number().int().positive(),
+      enabled: z.boolean(),
+    })).mutation(async ({ input, ctx }) => {
+      const { creditsGranted } = await db.adminSetEarlyAccess(input.userId, input.enabled);
+      await db.logAdminAction(ctx.user.id, input.enabled ? "early_access_granted" : "early_access_revoked", input.userId);
+      return { success: true, userId: input.userId, enabled: input.enabled, creditsGranted };
+    }),
+  }),
+  // ─── Refund Queue (Phase 11D) ──────────────────────────────────────────────────
+  // Admin-only endpoints for reviewing and processing Stripe refunds.
+  refunds: router({
+    // List all refund queue items, optionally filtered by status
+    list: adminProcedure.input(z.object({
+      status: z.enum(["pending", "processed", "ignored"]).optional(),
+    }).optional()).query(async ({ input }) => {
+      return db.listRefundQueueItems(input?.status);
+    }),
+    // Process a refund: debit credits and mark as processed
+    process: adminProcedure.input(z.object({
+      refundQueueId: z.number().int().positive(),
+      debitAmount: z.number().int().min(0).max(1000),
+    })).mutation(async ({ ctx, input }) => {
+      const { refundQueueId, debitAmount } = input;
+      // Fetch the item to build the ledger reason
+      const items = await db.listRefundQueueItems();
+      const item = items.find((r) => r.id === refundQueueId);
+      if (!item) throw new Error(`Refund queue item ${refundQueueId} not found`);
+      if (item.status !== "pending") {
+        return { success: false, alreadyProcessed: true };
+      }
+      const reason = item.packId
+        ? `Refund: ${item.packId} (${item.stripeRefundId})`
+        : `Refund (${item.stripeRefundId})`;
+      const ledgerEntryId = await db.processRefundQueueItem(
+        refundQueueId,
+        ctx.user.id,
+        debitAmount,
+        reason
+      );
+      await db.logAdminAction(ctx.user.id, "refund_processed", item.userId ?? undefined, {
+        refundQueueId,
+        debitAmount,
+        stripeRefundId: item.stripeRefundId,
+        ledgerEntryId,
+      });
+      return { success: true, ledgerEntryId };
+    }),
+    // Ignore a refund queue item with a required reason
+    ignore: adminProcedure.input(z.object({
+      refundQueueId: z.number().int().positive(),
+      reason: z.string().min(1).max(512),
+    })).mutation(async ({ ctx, input }) => {
+      const { refundQueueId, reason } = input;
+      const items = await db.listRefundQueueItems();
+      const item = items.find((r) => r.id === refundQueueId);
+      if (!item) throw new Error(`Refund queue item ${refundQueueId} not found`);
+      if (item.status !== "pending") {
+        return { success: false, alreadyProcessed: true };
+      }
+      await db.ignoreRefundQueueItem(refundQueueId, ctx.user.id, reason);
+      await db.logAdminAction(ctx.user.id, "refund_ignored", item.userId ?? undefined, {
+        refundQueueId,
+        reason,
+        stripeRefundId: item.stripeRefundId,
+      });
+      return { success: true };
+    }),
+  }),
+  // ─── Admin Billing: Retry purchase confirmation email ────────────────────────
+  billing: router({
+    listReceipts: adminProcedure
+      .input(z.object({
+        userId: z.number().int().positive().optional(),
+        emailSentAt: z.enum(["sent", "unsent"]).optional(),
+        query: z.string().optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+        offset: z.number().int().min(0).default(0),
+      }))
+      .query(async ({ input }) => {
+        return db.adminListPurchaseReceipts(
+          { userId: input.userId, emailSentAt: input.emailSentAt, query: input.query },
+          input.limit,
+          input.offset
+        );
+      }),
+    retryReceiptEmail: adminProcedure
+      .input(z.object({ receiptId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const receipt = await db.getPurchaseReceiptById(input.receiptId);
+        if (!receipt) {
+          return { status: "not_found" as const };
+        }
+        // Idempotency guard: already sent
+        if (receipt.emailSentAt !== null) {
+          return { status: "already_sent" as const };
+        }
+        const user = await db.getUserById(receipt.userId);
+        if (!user?.email) {
+          return { status: "failed" as const, error: "User email missing" };
+        }
+        const balance = await db.getCreditsBalance(receipt.userId);
+        const result = await sendPurchaseConfirmationEmail({
+          toEmail: user.email,
+          receiptId: receipt.id,
+          packId: receipt.packId,
+          creditsAdded: receipt.creditsAdded,
+          amountCents: receipt.amountCents,
+          currency: receipt.currency,
+          purchasedAt: receipt.createdAt,
+          stripeCheckoutSessionId: receipt.stripeCheckoutSessionId,
+          newBalance: balance,
+        });
+        if (result.sent) {
+          await db.markReceiptEmailSent(receipt.id);
+          await db.logAdminAction(ctx.user.id, "receipt_email_retried", receipt.userId, {
+            receiptId: receipt.id,
+            status: "sent",
+          });
+          return { status: "sent" as const };
+        } else {
+          await db.markReceiptEmailError(receipt.id, result.error);
+          await db.logAdminAction(ctx.user.id, "receipt_email_retry_failed", receipt.userId, {
+            receiptId: receipt.id,
+            error: result.error,
+          });
+          return { status: "failed" as const, error: result.error };
+        }
+      }),
+  }),
+
+  // ─── Ops Status (Phase 12E.1) ─────────────────────────────────────────────
+  ops: router({
+    /** Return the current ops_status row, or null if no events have been processed yet. */
+    getStatus: adminProcedure.query(async () => {
+      const row = await db.getOpsStatus();
+      if (!row) return null;
+      return {
+        lastStripeWebhookSuccessAt: row.lastStripeWebhookSuccessAt ?? null,
+        lastStripeWebhookFailureAt: row.lastStripeWebhookFailureAt ?? null,
+        lastStripeWebhookEventId: row.lastStripeWebhookEventId ?? null,
+        lastStripeWebhookEventType: row.lastStripeWebhookEventType ?? null,
+        updatedAt: row.updatedAt,
+      };
     }),
   }),
 });

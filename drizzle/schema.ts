@@ -11,6 +11,14 @@ export const users = mysqlTable("users", {
   isAdmin: boolean("isAdmin").default(false).notNull(),
   adminNotes: text("adminNotes"),
   disabled: boolean("disabled").default(false).notNull(),
+  earlyAccessEnabled: boolean("earlyAccessEnabled").default(false).notNull(),
+  earlyAccessGrantUsed: boolean("earlyAccessGrantUsed").default(false).notNull(),
+  // ── V2 Phase 1A: Country Pack + Language Mode (flags OFF by default) ──────
+  // countryPackId: which country pack the user has selected (null = inherit default)
+  // GLOBAL = universal fallback (Phase 1B.1); VN/PH/US = opt-in country packs
+  countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "CA", "VN", "PH", "US"]),
+  // languageMode: output language preference (default "en" = V1 behavior unchanged)
+  languageMode: mysqlEnum("languageMode", ["en", "vi", "bilingual"]).default("en").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -24,7 +32,7 @@ export const userProfiles = mysqlTable("user_profiles", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   regionCode: varchar("regionCode", { length: 16 }).notNull().default("CA"),
-  trackCode: mysqlEnum("trackCode", ["COOP", "NEW_GRAD"]).notNull().default("COOP"),
+  trackCode: mysqlEnum("trackCode", ["COOP", "NEW_GRAD", "INTERNSHIP", "EARLY_CAREER", "EXPERIENCED"]).notNull().default("COOP"),
   school: varchar("school", { length: 256 }),
   program: varchar("program", { length: 256 }),
   graduationDate: varchar("graduationDate", { length: 32 }),
@@ -109,6 +117,9 @@ export const jobCards = mysqlTable("job_cards", {
   eligibilityPrecheckStatus: mysqlEnum("eligibilityPrecheckStatus", ["none", "recommended", "conflict"]).default("none"),
   eligibilityPrecheckRulesJson: text("eligibilityPrecheckRulesJson"), // JSON array of { ruleId, title }
   eligibilityPrecheckUpdatedAt: timestamp("eligibilityPrecheckUpdatedAt"),
+  // ── V2 Phase 1A: Country Pack override per job card (null = inherit user.countryPackId) ──
+  // GLOBAL = universal fallback (Phase 1B.1); CA/VN/PH/US = opt-in country packs
+  countryPackId: mysqlEnum("countryPackId", ["GLOBAL", "CA", "VN", "PH", "US"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -291,6 +302,17 @@ export const applicationKits = mysqlTable("application_kits", {
   topChangesJson: text("topChangesJson"),   // JSON: [{requirement_text, status, fix}]
   bulletRewritesJson: text("bulletRewritesJson"), // JSON: [{requirement_text, status, fix, rewrite_a, rewrite_b, needs_confirmation}]
   coverLetterText: text("coverLetterText"),
+  // ── V2 Phase 1A: Translation / localization fields (not written by V1 paths) ──
+  // canonicalLanguage: the language of the primary generated text (default "en")
+  canonicalLanguage: varchar("canonicalLanguage", { length: 16 }).notNull().default("en"),
+  // canonicalText: full serialized text of the generated asset in canonical language
+  canonicalText: text("canonicalText"),
+  // localizedLanguage: target language for translation (e.g., "vi")
+  localizedLanguage: varchar("localizedLanguage", { length: 16 }),
+  // localizedText: translated version of canonicalText
+  localizedText: text("localizedText"),
+  // translationMeta: JSON object { provider, timestamp, version }
+  translationMeta: json("translationMeta"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -317,8 +339,8 @@ export type InsertJobCardPersonalizationSource = typeof jobCardPersonalizationSo
 export const operationalEvents = mysqlTable("operational_events", {
   id: int("id").autoincrement().primaryKey(),
   requestId: varchar("requestId", { length: 36 }).notNull(),
-  endpointGroup: mysqlEnum("endpointGroup", ["evidence", "outreach", "kit", "url_fetch", "auth"]).notNull(),
-  eventType: mysqlEnum("eventType", ["rate_limited", "provider_error", "validation_error", "unknown"]).notNull(),
+  endpointGroup: mysqlEnum("endpointGroup", ["evidence", "outreach", "kit", "url_fetch", "auth", "waitlist", "jd_extract"]).notNull(),
+  eventType: mysqlEnum("eventType", ["rate_limited", "provider_error", "validation_error", "unknown", "waitlist_joined"]).notNull(),
   statusCode: int("statusCode").notNull(),
   retryAfterSeconds: int("retryAfterSeconds"),
   userIdHash: varchar("userIdHash", { length: 16 }),
@@ -344,3 +366,79 @@ export const stripeEvents = mysqlTable("stripe_events", {
 });
 export type StripeEvent = typeof stripeEvents.$inferSelect;
 export type InsertStripeEvent = typeof stripeEvents.$inferInsert;
+
+// ─── Analytics Events (V2 Phase 1B.2) ────────────────────────────────────────
+// Growth analytics event log. No PII stored — userId is internal DB ID (not email/name).
+// All writes are fire-and-forget; failures MUST NOT block user actions.
+// Indexed on (event_name, event_at) and (user_id, event_at) for KPI queries.
+export const analyticsEvents = mysqlTable("analytics_events", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),                          // null for pre-signup/anonymous events
+  sessionId: varchar("sessionId", { length: 64 }), // optional client session ID
+  eventName: varchar("eventName", { length: 64 }).notNull(),
+  eventAt: timestamp("eventAt").defaultNow().notNull(),
+  props: json("props"),                            // { run_type, latency_ms, provider, outcome, ... }
+  countryPackId: varchar("countryPackId", { length: 16 }), // optional V2 country pack context
+  track: varchar("track", { length: 32 }),         // optional track code (COOP, NEW_GRAD, etc.)
+});
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+// ─── Purchase Receipts (Phase 11C.1) ─────────────────────────────────────────
+// One row per confirmed Stripe checkout session. Idempotent: unique on
+// stripeCheckoutSessionId so webhook replays never create duplicate rows.
+export const purchaseReceipts = mysqlTable("purchase_receipts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 128 }).notNull().unique(),
+  packId: varchar("packId", { length: 64 }).notNull(),
+  creditsAdded: int("creditsAdded").notNull(),
+  amountCents: int("amountCents"),                 // e.g. 999 for $9.99
+  currency: varchar("currency", { length: 8 }),    // e.g. "usd"
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 128 }),
+  stripeReceiptUrl: text("stripeReceiptUrl"),       // Stripe-hosted receipt/invoice URL
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  emailSentAt: timestamp("emailSentAt"),              // set after confirmation email is sent (idempotency)
+  emailError: text("emailError"),                      // last error message if email failed
+});
+export type PurchaseReceipt = typeof purchaseReceipts.$inferSelect;
+export type InsertPurchaseReceipt = typeof purchaseReceipts.$inferInsert;
+
+
+// ─── Refund Queue (Phase 11D) ─────────────────────────────────────────────────
+// One row per charge.refunded Stripe event. Admin reviews each item and either
+// debits credits ("processed") or marks it ignored. Idempotent on stripeRefundId.
+export const refundQueue = mysqlTable("refund_queue", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),                               // null if we can't map the event
+  stripeChargeId: varchar("stripeChargeId", { length: 128 }).notNull(),
+  stripeRefundId: varchar("stripeRefundId", { length: 128 }).notNull().unique(),
+  stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 128 }), // if available
+  amountRefunded: int("amountRefunded"),               // in cents, e.g. 999 for $9.99
+  currency: varchar("currency", { length: 8 }),        // e.g. "usd"
+  packId: varchar("packId", { length: 64 }),           // from session metadata if available
+  creditsToReverse: int("creditsToReverse"),           // derived from pack; null = admin must enter
+  status: mysqlEnum("status", ["pending", "processed", "ignored"]).notNull().default("pending"),
+  adminUserId: int("adminUserId"),                     // who processed/ignored it
+  ignoreReason: text("ignoreReason"),                  // required when status = ignored
+  ledgerEntryId: int("ledgerEntryId"),                 // FK to creditLedger row (for idempotency)
+  processedAt: timestamp("processedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type RefundQueueItem = typeof refundQueue.$inferSelect;
+export type InsertRefundQueueItem = typeof refundQueue.$inferInsert;
+
+// ─── Ops Status ──────────────────────────────────────────────────────────────
+// Single-row table (id=1) tracking last Stripe webhook success/failure.
+// Written by the webhook handler on each processed event.
+// Read by admin.ops.getStatus for operational monitoring.
+export const opsStatus = mysqlTable("ops_status", {
+  id: int("id").primaryKey(),                                           // always 1 (single-row)
+  lastStripeWebhookSuccessAt: timestamp("lastStripeWebhookSuccessAt"),  // last successful event
+  lastStripeWebhookFailureAt: timestamp("lastStripeWebhookFailureAt"),  // last failed event
+  lastStripeWebhookEventId: varchar("lastStripeWebhookEventId", { length: 128 }),
+  lastStripeWebhookEventType: varchar("lastStripeWebhookEventType", { length: 128 }),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+export type OpsStatus = typeof opsStatus.$inferSelect;

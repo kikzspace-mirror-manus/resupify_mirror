@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `earlyAccessEnabled` boolean DEFAULT false NOT NULL;
