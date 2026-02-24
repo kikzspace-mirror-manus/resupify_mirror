@@ -1670,3 +1670,25 @@
 - [x] Wire logGenerationContext into applicationKits.generate (Application Kit)
 - [x] Update source-scan test windows (C1, E1) to 9000 chars after instrumentation added
 - [x] Write 43 tests: PII safety contract, boolean flags, flow names, workAuth guard
+
+## Patch — Server GLOBAL Fallback Guard (replace ?? "CA" with ?? "GLOBAL")
+
+- [ ] routers.ts line 932: evidence.run regionCode fallback → "GLOBAL"
+- [ ] routers.ts line 1296: batchSprint regionCode fallback → "GLOBAL"
+- [ ] routers.ts line 1541: outreach regionCode fallback → "GLOBAL"
+- [ ] routers.ts line 1731: applicationKits regionCode fallback → "GLOBAL"
+- [ ] admin.ts line 106: admin sandbox evidence regionCode fallback → "GLOBAL"
+- [ ] admin.ts line 411: admin sandbox evidence regionCode fallback → "GLOBAL"
+- [ ] admin.ts line 525: admin sandbox outreach regionCode fallback → "GLOBAL"
+- [ ] Update logGenerationContext outreach/batchSprint inline fallbacks → "GLOBAL"
+- [ ] Write regression tests: GLOBAL user never gets CA prefix, CA user still gets CA prefix
+
+## V2 — Server GLOBAL Fallback Guard
+- [x] Audit all ?? "CA" and || "CA" regionCode fallbacks in routers.ts and admin.ts
+- [x] Replace 4 fallbacks in routers.ts with ?? "GLOBAL"
+- [x] Replace 3 fallbacks in admin.ts with ?? "GLOBAL"
+- [x] Add GLOBAL_COOP, GLOBAL_NEW_GRAD, GLOBAL_EARLY_CAREER, GLOBAL_EXPERIENCED packs to regionPacks.ts
+- [x] Register all 4 GLOBAL packs in PACKS registry so getRegionPack("GLOBAL", ...) resolves correctly
+- [x] GLOBAL packs have empty workAuthRules and eligibilityChecks (no CA-specific rules)
+- [x] Update T16 in ph-track-packset.test.ts to expect 20 packs
+- [x] Write 26 regression tests in server-global-fallback-guard.test.ts

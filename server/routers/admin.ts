@@ -103,7 +103,7 @@ export const adminRouter = router({
       if (!resumeData) throw new Error("Resume not found.");
 
       const profile = await db.getProfile(ctx.user.id);
-      const regionCode = profile?.regionCode ?? "CA";
+      const regionCode = profile?.regionCode ?? "GLOBAL";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
 
@@ -408,7 +408,7 @@ EXTRACURRICULAR
       if (!resumeData) throw new Error("Resume not found. Create a sample resume first.");
 
       const profile = await db.getProfile(ctx.user.id);
-      const regionCode = profile?.regionCode ?? "CA";
+      const regionCode = profile?.regionCode ?? "GLOBAL";
       const trackCode = profile?.trackCode ?? "COOP";
       const pack = getRegionPack(regionCode, trackCode);
 
@@ -522,7 +522,7 @@ Each item: { group_type, jd_requirement, resume_proof (or null), status (matched
 
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
-      const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "COOP");
+      const pack = getRegionPack(profile?.regionCode ?? "GLOBAL", profile?.trackCode ?? "COOP");
       // Resolve contact name, email, and LinkedIn URL for deterministic salutation (Fix 1/4), To: line (Fix 2/4), and LinkedIn: line (Fix 3/4)
       const emailSalutation = computeSalutation(input.contactName ?? null, "email");
       const linkedinSalutation = computeSalutation(input.contactName ?? null, "linkedin");

@@ -929,7 +929,7 @@ export const appRouter = router({
       if (!jdSnapshot) throw new Error("No JD snapshot found.");
 
       const profile = await db.getProfile(ctx.user.id);
-      const regionCode = profile?.regionCode ?? "CA";
+      const regionCode = profile?.regionCode ?? "GLOBAL";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
       // ── V2 Phase 1C-C: Resolve country pack context (flag-gated) ─────
@@ -1293,7 +1293,7 @@ export const appRouter = router({
           const resume = await db.getResumeById(input.resumeId, ctx.user.id);
           if (!resume) { results.push({ jobCardId, runId: null, error: "Resume not found" }); continue; }
           const profile = await db.getProfile(ctx.user.id);
-          const regionCode = profile?.regionCode ?? "CA";
+          const regionCode = profile?.regionCode ?? "GLOBAL";
           const trackCode = profile?.trackCode ?? "NEW_GRAD";
           const runId = await db.createEvidenceRun({
             jobCardId, userId: ctx.user.id, resumeId: input.resumeId,
@@ -1538,7 +1538,7 @@ export const appRouter = router({
 
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
-      const pack = getRegionPack(profile?.regionCode ?? "CA", profile?.trackCode ?? "NEW_GRAD");
+      const pack = getRegionPack(profile?.regionCode ?? "GLOBAL", profile?.trackCode ?? "NEW_GRAD");
 
       // Resolve contact name, email, and LinkedIn URL for deterministic salutation (Fix 1/4), To: line (Fix 2/4), and LinkedIn: line (Fix 3/4)
       let contactName: string | null = null;
@@ -1728,7 +1728,7 @@ ${buildToneSystemPrompt()}`
 
       const jdSnapshot = await db.getLatestJdSnapshot(input.jobCardId);
       const profile = await db.getProfile(ctx.user.id);
-      const regionCode = profile?.regionCode ?? "CA";
+      const regionCode = profile?.regionCode ?? "GLOBAL";
       const trackCode = profile?.trackCode ?? "NEW_GRAD";
       const pack = getRegionPack(regionCode, trackCode);
       // ── V2 Phase 1C-C: Resolve country pack context (flag-gated) ─────

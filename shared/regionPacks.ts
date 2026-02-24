@@ -73,6 +73,127 @@ export type RegionPack = {
   trackTips: string[];
 };
 
+// ─── GLOBAL Packs (neutral, no region-specific rules) ───────────────────────
+const GLOBAL_COOP: RegionPack = {
+  regionCode: "GLOBAL",
+  trackCode: "COOP",
+  label: "Global — Co-op / Internship",
+  resumeDefaults: {
+    sections: ["education", "skills", "projects", "experience", "certifications"],
+    educationFirst: true,
+    includeObjective: false,
+    maxPages: 1,
+  },
+  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: true, convertProjectsToExperience: true },
+  schoolCycles: [
+    { name: "Fall", code: "fall", months: [8, 9, 10, 11] },
+    { name: "Winter", code: "winter", months: [0, 1, 2, 3] },
+    { name: "Summer", code: "summer", months: [4, 5, 6, 7] },
+  ],
+  eligibilityChecks: [],
+  workAuthRules: [],
+  scoringWeights: { eligibility: 0.20, tools: 0.25, responsibilities: 0.20, skills: 0.20, softSkills: 0.15 },
+  templates: { coverLetterStyle: "formal-academic", outreachTone: "professional-eager", followUpDays: 5 },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
+    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
+    stage_archived: "Archived", track_label: "Co-op", season_fall: "Fall Hiring",
+    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
+  },
+  trackTips: [
+    "Put education section first — internship employers check enrollment status.",
+    "Highlight relevant coursework and academic projects.",
+    "Quantify any results from previous internships or projects.",
+  ],
+};
+const GLOBAL_NEW_GRAD: RegionPack = {
+  regionCode: "GLOBAL",
+  trackCode: "NEW_GRAD",
+  label: "Global — New Graduate",
+  resumeDefaults: {
+    sections: ["experience", "education", "skills", "projects", "certifications"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 1,
+  },
+  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: true, convertProjectsToExperience: true },
+  schoolCycles: [
+    { name: "Spring Convocation", code: "spring", months: [4, 5] },
+    { name: "Fall Convocation", code: "fall", months: [9, 10] },
+  ],
+  eligibilityChecks: [],
+  workAuthRules: [],
+  scoringWeights: { eligibility: 0.15, tools: 0.25, responsibilities: 0.25, skills: 0.20, softSkills: 0.15 },
+  templates: { coverLetterStyle: "professional-concise", outreachTone: "professional-confident", followUpDays: 5 },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
+    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
+    stage_archived: "Archived", track_label: "New Graduate", season_fall: "Fall Hiring",
+    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
+  },
+  trackTips: [
+    "Lead with experience if you have any — even part-time or freelance counts.",
+    "Include your graduation date prominently.",
+    "Convert capstone projects and volunteer work into quantified bullets.",
+  ],
+};
+const GLOBAL_EARLY_CAREER: RegionPack = {
+  regionCode: "GLOBAL",
+  trackCode: "EARLY_CAREER",
+  label: "Global — Early Career (0–5 years)",
+  resumeDefaults: {
+    sections: ["experience", "achievements", "skills", "projects", "education", "certifications"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 1,
+  },
+  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: false, convertProjectsToExperience: false },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  workAuthRules: [],
+  scoringWeights: { eligibility: 0.15, tools: 0.20, responsibilities: 0.30, skills: 0.20, softSkills: 0.15 },
+  templates: { coverLetterStyle: "professional-concise", outreachTone: "professional-confident", followUpDays: 5 },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
+    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
+    stage_archived: "Archived", track_label: "Early Career", season_fall: "Fall Hiring",
+    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
+  },
+  trackTips: [
+    "Lead with your strongest experience — even internships count.",
+    "Quantify achievements wherever possible.",
+    "Highlight tools and technologies prominently.",
+  ],
+};
+const GLOBAL_EXPERIENCED: RegionPack = {
+  regionCode: "GLOBAL",
+  trackCode: "EXPERIENCED",
+  label: "Global — Experienced (5+ years)",
+  resumeDefaults: {
+    sections: ["experience", "leadership", "achievements", "skills", "education"],
+    educationFirst: false,
+    includeObjective: false,
+    maxPages: 2,
+  },
+  copyRules: { noInventedFacts: true, needsConfirmationLabel: "Needs confirmation", noExperienceHelper: false, convertProjectsToExperience: false },
+  schoolCycles: [],
+  eligibilityChecks: [],
+  workAuthRules: [],
+  scoringWeights: { eligibility: 0.20, tools: 0.10, responsibilities: 0.40, skills: 0.15, softSkills: 0.15 },
+  templates: { coverLetterStyle: "executive-brief", outreachTone: "professional-executive", followUpDays: 7 },
+  localizationLabels: {
+    stage_bookmarked: "Bookmarked", stage_applying: "Applying", stage_applied: "Applied",
+    stage_interviewing: "Interviewing", stage_offered: "Offered", stage_rejected: "Rejected",
+    stage_archived: "Archived", track_label: "Experienced", season_fall: "Fall Hiring",
+    season_winter: "Winter Hiring", season_summer: "Summer Hiring",
+  },
+  trackTips: [
+    "Lead with impact and leadership — quantify scope and team size.",
+    "Focus on strategic contributions over task lists.",
+    "Keep to 2 pages maximum; cut roles older than 15 years.",
+  ],
+};
+
 const CA_COOP: RegionPack = {
   regionCode: "CA",
   trackCode: "COOP",
@@ -1018,6 +1139,10 @@ const US_EXPERIENCED: RegionPack = {
 };
 
 const PACKS: Record<string, RegionPack> = {
+  "GLOBAL_COOP": GLOBAL_COOP,
+  "GLOBAL_NEW_GRAD": GLOBAL_NEW_GRAD,
+  "GLOBAL_EARLY_CAREER": GLOBAL_EARLY_CAREER,
+  "GLOBAL_EXPERIENCED": GLOBAL_EXPERIENCED,
   "CA_COOP": CA_COOP,
   "CA_NEW_GRAD": CA_NEW_GRAD,
   "CA_EARLY_CAREER": CA_EARLY_CAREER,
