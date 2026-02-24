@@ -1561,3 +1561,9 @@
 - [x] Build /admin/settings page with Country Pack checkbox toggles + Save button
 - [x] Add /admin/settings route to App.tsx and AdminLayout sidebar nav
 - [x] Write tests: default enabled packs, admin mutation, Onboarding filtering, Profile filtering
+
+## V2 — Onboarding: auto-skip Step 0 when only 1 country pack enabled
+- [x] Add useEffect in Onboarding.tsx: if v2CountryPacksEnabled AND enabledCountryPacks.length === 1 AND step === 0 AND flags loaded: auto-select, persist, advance to step 1
+- [x] Guard: only call setCountryPack if user.countryPackId !== onlyPack (avoid redundant mutation)
+- [x] Ensure auto-skip does not fight the re-entry guard (already redirects completed users)
+- [x] Write tests: single pack skips Step 0 + auto-selects, two packs shows Step 0, flag OFF unchanged
