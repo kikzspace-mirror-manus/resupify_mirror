@@ -1416,3 +1416,8 @@
 - [x] Ensure PH Continue calls setCountryPack("PH") and invalidates auth.me
 - [x] Verify PH does not trigger languageMode=vi (server already enforces en for non-VN)
 - [x] Write tests: flag ON shows PH, PH persists, languageModeSet=false, flag OFF unchanged
+
+## Admin — /admin/packs: PH Country Filter
+- [x] Add PH to AdminPacks.tsx country filter (All/CA/VN/PH)
+- [x] Add PH badge color to per-country color map
+- [x] Write/update tests: PH filter shows only PH packs, All shows CA+VN+PH

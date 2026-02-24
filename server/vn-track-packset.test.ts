@@ -308,6 +308,54 @@ describe("AdminPacks.tsx country filter wiring", () => {
     );
     expect(content).toContain("pack-country-badge");
   });
+
+  it("V52b: AdminPacks.tsx has PH filter option", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/admin/AdminPacks.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain('"PH"');
+    expect(content).toContain('Philippines');
+  });
+
+  it("V52c: AdminPacks.tsx has PH badge color defined", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/admin/AdminPacks.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain("PH:");
+  });
+
+  it("V52d: CountryFilter type includes PH", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/admin/AdminPacks.tsx"),
+      "utf-8"
+    );
+    expect(content).toContain('"ALL" | "CA" | "VN" | "PH"');
+  });
+
+  it("V52e: COUNTRY_FILTER_OPTIONS has entries for ALL, CA, VN, and PH", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const content = fs.readFileSync(
+      path.resolve("client/src/pages/admin/AdminPacks.tsx"),
+      "utf-8"
+    );
+    const allCount = (content.match(/value: "ALL"/g) || []).length;
+    const caCount = (content.match(/value: "CA"/g) || []).length;
+    const vnCount = (content.match(/value: "VN"/g) || []).length;
+    const phCount = (content.match(/value: "PH"/g) || []).length;
+    expect(allCount).toBeGreaterThanOrEqual(1);
+    expect(caCount).toBeGreaterThanOrEqual(1);
+    expect(vnCount).toBeGreaterThanOrEqual(1);
+    expect(phCount).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ─── VN track scoring weights are valid fractions ────────────────────────────
