@@ -1381,3 +1381,9 @@
 - [x] Ensure filter dropdowns have consistent heights and labels align
 - [x] Verify filters/refresh work, no TS errors, no backend changes
 - [x] Full test suite passing (2104 tests), 0 TypeScript errors
+## Phase 13B: Runs & Output QA convert cards to compact table
+- [x] Audit AdminRunsQA.tsx current card layout and data structure
+- [x] Replace card list with compact table (Run ID, User, Job, Status, Score, Time, Action columns)
+- [x] Apply fixed table layout, column widths, truncation, and row click navigation
+- [x] Verify filters work, navigation works, no TS errors, no backend changes
+- [x] Full test suite passing (2104 tests), 0 TypeScript errors

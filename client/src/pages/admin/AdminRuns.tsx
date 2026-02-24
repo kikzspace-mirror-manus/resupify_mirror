@@ -60,54 +60,85 @@ export default function AdminRuns() {
         <p className="text-sm text-muted-foreground">{runsData?.total ?? 0} runs found</p>
 
         {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Card key={i} className="animate-pulse"><CardContent className="p-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-10 bg-muted rounded animate-pulse" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-2">
-            {runsData?.runs.map((run) => (
-              <Card
-                key={run.id}
-                className="cursor-pointer hover:bg-accent/50 transition-colors"
-                onClick={() => setSelectedRunId(run.id)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <FlaskConical className="h-5 w-5 text-orange-500 shrink-0" />
-                      <div>
-                        <p className="font-medium text-sm">Run #{run.id}</p>
-                        <p className="text-xs text-muted-foreground">
-                          User #{run.userId} · Job #{run.jobCardId} · {run.regionCode}/{run.trackCode}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {run.overallScore !== null && (
-                        <span className={`text-lg font-bold ${
-                          (run.overallScore ?? 0) >= 70 ? "text-green-600" : (run.overallScore ?? 0) >= 40 ? "text-yellow-600" : "text-red-600"
-                        }`}>
-                          {run.overallScore}
-                        </span>
-                      )}
-                      <Badge className={statusColors[run.status ?? "pending"]}>
-                        {run.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(run.createdAt).toLocaleString()}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {runsData?.runs.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No runs found</p>
-            )}
-          </div>
+          <Card>
+            <CardContent className="p-0">
+              {!runsData || runsData.runs.length === 0 ? (
+                <div className="px-6 py-8 text-center text-muted-foreground text-sm">
+                  No runs found
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border">
+                  <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+                    <colgroup>
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "24%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "12%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "6%" }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Run ID</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">User</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Job</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Status</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs">Score</th>
+                        <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs">Created</th>
+                        <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {runsData.runs.map((run, idx) => (
+                        <tr
+                          key={run.id}
+                          className={`border-b last:border-0 hover:bg-muted/20 cursor-pointer transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-muted/5"}`}
+                          onClick={() => setSelectedRunId(run.id)}
+                        >
+                          <td className="px-3 py-2 text-xs font-mono text-muted-foreground align-middle">
+                            #{run.id}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground align-middle truncate overflow-hidden text-ellipsis whitespace-nowrap">
+                            {run.userId != null ? `#${run.userId}` : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground align-middle truncate overflow-hidden text-ellipsis whitespace-nowrap">
+                            {run.jobCardId != null ? `#${run.jobCardId}` : "—"}
+                          </td>
+                          <td className="px-3 py-2 align-middle">
+                            <Badge className={statusColors[run.status ?? "pending"] + " text-xs"}>
+                              {run.status}
+                            </Badge>
+                          </td>
+                          <td className={`px-3 py-2 text-xs font-bold text-right align-middle ${
+                            (run.overallScore ?? 0) >= 70 ? "text-green-600" : (run.overallScore ?? 0) >= 40 ? "text-yellow-600" : "text-red-600"
+                          }`}>
+                            {run.overallScore !== null ? run.overallScore : "—"}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground text-right align-middle whitespace-nowrap">
+                            {new Date(run.createdAt).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-center align-middle">
+                            <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {/* Run Detail Dialog */}
