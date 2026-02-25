@@ -31,6 +31,12 @@ interface CountryOption {
 
 const COUNTRY_OPTIONS: CountryOption[] = [
   {
+    id: "GLOBAL",
+    label: "Global",
+    sublabel: "International roles",
+    flag: "🌍",
+  },
+  {
     id: "CA",
     label: "Canada",
     sublabel: "Co-op, new grad & early-career roles in Canada",
@@ -47,6 +53,12 @@ const COUNTRY_OPTIONS: CountryOption[] = [
     label: "Philippines",
     sublabel: "Internship, new grad & experienced roles in the Philippines",
     flag: "🇵🇭",
+  },
+  {
+    id: "US",
+    label: "United States",
+    sublabel: "Internship, new grad & early-career roles in the US",
+    flag: "🇺🇸",
   },
 ];
 
@@ -71,14 +83,23 @@ export default function Onboarding() {
   // Feature flags from server
   const { data: flags } = trpc.system.featureFlags.useQuery();
   const v2CountryPacksEnabled = flags?.v2CountryPacksEnabled ?? false;
+  const enabledCountryPacks = flags?.enabledCountryPacks ?? ["CA"];
 
   // Determine effective country pack from auth.me user record (preselect if already set)
   const userCountryPackId = (user as any)?.countryPackId as CountryPackId | null | undefined;
 
   // Step 0: Country selection (local state — only persisted on explicit Continue)
-  // Preselect existing countryPackId if set; default to CA for V1 compat
+  // Preselect existing countryPackId if set; default to first enabled pack for V2, CA for V1 compat
   const [selectedCountryPackId, setSelectedCountryPackId] = useState<CountryPackId>(
     () => {
+      if (v2CountryPacksEnabled) {
+        // V2: preselect existing if in enabled list, else first enabled
+        if (userCountryPackId && enabledCountryPacks.includes(userCountryPackId)) {
+          return userCountryPackId;
+        }
+        return (enabledCountryPacks[0] ?? "CA") as CountryPackId;
+      }
+      // V1: preselect existing if valid, else CA
       if (userCountryPackId && (userCountryPackId === "CA" || userCountryPackId === "VN" || userCountryPackId === "PH")) {
         return userCountryPackId;
       }
@@ -88,7 +109,12 @@ export default function Onboarding() {
 
   // Step number: when flag ON, step 0 is the country selector; steps 1/2/3 follow
   // When flag OFF, start at step 1 (V1 behaviour unchanged)
-  const [step, setStep] = useState(() => v2CountryPacksEnabled ? 0 : 1);
+  // If only 1 pack is enabled, auto-skip Step 0
+  const [step, setStep] = useState(() => {
+    if (!v2CountryPacksEnabled) return 1; // V1: skip Step 0
+    if (enabledCountryPacks.length === 1) return 1; // Auto-skip if only 1 pack
+    return 0; // Show Step 0
+  });
 
   // The effective country pack for track selection:
   // - After Step 0 Continue: uses selectedCountryPackId (local state)
@@ -244,36 +270,49 @@ export default function Onboarding() {
                 Where are you applying?
               </CardTitle>
               <CardDescription>
-                Choose your primary job market. This helps us show the right tracks and eligibility checks.
+                Choose your main job market so we can personalize the next steps.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <RadioGroup
-                value={selectedCountryPackId}
-                onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-                data-testid="country-selector"
-              >
-                {COUNTRY_OPTIONS.map((country) => (
-                  <Label
-                    key={country.id}
-                    htmlFor={`country-${country.id}`}
-                    className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 cursor-pointer transition-all ${
-                      selectedCountryPackId === country.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/30"
-                    }`}
-                    data-testid={`country-option-${country.id}`}
+              {(() => {
+                const filteredCountries = COUNTRY_OPTIONS.filter((c) => enabledCountryPacks.includes(c.id));
+                const gridClass = filteredCountries.length === 1
+                  ? "grid grid-cols-1 justify-center"
+                  : filteredCountries.length === 2
+                  ? "grid grid-cols-2 gap-4"
+                  : filteredCountries.length === 3
+                  ? "grid grid-cols-3 gap-4"
+                  : filteredCountries.length === 4
+                  ? "grid grid-cols-2 sm:grid-cols-4 gap-4"
+                  : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4";
+                return (
+                  <RadioGroup
+                    value={selectedCountryPackId}
+                    onValueChange={(v) => setSelectedCountryPackId(v as CountryPackId)}
+                    className={gridClass}
+                    data-testid="country-selector"
                   >
-                    <RadioGroupItem value={country.id} id={`country-${country.id}`} className="sr-only" />
-                    <span className="text-4xl" role="img" aria-label={country.label}>{country.flag}</span>
-                    <div className="text-center">
-                      <div className="font-semibold">{country.label}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{country.sublabel}</div>
-                    </div>
-                  </Label>
-                ))}
-              </RadioGroup>
+                    {filteredCountries.map((country) => (
+                      <Label
+                        key={country.id}
+                        htmlFor={`country-${country.id}`}
+                        className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedCountryPackId === country.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/30"
+                        }`}
+                        data-testid={`country-option-${country.id}`}
+                      >
+                        <RadioGroupItem value={country.id} id={`country-${country.id}`} className="sr-only" />
+                        <span className="text-4xl" role="img" aria-label={country.label}>{country.flag}</span>
+                        <div className="text-center">
+                          <div className="font-semibold">{country.label}</div>
+                        </div>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                );
+              })()}
 
               <Button
                 onClick={handleCountryPackContinue}

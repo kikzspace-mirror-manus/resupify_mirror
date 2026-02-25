@@ -1474,21 +1474,12 @@
 - [x] Re-declare admin_settings table in drizzle/schema.ts (no migration, table exists in DB)
 - [x] Write tests: route exists, featureFlags returns enabledCountryPacks, setEnabledCountryPacks persists
 
-## Redo-A — Onboarding Education: Add Highest Education Level Dropdown
-- [ ] Verify highestEducationLevel column exists in DB (no migration if exists)
-- [ ] Verify profile.upsert router schema includes highestEducationLevel
-- [ ] Add highestEducationLevel state to Onboarding.tsx Education step
-- [ ] Add dropdown above School/Institution in Onboarding Education step UI
-- [ ] Wire highestEducationLevel into handleComplete save payload
-- [ ] Write minimal tests: save includes field when provided, optional when omitted
-
-## V2 Phase 1.1A — Marketing Components (Swiss Precision, Additive Only)
-- [x] Create client/src/components/marketing/MarketingStyles.ts (palette + font className constants)
-- [x] Create client/src/components/marketing/LandingPageTemplate.tsx (page shell with slot props)
-- [x] Create client/src/components/marketing/SectionHeader.tsx (DM Sans heading + Work Sans body)
-- [x] Create client/src/components/marketing/FeatureCard.tsx
-- [x] Create client/src/components/marketing/StepCard.tsx
-- [x] Create client/src/components/marketing/TestimonialCard.tsx
-- [x] Create client/src/components/marketing/FAQAccordion.tsx (minimal accordion, no new libs)
-- [x] Create client/src/hooks/useRevealOnScroll.ts (IntersectionObserver staggered fade-up)
-- [x] Write minimal vitest: LandingPageTemplate mounts with stub hero
+## Restore 2/2 — Onboarding Step 0 UX + Track Labels + enabledCountryPacks Filtering
+- [x] Update Onboarding.tsx Step 0 helper copy: "Choose your main job market so we can personalize the next steps."
+- [x] Remove country sublabel paragraphs from Step 0 country cards
+- [x] Filter Step 0 country cards by featureFlags.enabledCountryPacks
+- [x] Auto-skip Step 0 when enabledCountryPacks.length === 1
+- [x] Fix Step 0 grid layout: 1 card centered, 2 cards 2-col, 3+ cards responsive
+- [x] Remove country prefixes from VN/PH/US track labels in shared/trackOptions.ts
+- [x] Ensure GLOBAL and US are present as options in COUNTRY_OPTIONS
+- [x] Write tests: helper copy, no sublabel, enabledCountryPacks filter, grid class, track labels

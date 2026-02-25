@@ -120,25 +120,25 @@ export const VN_TRACKS: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "VN",
-    label: "Vietnam — Internship / Student",
+    label: "Internship / Student",
     sublabel: "Best for students applying for internships",
   },
   {
     code: "NEW_GRAD",
     regionCode: "VN",
-    label: "Vietnam — New Graduate",
+    label: "New Graduate",
     sublabel: "Best for 0–1 years experience",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "VN",
-    label: "Vietnam — Early Career (1–5 years)",
+    label: "Early Career (1–5 years)",
     sublabel: "Best for early professionals building experience",
   },
   {
     code: "EXPERIENCED",
     regionCode: "VN",
-    label: "Vietnam — Experienced (5+ years)",
+    label: "Experienced (5+ years)",
     sublabel: "Best for senior individual contributors or managers",
   },
 ];
@@ -150,25 +150,25 @@ export const PH_TRACKS: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "PH",
-    label: "Philippines — Internship / Student",
+    label: "Internship / Student",
     sublabel: "Best for students applying for internships",
   },
   {
     code: "NEW_GRAD",
     regionCode: "PH",
-    label: "Philippines — New Graduate",
+    label: "New Graduate",
     sublabel: "Best for 0–1 years experience",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "PH",
-    label: "Philippines — Early Career (1–5 years)",
+    label: "Early Career (1–5 years)",
     sublabel: "Best for early professionals building experience",
   },
   {
     code: "EXPERIENCED",
     regionCode: "PH",
-    label: "Philippines — Experienced (5+ years)",
+    label: "Experienced (5+ years)",
     sublabel: "Best for senior individual contributors or managers",
   },
 ];
@@ -179,25 +179,25 @@ export const VN_TRACKS_VI: TrackOption[] = [
   {
     code: "INTERNSHIP",
     regionCode: "VN",
-    label: "Việt Nam — Thực tập / Sinh viên",
+    label: "Thực tập / Sinh viên",
     sublabel: "Phù hợp cho sinh viên ứng tuyển thực tập",
   },
   {
     code: "NEW_GRAD",
     regionCode: "VN",
-    label: "Việt Nam — Mới tốt nghiệp",
+    label: "Mới tốt nghiệp",
     sublabel: "Phù hợp cho 0–1 năm kinh nghiệm",
   },
   {
     code: "EARLY_CAREER",
     regionCode: "VN",
-    label: "Việt Nam — Đi làm (1–5 năm)",
+    label: "Đi làm (1–5 năm)",
     sublabel: "Phù hợp cho người mới đi làm tích lũy kinh nghiệm",
   },
   {
     code: "EXPERIENCED",
     regionCode: "VN",
-    label: "Việt Nam — Kinh nghiệm (5+ năm)",
+    label: "Kinh nghiệm (5+ năm)",
     sublabel: "Phù hợp cho senior/manager",
   },
 ];

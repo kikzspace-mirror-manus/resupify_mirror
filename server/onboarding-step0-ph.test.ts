@@ -159,10 +159,11 @@ describe("Onboarding Step 0 — PH does not set languageMode=vi", () => {
 // ─── Flag OFF regression ──────────────────────────────────────────────────────
 
 describe("Onboarding Step 0 — flag OFF regression", () => {
-  // T16: When flag OFF, step starts at 1 (no Step 0)
+  // T16: When flag OFF or single pack, step starts at 1 (no Step 0)
   it("T16: When v2CountryPacksEnabled is false, step starts at 1", () => {
-    // The initial step computation should start at 1 when flag is false
-    expect(onboardingSource).toContain("v2CountryPacksEnabled ? 0 : 1");
+    // The initial step computation should start at 1 when flag is false or only 1 pack
+    expect(onboardingSource).toContain("!v2CountryPacksEnabled");
+    expect(onboardingSource).toContain("enabledCountryPacks.length === 1");
   });
 
   // T17: Step 0 JSX is gated behind v2CountryPacksEnabled
