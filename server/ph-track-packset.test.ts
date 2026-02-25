@@ -167,11 +167,12 @@ describe("PH track options — shared/trackOptions.ts", () => {
     expect(result.tracks[0].label).not.toContain("Việt Nam");
   });
 
-  it("T29: VN tracks still return 4 VI tracks (unchanged)", () => {
+  it("T29: VN tracks still return 4 VI tracks (no country prefix)", () => {
     const result = getTracksForCountry("VN", true, "vi");
     expect(result.tracks).toHaveLength(4);
     expect(result.regionCode).toBe("VN");
-    expect(result.tracks[0].label).toContain("Việt Nam");
+    // Labels no longer contain "Việt Nam" prefix (Restore 2/2)
+    expect(result.tracks[0].label).not.toContain("Việt Nam");
   });
 
   it("T30: GLOBAL still returns empty tracks (unchanged)", () => {
@@ -182,13 +183,13 @@ describe("PH track options — shared/trackOptions.ts", () => {
 
   it("T31: PH/INTERNSHIP label and sublabel are correct", () => {
     const track = PH_TRACKS.find(t => t.code === "INTERNSHIP")!;
-    expect(track.label).toBe("Philippines — Internship / Student");
+    expect(track.label).toBe("Internship / Student");
     expect(track.sublabel).toBe("Best for students applying for internships");
   });
 
   it("T32: PH/EXPERIENCED label and sublabel are correct", () => {
     const track = PH_TRACKS.find(t => t.code === "EXPERIENCED")!;
-    expect(track.label).toBe("Philippines — Experienced (5+ years)");
+    expect(track.label).toBe("Experienced (5+ years)");
     expect(track.sublabel).toBe("Best for senior individual contributors or managers");
   });
 });
