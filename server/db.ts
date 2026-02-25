@@ -91,11 +91,17 @@ export async function getProfile(userId: number) {
 export async function upsertProfile(userId: number, data: Partial<InsertUserProfile>) {
   const db = await getDb();
   if (!db) return;
+  // Guard: Drizzle throws "No values to set" if the update payload is empty.
+  // Strip undefined values so the caller can safely pass a sparse object.
+  const clean = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined)
+  ) as Partial<InsertUserProfile>;
+  if (Object.keys(clean).length === 0) return; // nothing to persist
   const existing = await getProfile(userId);
   if (existing) {
-    await db.update(userProfiles).set(data).where(eq(userProfiles.userId, userId));
+    await db.update(userProfiles).set(clean).where(eq(userProfiles.userId, userId));
   } else {
-    await db.insert(userProfiles).values({ userId, ...data } as InsertUserProfile);
+    await db.insert(userProfiles).values({ userId, ...clean } as InsertUserProfile);
   }
 }
 
@@ -1766,6 +1772,99 @@ export async function getDailyMetrics(rangeDays: 7 | 14 | 30): Promise<DailyMetr
   }
 
   return Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ─── Country Pack Adoption (V2 Growth Dashboard) ────────────────────────────
+
+/**
+ * Returns per-day country pack selection counts for the last N days.
+ *
+ * Queries analytics_events where eventName = 'country_pack_selected'.
+ * The country_pack_id is stored in the props JSON column as
+ * { country_pack_id: "CA" | "VN" | "PH" | ... }.
+ *
+ * Returns:
+ *   - data: Array<{ date: string; CA: number; VN: number; PH: number; OTHER: number }>
+ *     (zero-filled for all days in range, sorted ascending by date)
+ *   - totals: { CA: number; VN: number; PH: number; OTHER: number; total: number }
+ */
+export interface CountryPackAdoptionBucket {
+  date: string; // "YYYY-MM-DD"
+  CA: number;
+  VN: number;
+  PH: number;
+  OTHER: number;
+}
+
+export interface CountryPackAdoptionTotals {
+  CA: number;
+  VN: number;
+  PH: number;
+  OTHER: number;
+  total: number;
+}
+
+export async function getCountryPackAdoption(
+  rangeDays: 7 | 14 | 30
+): Promise<{ data: CountryPackAdoptionBucket[]; totals: CountryPackAdoptionTotals }> {
+  const db = await getDb();
+  const empty = (): { data: CountryPackAdoptionBucket[]; totals: CountryPackAdoptionTotals } => ({
+    data: [],
+    totals: { CA: 0, VN: 0, PH: 0, OTHER: 0, total: 0 },
+  });
+  if (!db) return empty();
+
+  const cutoff = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+  const cutoffStr = cutoff.toISOString().replace('T', ' ').slice(0, 23);
+
+  // Raw SQL: extract country_pack_id from props JSON and group by date
+  type PackRow = { date: string; country_pack_id: string | null; cnt: string | number };
+  const [result] = await db.execute(
+    sql.raw(
+      `SELECT DATE_FORMAT(\`eventAt\`, '%Y-%m-%d') AS date,` +
+      ` JSON_UNQUOTE(JSON_EXTRACT(\`props\`, '$.country_pack_id')) AS country_pack_id,` +
+      ` COUNT(*) AS cnt` +
+      ` FROM analytics_events` +
+      ` WHERE \`eventName\` = 'country_pack_selected'` +
+      ` AND \`eventAt\` >= '${cutoffStr}'` +
+      ` GROUP BY DATE_FORMAT(\`eventAt\`, '%Y-%m-%d'), JSON_UNQUOTE(JSON_EXTRACT(\`props\`, '$.country_pack_id'))`
+    )
+  ) as unknown as [PackRow[], unknown];
+  const rows: PackRow[] = Array.isArray(result) ? result : [];
+
+  // Build zero-filled buckets for all days in range
+  const buckets = new Map<string, CountryPackAdoptionBucket>();
+  for (let i = rangeDays - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const key = d.toISOString().slice(0, 10);
+    buckets.set(key, { date: key, CA: 0, VN: 0, PH: 0, OTHER: 0 });
+  }
+
+  // Merge rows into buckets
+  for (const row of rows) {
+    const b = buckets.get(row.date);
+    if (!b) continue;
+    const cnt = Number(row.cnt);
+    const pack = (row.country_pack_id ?? 'OTHER').toUpperCase();
+    if (pack === 'CA') b.CA += cnt;
+    else if (pack === 'VN') b.VN += cnt;
+    else if (pack === 'PH') b.PH += cnt;
+    else b.OTHER += cnt;
+  }
+
+  const data = Array.from(buckets.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+  // Compute totals
+  const totals: CountryPackAdoptionTotals = { CA: 0, VN: 0, PH: 0, OTHER: 0, total: 0 };
+  for (const b of data) {
+    totals.CA += b.CA;
+    totals.VN += b.VN;
+    totals.PH += b.PH;
+    totals.OTHER += b.OTHER;
+  }
+  totals.total = totals.CA + totals.VN + totals.PH + totals.OTHER;
+
+  return { data, totals };
 }
 
 // ─── Purchase Receipts (Phase 11C.1) ─────────────────────────────────────────

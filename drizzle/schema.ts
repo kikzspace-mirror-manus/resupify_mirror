@@ -37,6 +37,7 @@ export const userProfiles = mysqlTable("user_profiles", {
   program: varchar("program", { length: 256 }),
   graduationDate: varchar("graduationDate", { length: 32 }),
   currentlyEnrolled: boolean("currentlyEnrolled").default(false),
+  highestEducationLevel: varchar("highestEducationLevel", { length: 64 }),
   onboardingComplete: boolean("onboardingComplete").default(false),
   onboardingSkippedAt: timestamp("onboardingSkippedAt"),
   workStatus: mysqlEnum("workStatus", ["citizen_pr", "temporary_resident", "unknown"]).default("unknown"),
