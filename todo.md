@@ -1473,3 +1473,22 @@
 - [x] Restore system.setEnabledCountryPacks admin mutation in server/_core/systemRouter.ts
 - [x] Re-declare admin_settings table in drizzle/schema.ts (no migration, table exists in DB)
 - [x] Write tests: route exists, featureFlags returns enabledCountryPacks, setEnabledCountryPacks persists
+
+## Redo-A — Onboarding Education: Add Highest Education Level Dropdown
+- [ ] Verify highestEducationLevel column exists in DB (no migration if exists)
+- [ ] Verify profile.upsert router schema includes highestEducationLevel
+- [ ] Add highestEducationLevel state to Onboarding.tsx Education step
+- [ ] Add dropdown above School/Institution in Onboarding Education step UI
+- [ ] Wire highestEducationLevel into handleComplete save payload
+- [ ] Write minimal tests: save includes field when provided, optional when omitted
+
+## V2 Phase 1.1A — Marketing Components (Swiss Precision, Additive Only)
+- [x] Create client/src/components/marketing/MarketingStyles.ts (palette + font className constants)
+- [x] Create client/src/components/marketing/LandingPageTemplate.tsx (page shell with slot props)
+- [x] Create client/src/components/marketing/SectionHeader.tsx (DM Sans heading + Work Sans body)
+- [x] Create client/src/components/marketing/FeatureCard.tsx
+- [x] Create client/src/components/marketing/StepCard.tsx
+- [x] Create client/src/components/marketing/TestimonialCard.tsx
+- [x] Create client/src/components/marketing/FAQAccordion.tsx (minimal accordion, no new libs)
+- [x] Create client/src/hooks/useRevealOnScroll.ts (IntersectionObserver staggered fade-up)
+- [x] Write minimal vitest: LandingPageTemplate mounts with stub hero
